@@ -1,0 +1,193 @@
+-- Todas as constantes de tuning e cores do jogo.
+-- Mexer AQUI para balancear dificuldade ou trocar a paleta; nenhum outro
+-- arquivo deve conter número mágico de gameplay.
+
+local Config = {}
+
+-- ---------------------------------------------------------------------------
+-- Geral
+-- ---------------------------------------------------------------------------
+Config.DEBUG = false          -- F1..F4 e overlay de FPS/entidades
+Config.SMOKE = false          -- ligado por --smoke (teste automatizado)
+
+Config.VIRTUAL_W = 640
+Config.VIRTUAL_H = 360
+Config.HUD_H = 40             -- faixa de HUD no topo; arena é o resto
+
+-- Limites duros de entidades vivas (tamanho dos pools).
+Config.MAX_ENEMIES = 150
+Config.MAX_BULLETS = 300
+Config.MAX_PARTICLES = 200
+Config.MAX_PICKUPS = 24
+
+-- ---------------------------------------------------------------------------
+-- Cores (r, g, b, a de 0 a 1) -- trocar por sprites depois não mexe aqui,
+-- mas a paleta de referência fica centralizada.
+-- ---------------------------------------------------------------------------
+Config.COLORS = {
+  bg          = { 0.07, 0.07, 0.10, 1 },
+  arenaBg     = { 0.11, 0.11, 0.15, 1 },
+  arenaLine   = { 0.20, 0.20, 0.28, 1 },
+  letterbox   = { 0.00, 0.00, 0.00, 1 },
+
+  hudBg       = { 0.04, 0.04, 0.06, 1 },
+  hudLine     = { 0.25, 0.25, 0.33, 1 },
+  text        = { 0.90, 0.92, 1.00, 1 },
+  textDim     = { 0.45, 0.47, 0.55, 1 },
+  textWarn    = { 1.00, 0.78, 0.25, 1 },
+
+  p1          = { 0.30, 0.62, 1.00, 1 },
+  p2          = { 0.35, 0.90, 0.45, 1 },
+  p1Dim       = { 0.15, 0.31, 0.50, 1 },
+  p2Dim       = { 0.18, 0.45, 0.22, 1 },
+
+  bullet      = { 1.00, 0.95, 0.55, 1 },
+  bulletEnemy = { 1.00, 0.45, 0.75, 1 },
+
+  grunt       = { 0.90, 0.30, 0.30, 1 },
+  runner      = { 1.00, 0.55, 0.15, 1 },
+  tank        = { 0.65, 0.35, 0.85, 1 },
+  shooter     = { 0.95, 0.85, 0.30, 1 },
+
+  door        = { 0.30, 0.30, 0.40, 1 },
+  doorWarn    = { 1.00, 0.30, 0.30, 1 },
+
+  flash       = { 1.00, 1.00, 1.00, 1 },
+  orb         = { 0.60, 0.95, 1.00, 1 },
+}
+
+-- ---------------------------------------------------------------------------
+-- Input
+-- ---------------------------------------------------------------------------
+Config.DEADZONE = 0.25        -- aplicada ao módulo do vetor, com renormalização
+Config.EXIT_HOLD = 0.5        -- segundos de back+start para sair do jogo
+Config.BIND_DEBOUNCE = 0.25   -- ignora o start que acabou de vincular o jogador
+Config.AUTO_FIRE_ALWAYS = true
+
+-- ---------------------------------------------------------------------------
+-- Jogador
+-- ---------------------------------------------------------------------------
+Config.PLAYER = {
+  radius = 7,
+  size = 14,                  -- lado do quadrado desenhado
+  speed = 160,                -- px/s
+  accel = 1600,               -- px/s^2 (resposta rápida, sem patinar)
+  lives = 3,
+  maxLives = 5,
+  invulnTime = 1.5,
+  respawnTime = 3.0,
+  blinkRate = 12,             -- piscadas por segundo durante invulnerabilidade
+}
+
+-- Arma base (modificada pelos power-ups via tabela de mods).
+Config.WEAPON = {
+  fireRate = 8,               -- tiros por segundo
+  damage = 1,
+  bulletSpeed = 420,
+  bulletRadius = 3,
+  bulletLife = 1.6,
+  spreadCount = 3,
+  spreadAngle = math.rad(20), -- leque total
+  missileSpeed = 240,
+  missileTurn = math.rad(200), -- correção de rota por segundo
+  missileDamage = 3,
+  orbCount = 2,
+  orbRadius = 5,
+  orbDistance = 26,
+  orbSpeed = math.rad(200),
+  orbDamage = 2,
+  orbHitCooldown = 0.3,       -- por inimigo, evita matar tudo no mesmo frame
+}
+
+-- ---------------------------------------------------------------------------
+-- Inimigos
+-- ---------------------------------------------------------------------------
+Config.ENEMIES = {
+  grunt   = { hp = 1, speed = 58,  size = 12, radius = 6,  points = 100, color = "grunt",   contactDamage = true },
+  runner  = { hp = 1, speed = 105, size = 10, radius = 5,  points = 150, color = "runner",  contactDamage = true,
+              retargetMin = 0.6, retargetMax = 1.6, wobble = math.rad(50) },
+  tank    = { hp = 6, speed = 32,  size = 22, radius = 11, points = 500, color = "tank",    contactDamage = true,
+              push = 3.0 },
+  shooter = { hp = 2, speed = 42,  size = 13, radius = 6,  points = 300, color = "shooter", contactDamage = true,
+              keepDistance = 120, fireInterval = 1.8, bulletSpeed = 110, bulletLife = 4.0 },
+}
+
+Config.ENEMY_SEPARATION = 42    -- força de repulsão entre inimigos
+Config.ENEMY_FLASH_TIME = 0.08  -- flash branco ao levar dano
+Config.ENEMY_KNOCKBACK = 60
+Config.GRID_CELL = 64           -- célula do grid espacial da broadphase
+
+-- ---------------------------------------------------------------------------
+-- Waves (curva infinita, sem tabela hardcoded)
+-- ---------------------------------------------------------------------------
+Config.WAVE = {
+  telegraphTime = 0.4,        -- porta piscando antes do spawn
+  restTime = 3.0,             -- respiro após limpar a wave
+  clearBonus = 250,           -- multiplicado pelo número da wave
+  batchMin = 1,
+  batchMax = 3,               -- inimigos por spawn de porta
+}
+
+function Config.waveQuota(w)
+  return math.floor(6 + 3 * w + 0.35 * w * w)
+end
+
+function Config.waveMaxAlive(w)
+  return math.min(Config.MAX_ENEMIES, 8 + 2 * w)
+end
+
+function Config.waveSpawnInterval(w)
+  return math.max(0.22, 1.10 - 0.045 * w)
+end
+
+-- Pesos do mix de inimigos por wave; tipo só entra a partir de `from`.
+Config.ENEMY_MIX = {
+  { type = "grunt",   from = 1, base = 100, perWave = -4,  min = 25 },
+  { type = "runner",  from = 2, base = 15,  perWave = 5,   min = 0 },
+  { type = "shooter", from = 3, base = 10,  perWave = 4,   min = 0 },
+  { type = "tank",    from = 5, base = 8,   perWave = 3,   min = 0 },
+}
+
+-- ---------------------------------------------------------------------------
+-- Combo
+-- ---------------------------------------------------------------------------
+Config.COMBO = {
+  window = 2.5,               -- timer que reseta a cada morte
+  perMult = 5,                -- mortes necessárias por degrau de multiplicador
+  maxMult = 8,
+  lostMsgTime = 0.9,
+}
+
+-- ---------------------------------------------------------------------------
+-- Power-ups
+-- ---------------------------------------------------------------------------
+Config.POWERUP = {
+  duration = 12,
+  dropChance = 0.08,
+  pickupRadius = 9,
+  pickupSize = 12,
+  pickupLife = 10,
+  blinkAt = 3,                -- começa a piscar nos últimos N segundos
+}
+
+-- ---------------------------------------------------------------------------
+-- Juice
+-- ---------------------------------------------------------------------------
+Config.JUICE = {
+  shakeEnemyDeath = 0.8,
+  shakePlayerDeath = 7.0,
+  shakeTankDeath = 3.0,
+  shakeDecay = 12,
+  hitStopTank = 0.05,
+  deathParticles = 8,
+  tankDeathParticles = 18,
+  playerDeathParticles = 24,
+  particleSpeedMin = 40,
+  particleSpeedMax = 170,
+  particleLifeMin = 0.25,
+  particleLifeMax = 0.6,
+  particleSize = 4,
+  particleDrag = 2.6,
+}
+
+return Config
