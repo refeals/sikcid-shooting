@@ -60,6 +60,7 @@ local function newDevice(kind, joystick)
     index = joystick and joystick:getID() or 0,
     down = {},       -- estado atual por ação
     prev = {},       -- estado do frame anterior (edge detect)
+    pending = {},    -- só para "scripted": estado a aplicar no próximo poll
     anyDown = false,
     anyPrev = false,
     exitTimer = 0,
@@ -105,7 +106,9 @@ function Device:poll(dt)
     any = down.start or down.fire
       or kb.isDown("w") or kb.isDown("a") or kb.isDown("s") or kb.isDown("d")
   elseif self.kind == "scripted" then
-    -- Estado preenchido de fora por Input.scriptPress/scriptAxis.
+    -- Estado vem do buffer `pending`, preenchido por Input.scriptPress antes
+    -- do poll; copiar aqui (e não direto em `down`) preserva o edge detect.
+    for k, v in pairs(self.pending) do down[k] = v end
     any = down.start or down.fire
   else
     down.start, down.back, down.fire = false, false, false
@@ -288,7 +291,7 @@ end
 function Input.scriptPress(action, value)
   local d = Input.scripted
   if not d then return end
-  d.down[action] = value and true or false
+  d.pending[action] = value and true or false
 end
 
 Input.Device = Device

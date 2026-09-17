@@ -5,6 +5,8 @@ local Screen = require("src.screen")
 local State  = require("src.state")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
+local Input  = require("src.input")
+local Smoke  = require("src.smoke")
 
 local Lobby  = require("src.states.lobby")
 
@@ -43,11 +45,24 @@ function love.load(args)
   Screen.load()
   Save.load()
   Audio.load()
+  Input.load()
+  if Config.SMOKE then Smoke.reset() end
   State.push(Lobby)
 end
 
 function love.update(dt)
   if dt > MAX_DT then dt = MAX_DT end
+
+  -- O piloto do smoke escreve no device sintético ANTES do poll, para que
+  -- Input veja a borda de subida dos botões normalmente.
+  if Config.SMOKE then Smoke.update(dt) end
+
+  Input.update(dt)
+  if Input.quitRequested then
+    love.event.quit()
+    return
+  end
+
   State.update(dt)
 end
 
@@ -70,10 +85,12 @@ function love.gamepadpressed(joystick, button)
 end
 
 function love.joystickadded(joystick)
+  Input.addJoystick(joystick)
   State.joystickadded(joystick)
 end
 
 function love.joystickremoved(joystick)
+  Input.removeJoystick(joystick)
   State.joystickremoved(joystick)
 end
 
