@@ -94,6 +94,7 @@ function Smoke.reset()
   Smoke.fpsMin = 9999
   Smoke.nextEvent = 1
   Smoke.stats = {}
+  Smoke.goTimer, Smoke.goPressed = 0, false
   pad = nil
   if Config.SMOKE_PAD then
     pad = makeFakePad()
@@ -152,6 +153,18 @@ function Smoke.update(dt)
   axis(2,
     math.cos(t * 1.1 + 2.2), math.sin(t * 1.9 + 1.0),
     math.cos(t * 1.4 + 0.7), math.sin(t * 0.8 + 2.6))
+
+  -- No game over, aperta START uma vez para exercitar a volta ao lobby.
+  local State = require("src.state")
+  if State.current() == require("src.states.gameover") then
+    Smoke.goTimer = (Smoke.goTimer or 0) + dt
+    if not Smoke.goPressed and Smoke.goTimer > 1.2 then
+      press(1, "start", true)
+      Smoke.goPressed = true
+    elseif Smoke.goPressed and Smoke.goTimer > 1.4 then
+      press(1, "start", false)
+    end
+  end
 
   if Smoke.t >= (Config.SMOKE_TIME or 15) then
     finish(0)

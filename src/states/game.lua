@@ -11,6 +11,7 @@ local Screen   = require("src.screen")
 local Pool     = require("src.pool")
 local Hud      = require("src.hud")
 local Audio    = require("src.audio")
+local Save     = require("src.save")
 local Combat   = require("src.systems.combat")
 local Spawner  = require("src.systems.spawner")
 local Combo    = require("src.systems.combo")
@@ -174,10 +175,31 @@ function world:onPlayerHit(player)
   if Config.SMOKE then require("src.smoke").bump("deaths") end
 end
 
--- ETAPA 8 troca por: State.switch(gameover, ...).
+-- Resumo da partida, reaproveitado (nenhuma tabela nova no fim do jogo).
+local summary = {
+  playerCount = 0,
+  scores = {}, combos = {}, devices = {},
+  wave = 1, wavesCleared = 0,
+  beat = { solo = false, duo = false, coop = false },
+}
+
 function world:onGameOver()
-  if Config.SMOKE then require("src.smoke").bump("gameovers") end
-  State.switch(require("src.states.lobby"))
+  summary.playerCount = self.playerCount
+  for i = 1, self.playerCount do
+    local p = self.players[i]
+    summary.scores[i] = p.score
+    summary.combos[i] = p.comboBest
+    summary.devices[i] = p.device
+  end
+  summary.wave = Spawner.wave
+  -- A wave em andamento não conta como sobrevivida.
+  summary.wavesCleared = math.max(0, Spawner.wave - 1)
+
+  local beat = Save.submitMatch(self.playerCount, summary.scores)
+  summary.beat.solo, summary.beat.duo, summary.beat.coop = beat.solo, beat.duo, beat.coop
+
+  Audio.play("game_over")
+  State.switch(require("src.states.gameover"), summary)
 end
 
 -- Solta um power-up. `guaranteed` = drop de fim de wave (sempre sai); senão

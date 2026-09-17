@@ -69,6 +69,7 @@ function Lobby:enter()
     if slots[i] then slots[i].bindTimer = Config.BIND_DEBOUNCE end
   end
   blink = 0
+  if Config.SMOKE then require("src.smoke").note("state", "lobby") end
 end
 
 function Lobby:update(dt)
