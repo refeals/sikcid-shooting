@@ -13,6 +13,7 @@ local Hud      = require("src.hud")
 local Audio    = require("src.audio")
 local Combat   = require("src.systems.combat")
 local Spawner  = require("src.systems.spawner")
+local Combo    = require("src.systems.combo")
 local Player   = require("src.entities.player")
 local Bullet   = require("src.entities.bullet")
 local Enemy    = require("src.entities.enemy")
@@ -117,8 +118,13 @@ function world:onEnemyKilled(enemy, killerIndex)
   local count = enemy.type == "tank" and J.tankDeathParticles or J.deathParticles
   Particle.burst(self.particles, count, enemy.x, enemy.y, enemy.color, enemy.def.size * 0.35)
 
+  -- Combo sobe primeiro: a morte já conta com o multiplicador novo.
   if type(killerIndex) == "number" then
-    self:addScore(killerIndex, enemy.def.points)
+    local killer = self.players[killerIndex]
+    if killer then
+      Combo.add(killer)
+      self:addScore(killerIndex, enemy.def.points * Combo.mult(killer))
+    end
   end
 
   if enemy.type == "tank" then
@@ -135,6 +141,7 @@ end
 function world:onPlayerHit(player)
   player.alive = false
   player.lives = player.lives - 1
+  Combo.breakOn(player)
   Particle.burst(self.particles, J.playerDeathParticles, player.x, player.y, player.color, 5)
   self:shake(J.shakePlayerDeath)
   Audio.play("player_die")
@@ -180,6 +187,7 @@ function Game:enter(devices, count)
     local p = Player.new(i, devices[i])
     local dx = world.playerCount == 1 and 0 or (i == 1 and -30 or 30)
     p:spawn(arena.cx + dx, arena.cy)
+    Combo.reset(p)
     world.players[i] = p
   end
 
@@ -233,6 +241,7 @@ function Game:update(dt)
   end
 
   Combat.update(dt, world)
+  Combo.update(dt, world)
 
   -- Screen shake: decai rápido e é aplicado no canvas inteiro.
   if world.shakeMag > 0 then
@@ -253,6 +262,7 @@ function Game:update(dt)
     Smoke.max("peakBullets", bullets.peak)
     Smoke.max("peakEnemies", enemies.peak)
     Smoke.max("peakParticles", particles.peak)
+    for i2 = 1, world.playerCount do Smoke.max("combo", world.players[i2].comboBest) end
     Smoke.note("denied", bullets.denied + enemies.denied + particles.denied)
   end
 end

@@ -49,10 +49,11 @@ local function finish(code)
   local s = Smoke.stats
   print(string.format(
     "[smoke] t=%.1fs estado=%s fpsMin=%d waves=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
-    "peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d",
+    "combo=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d",
     Smoke.t, tostring(s.state or "?"), Smoke.fpsMin,
     s.waves or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
-    s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0, s.denied or 0))
+    s.combo or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
+    s.denied or 0))
   io.stdout:flush()
   love.event.quit(code or 0)
 end
