@@ -26,6 +26,8 @@ local function parseArgs(args)
       Config.DEBUG = true
     elseif a == "--windowed" then
       Config.WINDOWED = true
+    elseif a == "--smoke2p" then
+      Config.SMOKE_2P = true      -- o smoke vincula um segundo bot
     elseif a == "--inputtest" then
       Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
     end

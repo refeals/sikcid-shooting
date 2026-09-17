@@ -208,7 +208,10 @@ function Input.load()
   Input.keyboard = addDevice(newDevice("keyboard"))
 
   if Config.SMOKE then
-    Input.scripted = addDevice(newDevice("scripted"))
+    Input.scripted = { addDevice(newDevice("scripted")) }
+    if Config.SMOKE_2P then
+      Input.scripted[2] = addDevice(newDevice("scripted"))
+    end
   end
 
   local sticks = love.joystick.getJoysticks()
@@ -284,14 +287,14 @@ end
 -- --------------------------------------------------------------------------
 -- Suporte ao modo --smoke: injeta estado no device sintético.
 -- --------------------------------------------------------------------------
-function Input.scriptAxis(moveX, moveY, aimX, aimY)
-  local d = Input.scripted
+function Input.scriptAxis(which, moveX, moveY, aimX, aimY)
+  local d = Input.scripted and Input.scripted[which]
   if not d then return end
   d.moveX, d.moveY, d.aimX, d.aimY = moveX, moveY, aimX, aimY
 end
 
-function Input.scriptPress(action, value)
-  local d = Input.scripted
+function Input.scriptPress(which, action, value)
+  local d = Input.scripted and Input.scripted[which]
   if not d then return end
   d.pending[action] = value and true or false
 end

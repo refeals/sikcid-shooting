@@ -12,16 +12,18 @@ local Smoke = {
   nextEvent = 1,
 }
 
--- Timeline: {tempo, ação, valor} para botões, ou {tempo, "fn", função}.
--- Um pulso de botão = press + release.
+-- Timeline: {tempo, device, ação, valor} para botões, ou {tempo, 0, "fn", fn}.
+-- Um pulso de botão = press + release. O device 2 só existe com --smoke2p.
 local EVENTS = {
-  { 0.40, "start", true  },   -- vincula o Jogador 1
-  { 0.50, "start", false },
-  { 1.20, "start", true  },   -- inicia a partida (debounce já passou)
-  { 1.30, "start", false },
+  { 0.40, 1, "start", true  },   -- vincula o Jogador 1
+  { 0.50, 1, "start", false },
+  { 0.80, 2, "fire",  true  },   -- qualquer botão do device 2 vincula o Jogador 2
+  { 0.90, 2, "fire",  false },
+  { 1.20, 1, "start", true  },   -- inicia a partida (debounce já passou)
+  { 1.30, 1, "start", false },
   -- Abre e fecha a tela de teste de input (F5), exercitando push/pop da pilha.
-  { 1.60, "fn", function() love.keypressed("f5", "f5", false) end },
-  { 1.80, "fn", function() love.keypressed("f5", "f5", false) end },
+  { 1.60, 0, "fn", function() love.keypressed("f5", "f5", false) end },
+  { 1.80, 0, "fn", function() love.keypressed("f5", "f5", false) end },
 }
 
 function Smoke.reset()
@@ -66,16 +68,20 @@ function Smoke.update(dt)
 
   while EVENTS[Smoke.nextEvent] and Smoke.t >= EVENTS[Smoke.nextEvent][1] do
     local e = EVENTS[Smoke.nextEvent]
-    if e[2] == "fn" then e[3]() else Input.scriptPress(e[2], e[3]) end
+    if e[3] == "fn" then e[4]() else Input.scriptPress(e[2], e[3], e[4]) end
     Smoke.nextEvent = Smoke.nextEvent + 1
   end
 
   -- Movimento e mira em círculos de períodos diferentes: cobre todas as
   -- direções, colisão com parede e troca constante de alvo.
   local t = Smoke.t
-  Input.scriptAxis(
+  Input.scriptAxis(1,
     math.cos(t * 1.7), math.sin(t * 1.3),
     math.cos(t * 0.9), math.sin(t * 1.1))
+  -- O segundo bot anda em contrafase, para os dois não ficarem colados.
+  Input.scriptAxis(2,
+    math.cos(t * 1.1 + 2.2), math.sin(t * 1.9 + 1.0),
+    math.cos(t * 1.4 + 0.7), math.sin(t * 0.8 + 2.6))
 
   if Smoke.t >= (Config.SMOKE_TIME or 15) then
     finish(0)
