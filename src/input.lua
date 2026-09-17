@@ -156,7 +156,9 @@ function Device:moveVector()
     local nx, ny = Util.normalize(x, y)
     return nx, ny
   elseif self.kind == "scripted" then
-    return self.moveX or 0, self.moveY or 0
+    -- Passa pela mesma deadzone dos gamepads: o smoke nunca gera um vetor
+    -- maior que 1, como um analógico de verdade.
+    return applyDeadzone(self.moveX or 0, self.moveY or 0)
   end
   return 0, 0
 end
@@ -175,7 +177,7 @@ function Device:aimVector()
     local nx, ny = Util.normalize(x, y)
     return nx, ny
   elseif self.kind == "scripted" then
-    return self.aimX or 0, self.aimY or 0
+    return applyDeadzone(self.aimX or 0, self.aimY or 0)
   end
   return 0, 0
 end

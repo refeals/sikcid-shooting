@@ -8,7 +8,8 @@ local Audio  = require("src.audio")
 local Input  = require("src.input")
 local Smoke  = require("src.smoke")
 
-local Lobby  = require("src.states.lobby")
+local Lobby     = require("src.states.lobby")
+local InputTest = require("src.states.inputtest")
 
 local MAX_DT = 1 / 30   -- clamp anti-espiral da morte em frames longos
 
@@ -25,6 +26,8 @@ local function parseArgs(args)
       Config.DEBUG = true
     elseif a == "--windowed" then
       Config.WINDOWED = true
+    elseif a == "--inputtest" then
+      Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
     end
     i = i + 1
   end
@@ -47,7 +50,12 @@ function love.load(args)
   Audio.load()
   Input.load()
   if Config.SMOKE then Smoke.reset() end
-  State.push(Lobby)
+
+  if Config.INPUT_TEST then
+    State.push(InputTest, true)
+  else
+    State.push(Lobby)
+  end
 end
 
 function love.update(dt)
@@ -77,6 +85,16 @@ function love.resize(w, h)
 end
 
 function love.keypressed(key, scancode, isrepeat)
+  -- F5 abre/fecha a tela de teste de input por cima de qualquer estado.
+  if key == "f5" then
+    local cur = State.current()
+    if cur == InputTest then
+      if cur.standalone then State.switch(Lobby) else State.pop() end
+    else
+      State.push(InputTest, false)
+    end
+    return
+  end
   State.keypressed(key, scancode, isrepeat)
 end
 

@@ -12,12 +12,16 @@ local Smoke = {
   nextEvent = 1,
 }
 
--- Timeline de botões: {tempo, ação, valor}. Um pulso = press + release.
+-- Timeline: {tempo, ação, valor} para botões, ou {tempo, "fn", função}.
+-- Um pulso de botão = press + release.
 local EVENTS = {
   { 0.40, "start", true  },   -- vincula o Jogador 1
   { 0.50, "start", false },
   { 1.20, "start", true  },   -- inicia a partida (debounce já passou)
   { 1.30, "start", false },
+  -- Abre e fecha a tela de teste de input (F5), exercitando push/pop da pilha.
+  { 1.60, "fn", function() love.keypressed("f5", "f5", false) end },
+  { 1.80, "fn", function() love.keypressed("f5", "f5", false) end },
 }
 
 function Smoke.reset()
@@ -62,7 +66,7 @@ function Smoke.update(dt)
 
   while EVENTS[Smoke.nextEvent] and Smoke.t >= EVENTS[Smoke.nextEvent][1] do
     local e = EVENTS[Smoke.nextEvent]
-    Input.scriptPress(e[2], e[3])
+    if e[2] == "fn" then e[3]() else Input.scriptPress(e[2], e[3]) end
     Smoke.nextEvent = Smoke.nextEvent + 1
   end
 
