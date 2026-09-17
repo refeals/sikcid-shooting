@@ -117,8 +117,8 @@ function InputTest:draw()
   love.graphics.setColor(C.text)
   love.graphics.printf("TESTE DE INPUT", 0, 6, W, "center")
   love.graphics.setColor(C.textDim)
-  love.graphics.printf(string.format("%d device(s)  -  deadzone %.2f radial",
-    Input.count, Config.DEADZONE), 0, 22, W, "center")
+  love.graphics.printf(string.format("%d device(s)  -  %d joystick(s) no SDL  -  deadzone %.2f radial",
+    Input.count, love.joystick.getJoystickCount(), Config.DEADZONE), 0, 22, W, "center")
 
   local y = 42
   local shown = 0
@@ -132,6 +132,22 @@ function InputTest:draw()
   if Input.count == 0 then
     love.graphics.setColor(C.textDim)
     love.graphics.printf("nenhum device", 0, 120, W, "center")
+  end
+
+  -- Joysticks que o SDL vê mas não sabe mapear: aparecem aqui para não
+  -- ficar a impressão de que o jogo simplesmente ignorou o controle.
+  if Input.unmappedCount > 0 then
+    love.graphics.setColor(C.doorWarn)
+    love.graphics.printf("SEM MAPEAMENTO DE GAMEPAD (SDL)", 0, y + 2, W, "center")
+    love.graphics.setColor(C.textDim)
+    for i = 1, Input.unmappedCount do
+      local u = Input.unmapped[i]
+      love.graphics.printf(string.format("%s  -  %d eixos, %d botoes  -  guid %s",
+        u.name, u.axes, u.buttons, u.guid:sub(1, 16)), 0, y + 16 + (i - 1) * 12, W, "center")
+    end
+  elseif love.joystick.getJoystickCount() == 0 then
+    love.graphics.setColor(C.textDim)
+    love.graphics.printf("nenhum joystick visivel para o SDL", 0, y + 4, W, "center")
   end
 
   love.graphics.setColor(C.textDim)

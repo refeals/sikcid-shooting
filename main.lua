@@ -30,6 +30,8 @@ local function parseArgs(args)
       Config.SMOKE_2P = true      -- o smoke vincula um segundo bot
     elseif a == "--smokegod" then
       Config.SMOKE_GOD = true     -- bots invencíveis: mede FPS sem game over
+    elseif a == "--fakepad" then
+      Config.SMOKE_PAD = true     -- bot 1 entra por um gamepad falso
     elseif a == "--wave" then
       Config.SMOKE_WAVE = tonumber(args[i + 1]) or 1   -- começa numa wave alta
       i = i + 1

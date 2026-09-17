@@ -17,6 +17,11 @@ local Input = {
   keyboard = nil,
   scripted = nil,
   quitRequested = false,
+  -- Joysticks que o SDL viu mas não sabe mapear como gamepad. Não viram
+  -- device (eixos crus não são portáveis), mas ficam listados aqui para a
+  -- tela de teste de input mostrar o problema em vez de ignorar em silêncio.
+  unmapped = {},
+  unmappedCount = 0,
 }
 
 local Device = {}
@@ -203,6 +208,7 @@ end
 
 function Input.load()
   Input.devices, Input.count = {}, 0
+  Input.unmapped, Input.unmappedCount = {}, 0
   Input.quitRequested = false
 
   Input.keyboard = addDevice(newDevice("keyboard"))
@@ -220,8 +226,17 @@ end
 
 function Input.addJoystick(joystick)
   if not joystick:isGamepad() then
-    print(string.format("[input] joystick sem mapeamento gamepad ignorado: %s",
-      joystick:getName() or "?"))
+    local name = joystick:getName() or "?"
+    print(string.format("[input] joystick sem mapeamento gamepad: %s (guid %s)",
+      name, joystick:getGUID()))
+    Input.unmappedCount = Input.unmappedCount + 1
+    Input.unmapped[Input.unmappedCount] = {
+      name = name,
+      guid = joystick:getGUID(),
+      axes = joystick:getAxisCount(),
+      buttons = joystick:getButtonCount(),
+      joystick = joystick,
+    }
     return nil
   end
   -- Reconexão: reaproveita o device antigo do mesmo GUID (o jogador continua
@@ -241,6 +256,15 @@ function Input.addJoystick(joystick)
 end
 
 function Input.removeJoystick(joystick)
+  -- Some também da lista de não-mapeados (swap-remove).
+  for i = Input.unmappedCount, 1, -1 do
+    if Input.unmapped[i].joystick == joystick then
+      Input.unmapped[i] = Input.unmapped[Input.unmappedCount]
+      Input.unmapped[Input.unmappedCount] = nil
+      Input.unmappedCount = Input.unmappedCount - 1
+    end
+  end
+
   for i = 1, Input.count do
     local d = Input.devices[i]
     if d.kind == "gamepad" and d.joystick == joystick then

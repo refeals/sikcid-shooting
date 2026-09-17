@@ -204,12 +204,22 @@ local function allPlayersOut()
 end
 
 function Game:update(dt)
-  -- Saída pelo BACK de qualquer jogador (START junto é o combo de sair).
   for i = 1, world.playerCount do
     local d = world.players[i].device
-    if d and d.connected and d:pressed("back") and not d:isDown("start") then
-      State.switch(require("src.states.lobby"))
+    -- Controle de um jogador caiu: pausa até ele voltar.
+    if d and not d.connected then
+      State.push(require("src.states.pause"), world, "waiting", i)
       return
+    end
+    if d and d.connected then
+      -- START pausa; BACK (sem START) abandona a partida.
+      if d:pressed("start") then
+        State.push(require("src.states.pause"), world, "paused")
+        return
+      elseif d:pressed("back") and not d:isDown("start") then
+        State.switch(require("src.states.lobby"))
+        return
+      end
     end
   end
 
