@@ -16,6 +16,7 @@ function Bullet.new()
     kind = "single",    -- "single" | "spread" | "missile" | "enemy"
     radius = Config.WEAPON.bulletRadius,
     angle = 0,
+    dead = false,       -- marcada em combat.lua, recolhida no sweep
     color = Config.COLORS.bullet,
   }, Bullet)
 end
@@ -30,6 +31,7 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.kind = kind or "single"
   self.radius = radius or Config.WEAPON.bulletRadius
   self.angle = math.atan2(dirY, dirX)
+  self.dead = false
   self.color = color or (owner == "enemy" and Config.COLORS.bulletEnemy or Config.COLORS.bullet)
 end
 

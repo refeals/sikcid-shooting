@@ -1,17 +1,25 @@
 -- Tela 2: arena.
 --
--- ETAPA 3: jogadores se movem, colidem com as paredes e atiram; balas em
--- pool. Inimigos, waves, combo e power-ups entram nas etapas 4+.
+-- ETAPA 4: inimigos, colisão, morte, partículas, vidas/respawn/invulnerabilidade.
+-- O spawn ainda é provisório (ver TEMP_SPAWN) e vira o sistema de waves na
+-- etapa 5; combo, power-ups e game over entram nas etapas 6/7/8.
 
-local Config = require("src.config")
-local Input  = require("src.input")
-local State  = require("src.state")
-local Pool   = require("src.pool")
-local Hud    = require("src.hud")
-local Player = require("src.entities.player")
-local Bullet = require("src.entities.bullet")
+local Config   = require("src.config")
+local Util     = require("src.util")
+local State    = require("src.state")
+local Screen   = require("src.screen")
+local Pool     = require("src.pool")
+local Hud      = require("src.hud")
+local Audio    = require("src.audio")
+local Combat   = require("src.systems.combat")
+local Player   = require("src.entities.player")
+local Bullet   = require("src.entities.bullet")
+local Enemy    = require("src.entities.enemy")
+local Particle = require("src.entities.particle")
 
 local Game = {}
+
+local J = Config.JUICE
 
 -- Arena = tela inteira menos a faixa de HUD no topo.
 local arena = {
@@ -24,16 +32,24 @@ arena.cx = arena.x + arena.w * 0.5
 arena.cy = arena.y + arena.h * 0.5
 
 -- Pools criados uma única vez no carregamento do módulo; entre partidas são
--- apenas limpos (nenhuma tabela é realocada).
-local bullets = Pool.new(Bullet.new, Config.MAX_BULLETS)
+-- apenas limpos (nenhuma tabela é realocada durante o jogo).
+local bullets   = Pool.new(Bullet.new, Config.MAX_BULLETS)
+local enemies   = Pool.new(Enemy.new, Config.MAX_ENEMIES)
+local particles = Pool.new(Particle.new, Config.MAX_PARTICLES)
 
 local world = {
   arena = arena,
   bullets = bullets,
+  enemies = enemies,
+  particles = particles,
   players = {},
   playerCount = 0,
+  godMode = false,
 }
 
+-- ---------------------------------------------------------------------------
+-- Serviços que as entidades e os sistemas consomem
+-- ---------------------------------------------------------------------------
 function world:spawnBullet(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, color)
   local b = self.bullets:acquire()
   if not b then return nil end
@@ -41,22 +57,146 @@ function world:spawnBullet(x, y, dirX, dirY, speed, dmg, owner, kind, life, radi
   return b
 end
 
--- ETAPA 4 sobrescreve com a regra real (só respawna se o parceiro vive).
-function world:canRespawn(player) -- luacheck: ignore
-  return true
+function world:spawnEnemy(kind, x, y)
+  local e = self.enemies:acquire()
+  if not e then return nil end
+  e:reset(kind, x, y)
+  return e
 end
 
-local showHitboxes = false
+function world:nearestPlayer(x, y)
+  local best, bestD2 = nil, math.huge
+  for i = 1, self.playerCount do
+    local p = self.players[i]
+    if p.alive then
+      local d2 = Util.dist2(x, y, p.x, p.y)
+      if d2 < bestD2 then best, bestD2 = p, d2 end
+    end
+  end
+  return best
+end
+
+function world:randomPlayer()
+  local alive, n = nil, 0
+  for i = 1, self.playerCount do
+    local p = self.players[i]
+    if p.alive then
+      n = n + 1
+      if math.random(n) == 1 then alive = p end   -- reservoir sampling
+    end
+  end
+  return alive
+end
+
+-- Respawna se o parceiro estiver vivo (ou se ele já estiver fora de vez, caso
+-- em que a partida segue com um jogador só).
+function world:canRespawn(player)
+  if self.playerCount == 1 then return true end
+  local other = self.players[player.index == 1 and 2 or 1]
+  if not other or other.alive or other.out then return true end
+  -- Parceiro também caído: espera ele voltar, mas no máximo 0.5s a mais,
+  -- senão os dois ficariam presos esperando um pelo outro.
+  return player.respawnTimer <= -0.5
+end
+
+function world:addScore(playerIndex, points)
+  local p = self.players[playerIndex]
+  if p then p.score = p.score + points end
+end
+
+function world:shake(mag)
+  if mag > self.shakeMag then self.shakeMag = mag end
+end
+
+function world:hitStop(t)
+  if t > self.hitStopTimer then self.hitStopTimer = t end
+end
+
+function world:onEnemyKilled(enemy, killerIndex)
+  local count = enemy.type == "tank" and J.tankDeathParticles or J.deathParticles
+  Particle.burst(self.particles, count, enemy.x, enemy.y, enemy.color, enemy.def.size * 0.35)
+
+  if type(killerIndex) == "number" then
+    self:addScore(killerIndex, enemy.def.points)
+  end
+
+  if enemy.type == "tank" then
+    self:shake(J.shakeTankDeath)
+    self:hitStop(J.hitStopTank)
+    Audio.play("tank_die")
+  else
+    self:shake(J.shakeEnemyDeath)
+  end
+
+  if Config.SMOKE then require("src.smoke").bump("kills") end
+end
+
+function world:onPlayerHit(player)
+  player.alive = false
+  player.lives = player.lives - 1
+  Particle.burst(self.particles, J.playerDeathParticles, player.x, player.y, player.color, 5)
+  self:shake(J.shakePlayerDeath)
+  Audio.play("player_die")
+
+  if player.lives <= 0 then
+    player.lives = 0
+    player.out = true
+  else
+    player.respawnTimer = Config.PLAYER.respawnTime
+  end
+
+  if Config.SMOKE then require("src.smoke").bump("deaths") end
+end
+
+-- ETAPA 8 troca por: State.switch(gameover, ...).
+function world:onGameOver()
+  if Config.SMOKE then require("src.smoke").bump("gameovers") end
+  State.switch(require("src.states.lobby"))
+end
 
 -- ---------------------------------------------------------------------------
+-- TEMP_SPAWN: spawn provisório só para testar a etapa 4. A etapa 5 substitui
+-- isto pelo systems/spawner.lua (portas, telégrafo, cotas de wave).
+-- ---------------------------------------------------------------------------
+local TEMP_SPAWN = {
+  interval = 0.55,
+  maxAlive = 30,
+  types = { "grunt", "grunt", "runner", "shooter", "tank" },
+  timer = 0,
+}
+
+local function tempSpawn(dt)
+  TEMP_SPAWN.timer = TEMP_SPAWN.timer - dt
+  if TEMP_SPAWN.timer > 0 or enemies.count >= TEMP_SPAWN.maxAlive then return end
+  TEMP_SPAWN.timer = TEMP_SPAWN.interval
+
+  -- Nasce no meio de uma das 4 paredes (prévia das portas da etapa 5).
+  local side = math.random(4)
+  local x, y
+  if side == 1 then x, y = arena.cx, arena.y + 10
+  elseif side == 2 then x, y = arena.cx, arena.y + arena.h - 10
+  elseif side == 3 then x, y = arena.x + 10, arena.cy
+  else x, y = arena.x + arena.w - 10, arena.cy end
+
+  world:spawnEnemy(TEMP_SPAWN.types[math.random(#TEMP_SPAWN.types)], x, y)
+end
+
+-- ---------------------------------------------------------------------------
+local showHitboxes = false
+
 function Game:enter(devices, count)
   world.playerCount = count or 1
   world.players = {}
+  world.shakeMag = 0
+  world.hitStopTimer = 0
+  world.godMode = Config.SMOKE_GOD or false
   bullets:clear()
+  enemies:clear()
+  particles:clear()
+  TEMP_SPAWN.timer = 1.0
 
   for i = 1, world.playerCount do
     local p = Player.new(i, devices[i])
-    -- Dois jogadores nascem lado a lado no centro.
     local dx = world.playerCount == 1 and 0 or (i == 1 and -30 or 30)
     p:spawn(arena.cx + dx, arena.cy)
     world.players[i] = p
@@ -65,6 +205,13 @@ function Game:enter(devices, count)
   if Config.SMOKE then
     require("src.smoke").note("state", "game/" .. world.playerCount .. "p")
   end
+end
+
+local function allPlayersOut()
+  for i = 1, world.playerCount do
+    if not world.players[i].out then return false end
+  end
+  return true
 end
 
 function Game:update(dt)
@@ -77,24 +224,55 @@ function Game:update(dt)
     end
   end
 
+  -- Hit-stop: congela a simulação por alguns frames (o desenho continua).
+  if world.hitStopTimer > 0 then
+    world.hitStopTimer = world.hitStopTimer - dt
+    return
+  end
+
+  tempSpawn(dt)
+
   for i = 1, world.playerCount do
     world.players[i]:update(dt, world)
+  end
+
+  for i = 1, enemies.count do
+    enemies.items[i]:update(dt, world)
   end
 
   -- Balas: swap-remove pelo pool, sem table.remove.
   local i = 1
   while i <= bullets.count do
-    if bullets.items[i]:update(dt, arena) then
-      i = i + 1
-    else
-      bullets:release(i)
-    end
+    if bullets.items[i]:update(dt, arena) then i = i + 1 else bullets:release(i) end
+  end
+
+  i = 1
+  while i <= particles.count do
+    if particles.items[i]:update(dt) then i = i + 1 else particles:release(i) end
+  end
+
+  Combat.update(dt, world)
+
+  -- Screen shake: decai rápido e é aplicado no canvas inteiro.
+  if world.shakeMag > 0 then
+    world.shakeMag = Util.approach(world.shakeMag, 0, J.shakeDecay * dt)
+    Screen.setShake(Util.randRange(-world.shakeMag, world.shakeMag),
+                    Util.randRange(-world.shakeMag, world.shakeMag))
+  else
+    Screen.setShake(0, 0)
+  end
+
+  if allPlayersOut() then
+    world:onGameOver()
+    return
   end
 
   if Config.SMOKE then
     local Smoke = require("src.smoke")
     Smoke.max("peakBullets", bullets.peak)
-    Smoke.note("denied", bullets.denied)
+    Smoke.max("peakEnemies", enemies.peak)
+    Smoke.max("peakParticles", particles.peak)
+    Smoke.note("denied", bullets.denied + enemies.denied + particles.denied)
   end
 end
 
@@ -114,28 +292,45 @@ function Game:draw()
     love.graphics.line(arena.x, gy + 0.5, arena.x + arena.w, gy + 0.5)
   end
 
-  -- Paredes.
   love.graphics.setColor(C.arenaLine)
   love.graphics.rectangle("line", arena.x + 0.5, arena.y + 0.5, arena.w - 1, arena.h - 1)
 
-  for bi = 1, bullets.count do bullets.items[bi]:draw() end
-  for pi = 1, world.playerCount do world.players[pi]:draw() end
+  for i = 1, particles.count do particles.items[i]:draw() end
+  for i = 1, enemies.count do enemies.items[i]:draw() end
+  for i = 1, bullets.count do bullets.items[i]:draw() end
+  for i = 1, world.playerCount do world.players[i]:draw() end
+
+  -- Contagem regressiva do respawn.
+  for i = 1, world.playerCount do
+    local p = world.players[i]
+    if not p.alive and not p.out then
+      love.graphics.setColor(p.color)
+      love.graphics.printf(string.format("P%d VOLTA EM %.1f", p.index, math.max(0, p.respawnTimer)),
+        arena.cx - 80, arena.cy - 30 + (i - 1) * 16, 160, "center")
+    end
+  end
 
   if showHitboxes then
-    for bi = 1, bullets.count do
-      local b = bullets.items[bi]
-      love.graphics.setColor(1, 0, 0, 0.6)
+    love.graphics.setColor(1, 0, 0, 0.6)
+    for i = 1, enemies.count do
+      local e = enemies.items[i]
+      love.graphics.circle("line", e.x, e.y, e.radius)
+    end
+    for i = 1, bullets.count do
+      local b = bullets.items[i]
       love.graphics.circle("line", b.x, b.y, b.radius)
     end
-    for pi = 1, world.playerCount do world.players[pi]:drawDebug() end
+    for i = 1, world.playerCount do world.players[i]:drawDebug() end
   end
 
   Hud.draw(world.players, world.playerCount, nil)
 
   if Config.DEBUG then
     love.graphics.setColor(C.textDim)
-    love.graphics.print(string.format("FPS %d  balas %d/%d  neg %d",
-      love.timer.getFPS(), bullets.count, bullets.capacity, bullets.denied),
+    love.graphics.print(string.format("FPS %d  in %d  bal %d  par %d  neg %d%s",
+      love.timer.getFPS(), enemies.count, bullets.count, particles.count,
+      bullets.denied + enemies.denied + particles.denied,
+      world.godMode and "  [GOD]" or ""),
       4, Config.VIRTUAL_H - 14)
     love.graphics.setColor(1, 1, 1, 1)
   end
@@ -143,7 +338,11 @@ end
 
 function Game:keypressed(key)
   if not Config.DEBUG then return end
-  if key == "f1" then showHitboxes = not showHitboxes end
+  if key == "f1" then
+    showHitboxes = not showHitboxes
+  elseif key == "f3" then
+    world.godMode = not world.godMode
+  end
 end
 
 Game.world = world

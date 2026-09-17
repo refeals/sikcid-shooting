@@ -28,6 +28,8 @@ local function parseArgs(args)
       Config.WINDOWED = true
     elseif a == "--smoke2p" then
       Config.SMOKE_2P = true      -- o smoke vincula um segundo bot
+    elseif a == "--smokegod" then
+      Config.SMOKE_GOD = true     -- bots invencíveis: mede FPS sem game over
     elseif a == "--inputtest" then
       Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
     end
