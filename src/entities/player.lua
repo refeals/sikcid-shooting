@@ -21,6 +21,28 @@ WEAPONS.single = function(self, world)
   Audio.play("shot")
 end
 
+-- Spread: leque de W.spreadCount balas cobrindo W.spreadAngle.
+WEAPONS.spread = function(self, world)
+  local base = math.atan2(self.aimY, self.aimX)
+  local n = W.spreadCount
+  local step = n > 1 and (W.spreadAngle / (n - 1)) or 0
+  local start = base - W.spreadAngle * 0.5
+  for i = 1, n do
+    local a = start + step * (i - 1)
+    world:spawnBullet(self.x, self.y, math.cos(a), math.sin(a),
+      W.bulletSpeed, self.mods.damage, self.index, "spread")
+  end
+  Audio.play("shot_spread")
+end
+
+-- Missiles: projétil lento que corrige a rota até o inimigo mais próximo.
+WEAPONS.missiles = function(self, world)
+  world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
+    W.missileSpeed, self.mods.damage, self.index, "missile",
+    W.bulletLife * 2, W.bulletRadius + 1)
+  Audio.play("shot_missile")
+end
+
 function Player.new(index, device)
   local self = setmetatable({
     index = index,
@@ -38,6 +60,7 @@ function Player.new(index, device)
     fireCooldown = 0,
     orbAngle = 0,
     mods = {},
+    powerups = {},            -- { { def = <DEF>, timeLeft = s }, ... }
   }, Player)
   self:resetMods()
   return self
@@ -61,6 +84,8 @@ function Player:spawn(x, y)
   self.respawnTimer = 0
   self.fireCooldown = 0
   self.aimX, self.aimY = 0, -1
+  -- Morrer custa os power-ups temporários.
+  require("src.systems.powerups").clear(self)
 end
 
 -- ---------------------------------------------------------------------------
@@ -154,6 +179,18 @@ function Player:draw()
   local s, h = P.size, P.size * 0.5
   love.graphics.setColor(self.color)
   love.graphics.rectangle("fill", self.x - h, self.y - h, s, s)
+
+  -- Orbes do Orbital Shield (a colisão deles fica em systems/combat.lua).
+  local orbs = self.mods.orbs
+  if orbs > 0 then
+    love.graphics.setColor(Config.COLORS.orb)
+    for i = 1, orbs do
+      local a = self.orbAngle + (i - 1) * (math.pi * 2 / orbs)
+      love.graphics.circle("fill",
+        self.x + math.cos(a) * W.orbDistance,
+        self.y + math.sin(a) * W.orbDistance, W.orbRadius)
+    end
+  end
 
   -- Marcador de mira: retângulo curto saindo do centro na direção atual.
   love.graphics.setColor(1, 1, 1, 0.9)

@@ -14,6 +14,8 @@ local Audio    = require("src.audio")
 local Combat   = require("src.systems.combat")
 local Spawner  = require("src.systems.spawner")
 local Combo    = require("src.systems.combo")
+local Powerups = require("src.systems.powerups")
+local Pickup   = require("src.entities.pickup")
 local Player   = require("src.entities.player")
 local Bullet   = require("src.entities.bullet")
 local Enemy    = require("src.entities.enemy")
@@ -38,12 +40,14 @@ arena.cy = arena.y + arena.h * 0.5
 local bullets   = Pool.new(Bullet.new, Config.MAX_BULLETS)
 local enemies   = Pool.new(Enemy.new, Config.MAX_ENEMIES)
 local particles = Pool.new(Particle.new, Config.MAX_PARTICLES)
+local pickups   = Pool.new(Pickup.new, Config.MAX_PICKUPS)
 
 local world = {
   arena = arena,
   bullets = bullets,
   enemies = enemies,
   particles = particles,
+  pickups = pickups,
   players = {},
   playerCount = 0,
   godMode = false,
@@ -75,6 +79,18 @@ function world:nearestPlayer(x, y)
       if d2 < bestD2 then best, bestD2 = p, d2 end
     end
   end
+  return best
+end
+
+-- Inimigo mais próximo dentro de `maxR` (usa o grid da broadphase, então é
+-- barato mesmo com um punhado de mísseis voando).
+function world:nearestEnemy(x, y, maxR)
+  local best, bestD2 = nil, maxR * maxR
+  Combat.queryCircle(x, y, maxR, function(e)
+    if e.dead then return end
+    local d2 = Util.dist2(x, y, e.x, e.y)
+    if d2 < bestD2 then best, bestD2 = e, d2 end
+  end)
   return best
 end
 
@@ -127,6 +143,8 @@ function world:onEnemyKilled(enemy, killerIndex)
     end
   end
 
+  self:dropPowerup(enemy.x, enemy.y, false)
+
   if enemy.type == "tank" then
     self:shake(J.shakeTankDeath)
     self:hitStop(J.hitStopTank)
@@ -162,9 +180,16 @@ function world:onGameOver()
   State.switch(require("src.states.lobby"))
 end
 
--- ETAPA 7 troca por: solta um pickup de power-up. `guaranteed` = drop de fim
--- de wave (sempre sai), senão é o sorteio de 8% por morte.
-function world:dropPowerup(x, y, guaranteed) -- luacheck: ignore
+-- Solta um power-up. `guaranteed` = drop de fim de wave (sempre sai); senão
+-- passa pelo sorteio de Config.POWERUP.dropChance.
+function world:dropPowerup(x, y, guaranteed)
+  if not guaranteed and math.random() > Config.POWERUP.dropChance then return end
+  local def = Powerups.pick()
+  if not def then return end
+  local p = self.pickups:acquire()
+  if not p then return end
+  p:reset(x, y, def)
+  return p
 end
 
 -- ---------------------------------------------------------------------------
@@ -180,6 +205,7 @@ function Game:enter(devices, count)
   bullets:clear()
   enemies:clear()
   particles:clear()
+  pickups:clear()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
 
@@ -231,6 +257,10 @@ function Game:update(dt)
 
   Spawner.update(dt, world)
 
+  -- Grid montado antes das entidades: os mísseis consultam o inimigo mais
+  -- próximo por ele (Combat.update remonta depois do movimento).
+  Combat.buildGrid(enemies)
+
   for i = 1, world.playerCount do
     world.players[i]:update(dt, world)
   end
@@ -242,13 +272,39 @@ function Game:update(dt)
   -- Balas: swap-remove pelo pool, sem table.remove.
   local i = 1
   while i <= bullets.count do
-    if bullets.items[i]:update(dt, arena) then i = i + 1 else bullets:release(i) end
+    if bullets.items[i]:update(dt, world) then i = i + 1 else bullets:release(i) end
   end
 
   i = 1
   while i <= particles.count do
     if particles.items[i]:update(dt) then i = i + 1 else particles:release(i) end
   end
+
+  -- Pickups: expiram sozinhos e são coletados por contato (poucos vivos,
+  -- então o teste direto contra os jogadores é mais barato que usar o grid).
+  i = 1
+  while i <= pickups.count do
+    local pk = pickups.items[i]
+    local taken = false
+    if pk:update(dt) then
+      local r = Config.POWERUP.pickupRadius + Config.PLAYER.radius
+      for pi = 1, world.playerCount do
+        local p = world.players[pi]
+        if p.alive and Util.dist2(pk.x, pk.y, p.x, p.y) <= r * r then
+          Powerups.give(p, pk.def)
+          Particle.burst(particles, 6, pk.x, pk.y, pk.def.color, 4)
+          if Config.SMOKE then require("src.smoke").bump("pickups") end
+          taken = true
+          break
+        end
+      end
+    else
+      taken = true
+    end
+    if taken then pickups:release(i) else i = i + 1 end
+  end
+
+  Powerups.update(dt, world)
 
   Combat.update(dt, world)
   Combo.update(dt, world)
@@ -298,6 +354,7 @@ function Game:draw()
 
   Spawner.draw()
 
+  for i = 1, pickups.count do pickups.items[i]:draw() end
   for i = 1, particles.count do particles.items[i]:draw() end
   for i = 1, enemies.count do enemies.items[i]:draw() end
   for i = 1, bullets.count do bullets.items[i]:draw() end
@@ -362,6 +419,9 @@ function Game:keypressed(key)
     Spawner.skipWave(world)
   elseif key == "f3" then
     world.godMode = not world.godMode
+  elseif key == "f4" then
+    -- Dropa um power-up aleatório no centro.
+    world:dropPowerup(arena.cx, arena.cy, true)
   end
 end
 

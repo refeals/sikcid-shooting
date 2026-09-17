@@ -2,6 +2,7 @@
 -- só reinicializado por :reset().
 
 local Config = require("src.config")
+local Util   = require("src.util")
 
 local Bullet = {}
 Bullet.__index = Bullet
@@ -36,9 +37,21 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
 end
 
 -- Devolve false quando a bala deve ser recolhida pelo pool.
-function Bullet:update(dt, arena)
+function Bullet:update(dt, world)
+  local arena = world.arena
   self.life = self.life - dt
   if self.life <= 0 then return false end
+
+  -- Míssil: corrige a rota de leve na direção do inimigo mais próximo.
+  if self.kind == "missile" then
+    local target = world:nearestEnemy(self.x, self.y, 160)
+    if target then
+      local want = math.atan2(target.y - self.y, target.x - self.x)
+      self.angle = Util.turnToward(self.angle, want, Config.WEAPON.missileTurn * dt)
+      self.vx = math.cos(self.angle) * self.speed
+      self.vy = math.sin(self.angle) * self.speed
+    end
+  end
 
   self.x = self.x + self.vx * dt
   self.y = self.y + self.vy * dt

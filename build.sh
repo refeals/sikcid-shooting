@@ -1,2 +1,2 @@
-zip -9 -r ./game.love . -x '.git/*' '*.love' 'build.sh' '.gitignore'
-love game.love
+zip -9 -r ./sikcid-shootin.love . -x '.git/*' '*.love' 'build.sh' '.gitignore'
+love sikcid-shootin.love

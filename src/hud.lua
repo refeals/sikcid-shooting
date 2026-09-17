@@ -89,7 +89,9 @@ local function drawPlayerPanel(p, align, x)
     rect("fill", align, x, 36, COMBO_BAR_W * frac, 3)
   end
 
-  drawPowerups(p, align, align == "right" and (x - COMBO_BAR_W - 10) or (x + COMBO_BAR_W + 10), 21)
+  -- Coluna de ícones depois do texto do combo ("COMBO 99  x8" cabe em ~100px).
+  local iconX = align == "right" and (x - 104) or (x + 104)
+  drawPowerups(p, align, iconX, 21)
 end
 
 function Hud.draw(players, playerCount, info)
