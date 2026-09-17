@@ -1,11 +1,18 @@
--- Persistência do high score em love.filesystem.
+-- Persistência dos recordes em love.filesystem.
 -- Formato próprio "chave=valor" por linha: sem lib externa, tolerante a
 -- arquivo ausente ou corrompido (volta a zero em vez de quebrar o jogo).
+--
+-- Três recordes:
+--   solo -- melhor score individual numa partida de 1 jogador
+--   duo  -- melhor score individual numa partida de 2 jogadores
+--   coop -- melhor soma dos dois jogadores numa partida de 2 jogadores
 
 local Save = {
   FILE = "highscores.dat",
-  data = { hs1 = 0, hs2 = 0 },  -- recorde de 1 jogador e de 2 jogadores
+  data = { solo = 0, duo = 0, coop = 0 },
 }
+
+local KEYS = { "solo", "duo", "coop" }
 
 local function sanitize(v)
   v = tonumber(v)
@@ -14,7 +21,8 @@ local function sanitize(v)
 end
 
 function Save.load()
-  Save.data.hs1, Save.data.hs2 = 0, 0
+  for i = 1, #KEYS do Save.data[KEYS[i]] = 0 end
+
   local info = love.filesystem.getInfo(Save.FILE)
   if not info then return Save.data end
 
@@ -31,26 +39,44 @@ function Save.load()
 end
 
 function Save.write()
-  local out = string.format("hs1=%d\nhs2=%d\n", Save.data.hs1, Save.data.hs2)
+  local out = string.format("solo=%d\nduo=%d\ncoop=%d\n",
+    Save.data.solo, Save.data.duo, Save.data.coop)
   local ok, err = pcall(love.filesystem.write, Save.FILE, out)
   if not ok then print("[save] falha ao gravar: " .. tostring(err)) end
   return ok
 end
 
--- Recorde do modo: 1 = um jogador, 2 = dois jogadores.
-function Save.getHighScore(playerCount)
-  return playerCount >= 2 and Save.data.hs2 or Save.data.hs1
+function Save.get(key)
+  return Save.data[key] or 0
 end
 
--- Grava se for recorde. Devolve true quando bateu.
-function Save.submit(playerCount, score)
-  local key = playerCount >= 2 and "hs2" or "hs1"
-  if score > Save.data[key] then
-    Save.data[key] = math.floor(score)
-    Save.write()
-    return true
+-- Registra o resultado de uma partida. Devolve uma tabela dizendo quais
+-- recordes foram batidos (para o game over destacar).
+-- `scores` = { scoreP1, scoreP2 } (scoreP2 pode ser nil em 1 jogador).
+function Save.submitMatch(playerCount, scores)
+  local beat = { solo = false, duo = false, coop = false }
+  local s1 = math.floor(scores[1] or 0)
+
+  if playerCount < 2 then
+    if s1 > Save.data.solo then
+      Save.data.solo = s1
+      beat.solo = true
+    end
+  else
+    local s2 = math.floor(scores[2] or 0)
+    local best = s1 > s2 and s1 or s2
+    if best > Save.data.duo then
+      Save.data.duo = best
+      beat.duo = true
+    end
+    if s1 + s2 > Save.data.coop then
+      Save.data.coop = s1 + s2
+      beat.coop = true
+    end
   end
-  return false
+
+  if beat.solo or beat.duo or beat.coop then Save.write() end
+  return beat
 end
 
 return Save

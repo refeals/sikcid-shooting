@@ -140,6 +140,12 @@ function Config.waveSpawnInterval(w)
   return math.max(0.22, 1.10 - 0.045 * w)
 end
 
+-- Quantos inimigos saem por porta de cada vez. Cresce com a wave, senão o
+-- telégrafo (0.4s por lote) limitaria a pressão a ~3 inimigos/s.
+function Config.waveBatch(w)
+  return Config.WAVE.batchMin, math.min(8, Config.WAVE.batchMax + math.floor(w / 6))
+end
+
 -- Pesos do mix de inimigos por wave; tipo só entra a partir de `from`.
 Config.ENEMY_MIX = {
   { type = "grunt",   from = 1, base = 100, perWave = -4,  min = 25 },

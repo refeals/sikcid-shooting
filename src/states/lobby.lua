@@ -161,12 +161,17 @@ function Lobby:draw()
   drawSlot(1, W * 0.5 - sw - 12, 90, sw, sh)
   drawSlot(2, W * 0.5 + 12, 90, sw, sh)
 
-  -- Recordes por modo.
+  -- Recordes: individual em 1P, individual em 2P e soma do coop.
   love.graphics.setColor(C.textWarn)
-  love.graphics.printf(string.format("RECORDE 1P: %d", Save.getHighScore(1)),
-    W * 0.5 - 210, 218, 200, "center")
-  love.graphics.printf(string.format("RECORDE 2P: %d", Save.getHighScore(2)),
-    W * 0.5 + 10, 218, 200, "center")
+  love.graphics.printf(string.format("SOLO %d", Save.get("solo")),
+    W * 0.5 - 300, 218, 190, "center")
+  love.graphics.printf(string.format("DUPLA %d", Save.get("duo")),
+    W * 0.5 - 95, 218, 190, "center")
+  love.graphics.printf(string.format("COOP %d", Save.get("coop")),
+    W * 0.5 + 110, 218, 190, "center")
+  love.graphics.setColor(C.textDim)
+  love.graphics.printf("RECORDES: MELHOR SOLO  -  MELHOR EM DUPLA  -  MELHOR SOMA DA DUPLA",
+    0, 234, W, "center")
 
   love.graphics.setColor(C.textDim)
   local hint = boundCount() == 0

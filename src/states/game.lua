@@ -12,6 +12,7 @@ local Pool     = require("src.pool")
 local Hud      = require("src.hud")
 local Audio    = require("src.audio")
 local Combat   = require("src.systems.combat")
+local Spawner  = require("src.systems.spawner")
 local Player   = require("src.entities.player")
 local Bullet   = require("src.entities.bullet")
 local Enemy    = require("src.entities.enemy")
@@ -154,35 +155,14 @@ function world:onGameOver()
   State.switch(require("src.states.lobby"))
 end
 
--- ---------------------------------------------------------------------------
--- TEMP_SPAWN: spawn provisório só para testar a etapa 4. A etapa 5 substitui
--- isto pelo systems/spawner.lua (portas, telégrafo, cotas de wave).
--- ---------------------------------------------------------------------------
-local TEMP_SPAWN = {
-  interval = 0.55,
-  maxAlive = 30,
-  types = { "grunt", "grunt", "runner", "shooter", "tank" },
-  timer = 0,
-}
-
-local function tempSpawn(dt)
-  TEMP_SPAWN.timer = TEMP_SPAWN.timer - dt
-  if TEMP_SPAWN.timer > 0 or enemies.count >= TEMP_SPAWN.maxAlive then return end
-  TEMP_SPAWN.timer = TEMP_SPAWN.interval
-
-  -- Nasce no meio de uma das 4 paredes (prévia das portas da etapa 5).
-  local side = math.random(4)
-  local x, y
-  if side == 1 then x, y = arena.cx, arena.y + 10
-  elseif side == 2 then x, y = arena.cx, arena.y + arena.h - 10
-  elseif side == 3 then x, y = arena.x + 10, arena.cy
-  else x, y = arena.x + arena.w - 10, arena.cy end
-
-  world:spawnEnemy(TEMP_SPAWN.types[math.random(#TEMP_SPAWN.types)], x, y)
+-- ETAPA 7 troca por: solta um pickup de power-up. `guaranteed` = drop de fim
+-- de wave (sempre sai), senão é o sorteio de 8% por morte.
+function world:dropPowerup(x, y, guaranteed) -- luacheck: ignore
 end
 
 -- ---------------------------------------------------------------------------
 local showHitboxes = false
+local hudInfo = { title = "", subtitle = "" }   -- reaproveitado todo frame
 
 function Game:enter(devices, count)
   world.playerCount = count or 1
@@ -193,7 +173,8 @@ function Game:enter(devices, count)
   bullets:clear()
   enemies:clear()
   particles:clear()
-  TEMP_SPAWN.timer = 1.0
+  Spawner.load(arena)
+  Spawner.reset(world, Config.SMOKE_WAVE)
 
   for i = 1, world.playerCount do
     local p = Player.new(i, devices[i])
@@ -230,7 +211,7 @@ function Game:update(dt)
     return
   end
 
-  tempSpawn(dt)
+  Spawner.update(dt, world)
 
   for i = 1, world.playerCount do
     world.players[i]:update(dt, world)
@@ -295,10 +276,23 @@ function Game:draw()
   love.graphics.setColor(C.arenaLine)
   love.graphics.rectangle("line", arena.x + 0.5, arena.y + 0.5, arena.w - 1, arena.h - 1)
 
+  Spawner.draw()
+
   for i = 1, particles.count do particles.items[i]:draw() end
   for i = 1, enemies.count do enemies.items[i]:draw() end
   for i = 1, bullets.count do bullets.items[i]:draw() end
   for i = 1, world.playerCount do world.players[i]:draw() end
+
+  -- Aviso de wave completa durante o respiro.
+  if Spawner.isResting() and Spawner.wave >= 1 then
+    love.graphics.setColor(C.textWarn)
+    love.graphics.printf(string.format("WAVE %d COMPLETA", Spawner.wave),
+      arena.cx - 120, arena.cy - 50, 240, "center")
+    love.graphics.setColor(C.textDim)
+    love.graphics.printf(string.format("BONUS %d   -   PROXIMA EM %.1f",
+      Spawner.wave * Config.WAVE.clearBonus, math.max(0, Spawner.timer)),
+      arena.cx - 120, arena.cy - 34, 240, "center")
+  end
 
   -- Contagem regressiva do respawn.
   for i = 1, world.playerCount do
@@ -323,7 +317,11 @@ function Game:draw()
     for i = 1, world.playerCount do world.players[i]:drawDebug() end
   end
 
-  Hud.draw(world.players, world.playerCount, nil)
+  hudInfo.title = string.format("WAVE %d", math.max(1, Spawner.wave))
+  hudInfo.subtitle = Spawner.isResting()
+    and string.format("PROXIMA EM %.1f", math.max(0, Spawner.timer))
+    or string.format("INIMIGOS %d", Spawner.remaining(world))
+  Hud.draw(world.players, world.playerCount, hudInfo)
 
   if Config.DEBUG then
     love.graphics.setColor(C.textDim)
@@ -340,6 +338,8 @@ function Game:keypressed(key)
   if not Config.DEBUG then return end
   if key == "f1" then
     showHitboxes = not showHitboxes
+  elseif key == "f2" then
+    Spawner.skipWave(world)
   elseif key == "f3" then
     world.godMode = not world.godMode
   end
