@@ -11,6 +11,7 @@ local Config = require("src.config")
 local Input  = require("src.input")
 local State  = require("src.state")
 local Audio  = require("src.audio")
+local Music  = require("src.music")
 
 local Pause = {}
 
@@ -22,10 +23,15 @@ function Pause:enter(world, mode, playerIndex)
   self.playerIndex = playerIndex
   self.timer = 0
   self.confirmQuit = false   -- BACK pede confirmação antes de abandonar
+  Music.duck(true)           -- música abaixa, não para
   Audio.play("menu_confirm")
   if Config.SMOKE then
     require("src.smoke").bump(self.mode == "waiting" and "waits" or "pauses")
   end
+end
+
+function Pause:leave()
+  Music.duck(false)
 end
 
 -- Devolve o primeiro jogador cujo device caiu (ou nil).

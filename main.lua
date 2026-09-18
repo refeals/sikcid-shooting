@@ -5,6 +5,7 @@ local Screen = require("src.screen")
 local State  = require("src.state")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
+local Music  = require("src.music")
 local Input  = require("src.input")
 local Smoke  = require("src.smoke")
 local Profiler = require("src.profiler")
@@ -65,6 +66,7 @@ function love.load(args)
   Screen.load()
   Save.load()
   Audio.load()
+  Music.load()
   Input.load()
   if Config.SMOKE then Smoke.reset() end
 
@@ -90,6 +92,7 @@ function love.update(dt)
   end
 
   State.update(dt)
+  Music.update(dt)   -- fades andam em qualquer tela, inclusive na pausa
 end
 
 function love.draw()

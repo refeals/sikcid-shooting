@@ -3,6 +3,11 @@
 *.lutro
 dist/
 
+# Áudio original baixado, solto na raiz (21 MB+). O jogo usa só a versão
+# convertida em assets/music/*.ogg. (A barra inicial restringe à raiz: os
+# .wav de assets/sfx/ continuam versionados.)
+/*.wav
+
 # LÖVE AppImage (baixado ou extraído)
 *.AppImage
 squashfs-root/

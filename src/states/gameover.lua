@@ -8,6 +8,7 @@ local Input  = require("src.input")
 local State  = require("src.state")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
+local Music  = require("src.music")
 
 local GameOver = {}
 
@@ -17,6 +18,10 @@ function GameOver:enter(summary)
   self.summary = summary
   self.timer = 0
   self.blink = 0
+  self.musicBack = false
+  -- A música da partida some em fade; o efeito de game over toca no
+  -- silêncio e a música de menu volta depois de Config.MUSIC.gameOverDelay.
+  Music.stop()
   Audio.play("game_over")
   if Config.SMOKE then
     require("src.smoke").note("state", "gameover")
@@ -27,6 +32,10 @@ end
 function GameOver:update(dt)
   self.timer = self.timer + dt
   self.blink = self.blink + dt
+  if not self.musicBack and self.timer >= Config.MUSIC.gameOverDelay then
+    self.musicBack = true
+    Music.play("menu")
+  end
   if self.timer < ACCEPT_DELAY then return end
 
   local s = self.summary

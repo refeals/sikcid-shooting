@@ -9,6 +9,7 @@ local Config   = require("src.config")
 local Input    = require("src.input")
 local State    = require("src.state")
 local Audio    = require("src.audio")
+local Music    = require("src.music")
 local Powerups = require("src.systems.powerups")
 local Pickup   = require("src.entities.pickup")
 
@@ -38,6 +39,9 @@ function Briefing:enter(world)
 end
 
 function Briefing:leave()
+  -- A partida começa. (Se o briefing foi fechado voltando ao lobby, o lobby
+  -- pede a música de menu logo em seguida.)
+  Music.play("game")
   if Config.SMOKE then
     require("src.smoke").note("state", "game/" .. self.world.playerCount .. "p")
   end

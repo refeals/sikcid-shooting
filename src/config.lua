@@ -232,6 +232,24 @@ Config.SFX = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Música
+-- ---------------------------------------------------------------------------
+-- Arquivos em assets/music/<nome>.ogg (ou .wav), tocados em streaming (não
+-- ocupam a RAM toda). Cada tela pede um PAPEL; o papel aponta para uma faixa.
+-- Dois papéis na mesma faixa = a música continua sem reiniciar ao trocar.
+Config.MUSIC = {
+  dir = "assets/music/",
+  volume = 0.45,          -- abaixo dos efeitos, para tiros/explosões se destacarem
+  duck = 0.3,             -- fração do volume durante a pausa
+  fadeTime = 0.6,         -- crossfade entre faixas (s)
+  gameOverDelay = 2.5,    -- silêncio no game over antes da música de menu voltar
+  tracks = {
+    menu = "danse-contemporaine",   -- lobby, briefing, game over
+    game = "danse-contemporaine",   -- arena
+  },
+}
+
+-- ---------------------------------------------------------------------------
 -- Juice
 -- ---------------------------------------------------------------------------
 Config.JUICE = {

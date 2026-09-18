@@ -238,6 +238,43 @@ rodízio: nenhum `Source` é criado durante o jogo (o tiro automático disparari
 dezenas por segundo). Som novo = uma entrada em `Config.SFX` + o arquivo + uma
 chamada `Audio.play("id")` no ponto certo.
 
+### Música
+
+Faixas em **`assets/music/<nome>.ogg`**, tocadas em streaming e em loop por
+[src/music.lua](src/music.lua). Cada tela pede um **papel** e `Config.MUSIC.tracks`
+diz qual faixa toca em cada um:
+
+| Papel | Onde | Faixa atual |
+|---|---|---|
+| `menu` | lobby, briefing, volta do game over | `danse-contemporaine` |
+| `game` | arena | `danse-contemporaine` |
+
+Com os dois papéis na mesma faixa, a música **continua sem reiniciar** do lobby
+para a partida. Para ter uma faixa própria na arena, coloque outro `.ogg` em
+`assets/music/` e troque o nome em `tracks.game`: o crossfade entre as duas já
+está pronto.
+
+Comportamento: fade in ao abrir; na **pausa** a música abaixa para 30%
+(`duck`) em vez de parar; no **game over** ela some em fade, o efeito de game
+over toca no silêncio e a música de menu volta depois de 2,5 s. Volume geral da
+música em `Config.MUSIC.volume` (abaixo dos efeitos, para tiros e explosões
+continuarem legíveis). `--mute` silencia tudo.
+
+Para converter uma faixa nova (o `.wav` original não precisa ficar no projeto):
+
+```sh
+ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome.ogg
+```
+
+(`-1dB` dá margem: faixa masterizada no teto pode estalar depois da compressão.)
+
+## Créditos
+
+- Música: **"Danse Contemporaine"**, de **Clement Panchout**
+  ([itch.io](https://clement-panchout.itch.io)).
+- Efeitos sonoros: gerados com o sintetizador do [sfxr](https://sfxr.me)
+  (jsfxr), via [tools/gen_sfx.py](tools/gen_sfx.py).
+
 ---
 
 ## Estrutura
@@ -253,6 +290,7 @@ src/input.lua         -- devices (gamepad/teclado), deadzone radial, hotplug
 src/state.lua         -- pilha de estados de tela
 src/save.lua          -- recordes em love.filesystem
 src/audio.lua         -- efeitos sonoros com pool de vozes
+src/music.lua         -- música de fundo: crossfade, pausa abafada
 src/hud.lua           -- faixa de HUD
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
@@ -260,6 +298,7 @@ src/states/           -- lobby, briefing, game, pause, gameover, inputtest
 src/entities/         -- player, enemy, bullet, pickup, particle
 src/systems/          -- spawner, combat, powerups, combo
 assets/sfx/           -- efeitos sonoros (.wav)
+assets/music/         -- música de fundo (.ogg)
 tools/                -- gerador dos sons (fora do .love)
 build.sh              -- gera o port em dist/
 ```

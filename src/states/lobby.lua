@@ -13,6 +13,7 @@ local Config = require("src.config")
 local Input  = require("src.input")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
+local Music  = require("src.music")
 local State  = require("src.state")
 
 local Lobby = {}
@@ -69,6 +70,7 @@ function Lobby:enter()
     if slots[i] then slots[i].bindTimer = Config.BIND_DEBOUNCE end
   end
   blink = 0
+  Music.play("menu")
   if Config.SMOKE then require("src.smoke").note("state", "lobby") end
 end
 
