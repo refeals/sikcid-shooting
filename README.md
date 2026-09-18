@@ -22,8 +22,10 @@ miram, **Enter** = start, **ESC** = back (segurar 0,5s sai do jogo).
 ## Build
 
 ```sh
-./build.sh          # gera o dist/
-./build.sh --run    # gera e já abre o .love no LÖVE local para testar
+./build.sh                    # gera o dist/
+./build.sh --run              # gera e já abre o .love no LÖVE local para testar
+./build.sh --deploy           # gera e copia para o Batocera (root@batocera)
+./build.sh --deploy root@IP   # idem, com outro endereço
 ```
 
 Resultado, pronto para copiar para o Batocera:
@@ -60,21 +62,47 @@ roda em Raspberry Pi/ARM.
    mv squashfs-root dist/.data/sikcid-shootin/love
    ```
    Só precisa fazer isso uma vez: os próximos `./build.sh` preservam a pasta.
-4. **Copie** para o Batocera — o `.sh` em `ports/` e a pasta de dados em
-   `ports/.data/`. Crie o `.data` **antes**: se ele não existir, o `scp -r`
-   copia a pasta *com o nome* `.data` (sem a subpasta `sikcid-shootin`) e o
-   jogo não acha os arquivos.
+4. **Copie** para o Batocera:
    ```sh
-   ssh root@batocera "mkdir -p /userdata/roms/ports/.data"
-   scp dist/SikCidShootin.sh root@batocera:/userdata/roms/ports/
-   scp -r dist/.data/sikcid-shootin root@batocera:/userdata/roms/ports/.data/
+   ./build.sh --deploy
    ```
-   (Senha padrão do Batocera: `linux`.) Pela rede do Windows
-   (`\\BATOCERA\share\roms\ports`) também funciona, desde que a estrutura
-   final seja exatamente `ports\.data\sikcid-shootin\` — o launcher repõe
-   sozinho o bit de execução que a cópia via Windows perde.
-5. No Batocera: **Menu → Configurações do Jogo → Atualizar lista de jogos**.
-   O jogo aparece em **Ports**.
+   Pede a senha do Batocera uma vez (padrão: `linux`), cria as pastas, envia
+   o `.sh`, o `.love` e — só no primeiro deploy, se faltar lá — o `love/`.
+5. No Batocera: **Menu → Configurações do Jogo → Atualizar lista de jogos**
+   (só da primeira vez). O jogo aparece em **Ports**.
+
+### Atualizar o jogo no Batocera
+
+Depois de qualquer mudança, é um comando só:
+
+```sh
+./build.sh --deploy
+```
+
+O que muda de um build para outro é o **`.love`** (o jogo); o `.sh` é só o
+launcher e o `love/` já está lá. Não precisa atualizar a lista de jogos de novo.
+Se o jogo estiver aberto no Batocera, feche e abra.
+
+Outro endereço: `./build.sh --deploy root@192.168.0.50`, ou fixe com
+`export BATOCERA_HOST=root@192.168.0.50`. Para não digitar a senha a cada
+deploy, instale sua chave uma vez: `ssh-copy-id root@batocera`.
+
+<details>
+<summary>Cópia manual (sem o <code>--deploy</code>)</summary>
+
+Crie o `.data` **antes**: se ele não existir, o `scp -r` copia a pasta *com o
+nome* `.data` (sem a subpasta `sikcid-shootin`) e o jogo não acha os arquivos.
+
+```sh
+ssh root@batocera "mkdir -p /userdata/roms/ports/.data"
+scp dist/SikCidShootin.sh root@batocera:/userdata/roms/ports/
+scp -r dist/.data/sikcid-shootin root@batocera:/userdata/roms/ports/.data/
+```
+
+Pela rede do Windows (`\\BATOCERA\share\roms\ports`) também funciona, desde que
+a estrutura final seja exatamente `ports\.data\sikcid-shootin\` — o launcher
+repõe sozinho o bit de execução que a cópia via Windows perde.
+</details>
 
 O save dos recordes fica em
 `/userdata/system/.local/share/love/sikcid-shootin/highscores.dat`.
