@@ -77,6 +77,8 @@ Config.PLAYER = {
   invulnTime = 1.5,
   respawnTime = 3.0,
   blinkRate = 12,             -- piscadas por segundo durante invulnerabilidade
+  muzzleTime = 0.05,          -- clarão do cano ao atirar
+  spawnFxTime = 0.4,          -- anel de respawn
 }
 
 -- Arma base (modificada pelos power-ups via tabela de mods).
@@ -122,6 +124,7 @@ Config.GRID_CELL = 64           -- célula do grid espacial da broadphase
 -- ---------------------------------------------------------------------------
 Config.WAVE = {
   telegraphTime = 0.4,        -- porta piscando antes do spawn
+  bannerTime = 1.4,           -- "WAVE N" no centro ao começar
   restTime = 3.0,             -- respiro após limpar a wave
   clearBonus = 250,           -- multiplicado pelo número da wave
   batchMin = 1,
@@ -162,6 +165,7 @@ Config.COMBO = {
   perMult = 5,                -- mortes necessárias por degrau de multiplicador
   maxMult = 8,
   lostMsgTime = 0.9,
+  pulseTime = 0.35,           -- destaque ao subir de multiplicador
 }
 
 -- ---------------------------------------------------------------------------

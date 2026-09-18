@@ -75,6 +75,7 @@ function Spawner.reset(world, startWave)
   Spawner.maxAlive = 0
   Spawner.interval = 1
   Spawner.door = nil
+  Spawner.banner = 0
   for i = 1, 4 do doors[i].warn = 0 end
 end
 
@@ -86,6 +87,7 @@ function Spawner.startWave(n)
   Spawner.interval = Config.waveSpawnInterval(n)
   Spawner.phase = "idle"
   Spawner.timer = 0.2
+  Spawner.banner = Config.WAVE.bannerTime
   buildMix(n)
   Audio.play("wave_start")
   if Config.SMOKE then require("src.smoke").note("waves", n) end
@@ -125,8 +127,11 @@ local function spawnBatch(world)
     local jitter = Util.randRange(-DOOR_LEN * 0.4, DOOR_LEN * 0.4)
     local x = d.sx + ((d.side == "top" or d.side == "bottom") and jitter or 0)
     local y = d.sy + ((d.side == "left" or d.side == "right") and jitter or 0)
-    if world:spawnEnemy(pick.type, x, y) then
+    local e = world:spawnEnemy(pick.type, x, y)
+    if e then
       Spawner.spawned = Spawner.spawned + 1
+      -- "Pop" de partículas na porta: o inimigo não aparece do nada.
+      world:burst(4, x, y, e.color, 3)
     end
   end
   Spawner.door = nil
@@ -136,6 +141,7 @@ function Spawner.update(dt, world)
   for i = 1, 4 do
     if doors[i].warn > 0 then doors[i].warn = doors[i].warn - dt end
   end
+  if Spawner.banner > 0 then Spawner.banner = Spawner.banner - dt end
 
   Spawner.timer = Spawner.timer - dt
 

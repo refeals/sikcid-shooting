@@ -78,7 +78,12 @@ local function drawPlayerPanel(p, align, x)
     end
   elseif p.combo and p.combo > 0 then
     local mult = Combo.mult(p)
-    love.graphics.setColor(mult > 1 and C.textWarn or C.textDim)
+    -- Pisca em branco por um instante quando o multiplicador sobe.
+    if (p.comboPulse or 0) > 0 then
+      love.graphics.setColor(C.flash)
+    else
+      love.graphics.setColor(mult > 1 and C.textWarn or C.textDim)
+    end
     love.graphics.printf(string.format("COMBO %d  x%d", p.combo, mult),
       textX, 23, 160, align)
 

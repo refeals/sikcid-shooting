@@ -19,12 +19,19 @@ function Combo.reset(player)
   player.comboTimer = 0
   player.comboBest = 0
   player.comboLost = 0     -- tempo restante do aviso "COMBO PERDIDO"
+  player.comboPulse = 0    -- tempo restante do destaque do multiplicador
 end
 
 function Combo.add(player)
+  local before = Combo.mult(player)
   player.combo = player.combo + 1
   player.comboTimer = C.window
   if player.combo > player.comboBest then player.comboBest = player.combo end
+  -- Subiu de degrau: o HUD pisca o multiplicador.
+  if Combo.mult(player) > before then
+    player.comboPulse = C.pulseTime
+    Audio.play("combo_up")
+  end
 end
 
 function Combo.mult(player)
@@ -43,6 +50,7 @@ function Combo.update(dt, world)
   for i = 1, world.playerCount do
     local p = world.players[i]
     if p.comboLost > 0 then p.comboLost = p.comboLost - dt end
+    if p.comboPulse > 0 then p.comboPulse = p.comboPulse - dt end
     if p.combo > 0 then
       p.comboTimer = p.comboTimer - dt
       if p.comboTimer <= 0 then

@@ -123,6 +123,11 @@ function world:addScore(playerIndex, points)
   if p then p.score = p.score + points end
 end
 
+-- Atalho para efeitos soltarem partículas sem conhecer o pool.
+function world:burst(count, x, y, color, size)
+  Particle.burst(self.particles, count, x, y, color, size)
+end
+
 function world:shake(mag)
   if mag > self.shakeMag then self.shakeMag = mag end
 end
@@ -198,7 +203,6 @@ function world:onGameOver()
   local beat = Save.submitMatch(self.playerCount, summary.scores)
   summary.beat.solo, summary.beat.duo, summary.beat.coop = beat.solo, beat.duo, beat.coop
 
-  Audio.play("game_over")
   State.switch(require("src.states.gameover"), summary)
 end
 
@@ -381,6 +385,14 @@ function Game:draw()
   for i = 1, enemies.count do enemies.items[i]:draw() end
   for i = 1, bullets.count do bullets.items[i]:draw() end
   for i = 1, world.playerCount do world.players[i]:draw() end
+
+  -- Banner "WAVE N" no começo da wave, sumindo aos poucos.
+  if Spawner.banner > 0 then
+    local t = Spawner.banner / Config.WAVE.bannerTime
+    love.graphics.setColor(C.text[1], C.text[2], C.text[3], math.min(1, t * 2))
+    love.graphics.printf(string.format("WAVE %d", Spawner.wave),
+      arena.cx - 120, arena.cy - 60 - (1 - t) * 10, 240, "center")
+  end
 
   -- Aviso de wave completa durante o respiro.
   if Spawner.isResting() and Spawner.wave >= 1 then

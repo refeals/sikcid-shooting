@@ -59,6 +59,8 @@ function Player.new(index, device)
     respawnTimer = 0,
     fireCooldown = 0,
     orbAngle = 0,
+    muzzle = 0,               -- clarão curto do cano ao atirar
+    spawnFx = 0,              -- anel de respawn
     mods = {},
     powerups = {},            -- { { def = <DEF>, timeLeft = s }, ... }
   }, Player)
@@ -84,6 +86,8 @@ function Player:spawn(x, y)
   self.respawnTimer = 0
   self.fireCooldown = 0
   self.aimX, self.aimY = 0, -1
+  self.muzzle = 0
+  self.spawnFx = P.spawnFxTime
   -- Morrer custa os power-ups temporários.
   require("src.systems.powerups").clear(self)
 end
@@ -120,6 +124,8 @@ end
 
 function Player:update(dt, world)
   if self.invuln > 0 then self.invuln = self.invuln - dt end
+  if self.muzzle > 0 then self.muzzle = self.muzzle - dt end
+  if self.spawnFx > 0 then self.spawnFx = self.spawnFx - dt end
 
   if not self.alive then
     if self.out then return end
@@ -160,6 +166,7 @@ function Player:update(dt, world)
     local fn = WEAPONS[self.mods.weapon] or WEAPONS.single
     fn(self, world)
     self.fireCooldown = 1 / (W.fireRate * self.mods.fireRateMul)
+    self.muzzle = P.muzzleTime
   end
 
   self.orbAngle = (self.orbAngle + W.orbSpeed * dt) % (math.pi * 2)
@@ -170,6 +177,14 @@ end
 -- ---------------------------------------------------------------------------
 function Player:draw()
   if not self.alive then return end
+
+  -- Anel de respawn: quadrado que encolhe até o tamanho do jogador.
+  if self.spawnFx > 0 then
+    local t = self.spawnFx / P.spawnFxTime
+    local r = P.size * 0.5 + 18 * t
+    love.graphics.setColor(self.color[1], self.color[2], self.color[3], t)
+    love.graphics.rectangle("line", self.x - r, self.y - r, r * 2, r * 2)
+  end
 
   -- Pisca durante a invulnerabilidade.
   if self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0 then
@@ -193,9 +208,12 @@ function Player:draw()
   end
 
   -- Marcador de mira: retângulo curto saindo do centro na direção atual.
-  love.graphics.setColor(1, 1, 1, 0.9)
+  -- Cresce por um instante a cada tiro (clarão do cano).
+  local flash = self.muzzle > 0
+  love.graphics.setColor(1, 1, 1, flash and 1 or 0.9)
   local mx, my = self.x + self.aimX * (h + 4), self.y + self.aimY * (h + 4)
-  love.graphics.rectangle("fill", mx - 2, my - 2, 4, 4)
+  local ms = flash and 3 or 2
+  love.graphics.rectangle("fill", mx - ms, my - ms, ms * 2, ms * 2)
 
   love.graphics.setColor(1, 1, 1, 1)
 end
