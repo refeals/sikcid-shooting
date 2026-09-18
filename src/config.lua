@@ -14,11 +14,18 @@ Config.VIRTUAL_W = 640
 Config.VIRTUAL_H = 360
 Config.HUD_H = 40             -- faixa de HUD no topo; arena é o resto
 
--- Limites duros de entidades vivas (tamanho dos pools).
-Config.MAX_ENEMIES = 150
-Config.MAX_BULLETS = 300
-Config.MAX_PARTICLES = 200
+-- Limites duros de entidades vivas (tamanho dos pools). Dimensionados para
+-- hardware antigo; o que passar do teto é descartado sem alocar.
+Config.MAX_ENEMIES = 100
+Config.MAX_BULLETS = 200
+Config.MAX_PARTICLES = 120
 Config.MAX_PICKUPS = 24
+
+-- Com DEBUG ligado: avisa no console quando o trabalho de um frame (update +
+-- draw, sem contar a espera do vsync) passar deste tempo, dizendo qual
+-- sistema pesou mais. Os avisos são espaçados para não inundar o console.
+Config.PROFILE_WARN_MS = 8
+Config.PROFILE_WARN_INTERVAL = 1.0   -- segundos entre avisos
 
 -- ---------------------------------------------------------------------------
 -- Cores (r, g, b, a de 0 a 1) -- trocar por sprites depois não mexe aqui,

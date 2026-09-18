@@ -4,7 +4,7 @@ Twin-stick shooter de arena para 1–2 jogadores locais, em LÖVE 11.x. Inimigos
 entram por quatro portas em waves infinitas; você atira sozinho, desvia e
 segura o combo. Só API nativa do LÖVE: **zero dependências externas**.
 
-Alvo de execução: PC (Linux/Windows) e **Batocera** (sistema `love`).
+Alvo de execução: PC (Linux/Windows) e **Batocera x86_64** (sistema Ports).
 
 ---
 
@@ -19,32 +19,108 @@ love .
 Sem controle conectado, o jogador 1 joga no teclado: **WASD** move, **setas**
 miram, **Enter** = start, **ESC** = back (segurar 0,5s sai do jogo).
 
-## Empacotar o .love
-
-O `main.lua` precisa ficar na **raiz** do zip — por isso o `.` no fim e o
-comando rodando de dentro da pasta:
+## Build
 
 ```sh
-cd /caminho/do/projeto
-zip -9 -r ./sikcid-shootin.love . -x '.git/*' '*.love' 'build.sh' '.gitignore' 'README.md'
-love ./sikcid-shootin.love   # testa o pacote
+./build.sh          # gera o dist/
+./build.sh --run    # gera e já abre o .love no LÖVE local para testar
 ```
 
-O [build.sh](build.sh) faz isso.
+Resultado, pronto para copiar para o Batocera:
 
-## Instalar no Batocera
+```
+dist/
+  SikCidShootin.sh                  <- launcher do port
+  .data/sikcid-shootin/
+      SikCidShootin.love            <- o jogo
+      love/                         <- LÖVE 11.5 extraído (você coloca; ver abaixo)
+```
+
+O `.love` leva só `main.lua`, `conf.lua`, `src/` e `assets/` (com `main.lua` na
+raiz do zip, como o LÖVE exige). O build **não apaga** o `dist/`: só troca o
+`.love` e o `.sh`, então o `love/` extraído continua lá entre builds. Se o
+`love/` estiver faltando, o script avisa no final com os passos de extração.
+
+## Deploy no Batocera
+
+O jogo roda no sistema **Ports**, com o LÖVE 11.5 de verdade levado junto.
+Vale para Batocera em **PC x86_64** — o AppImage do LÖVE é só x86_64 e não
+roda em Raspberry Pi/ARM.
+
+1. **Baixe o AppImage x86_64 do LÖVE 11.5** em
+   <https://github.com/love2d/love/releases/tag/11.5>
+   (arquivo `love-11.5-x86_64.AppImage`).
+2. **Extraia** (num Linux ou WSL):
+   ```sh
+   chmod +x love-11.5-x86_64.AppImage
+   ./love-11.5-x86_64.AppImage --appimage-extract
+   ```
+3. **Renomeie** a pasta gerada `squashfs-root` para `love` e coloque no port:
+   ```sh
+   mv squashfs-root dist/.data/sikcid-shootin/love
+   ```
+   Só precisa fazer isso uma vez: os próximos `./build.sh` preservam a pasta.
+4. **Copie** para o Batocera — o `.sh` em `ports/` e a pasta de dados em
+   `ports/.data/`. Crie o `.data` **antes**: se ele não existir, o `scp -r`
+   copia a pasta *com o nome* `.data` (sem a subpasta `sikcid-shootin`) e o
+   jogo não acha os arquivos.
+   ```sh
+   ssh root@batocera "mkdir -p /userdata/roms/ports/.data"
+   scp dist/SikCidShootin.sh root@batocera:/userdata/roms/ports/
+   scp -r dist/.data/sikcid-shootin root@batocera:/userdata/roms/ports/.data/
+   ```
+   (Senha padrão do Batocera: `linux`.) Pela rede do Windows
+   (`\\BATOCERA\share\roms\ports`) também funciona, desde que a estrutura
+   final seja exatamente `ports\.data\sikcid-shootin\` — o launcher repõe
+   sozinho o bit de execução que a cópia via Windows perde.
+5. No Batocera: **Menu → Configurações do Jogo → Atualizar lista de jogos**.
+   O jogo aparece em **Ports**.
+
+O save dos recordes fica em
+`/userdata/system/.local/share/love/sikcid-shootin/highscores.dat`.
+
+Estrutura esperada no Batocera:
+
+```
+/userdata/roms/ports/
+  SikCidShootin.sh
+  .data/
+    sikcid-shootin/
+      SikCidShootin.love
+      love/
+        AppRun
+        usr/...
+```
+
+### O jogo abre e fecha na hora
+
+O launcher grava tudo o que acontece em
+**`/userdata/system/logs/sikcid-shootin.log`** — inclusive o erro do LÖVE, se
+o jogo quebrar. Olhe primeiro ali (`\\BATOCERA\share\system\logs` ou via SSH):
+
+| No log | Causa | Conserto |
+|---|---|---|
+| `pasta do jogo nao encontrada` | arquivos fora de `ports/.data/sikcid-shootin/` (o `scp -r` sem o `mkdir -p` antes) | mover para a estrutura acima |
+| `love/AppRun nao encontrado` | AppImage não extraído ou pasta com outro nome | extrair e renomear `squashfs-root` para `love` |
+| `bin/love: Permission denied` / `sem permissao de execucao` | a cópia perdeu o bit de execução (o launcher tenta repor sozinho) | `chmod +x .../sikcid-shootin/love/AppRun .../sikcid-shootin/love/bin/love` |
+| `=== ERRO DE RUNTIME ===` | erro no jogo | o traceback está logo abaixo |
+| log vazio ou inexistente | o Batocera nem executou o `.sh` | conferir se o `.sh` está em `ports/` e atualizar a lista de jogos |
+
+Para ver ao vivo, via SSH:
 
 ```sh
-scp sikcid-shootin.love root@batocera:/userdata/roms/love/
+export DISPLAY=:0.0
+bash -x /userdata/roms/ports/SikCidShootin.sh; cat /userdata/system/logs/sikcid-shootin.log
 ```
-
-Depois, no Batocera: **Menu → Configurações do Jogo → Atualizar lista de jogos**
-(ou reinicie o frontend). O jogo aparece no sistema **LÖVE**.
 
 > **Não use o sistema `lutro`.** Lutro é um core libretro que implementa um
 > subconjunto pequeno e antigo da API do LÖVE — não tem `love.graphics.newCanvas`
 > nem a Gamepad API completa, que este jogo usa no núcleo (canvas virtual e
-> leitura de controle). Tem que ser o sistema `love`, que roda o LÖVE de verdade.
+> leitura de controle). Tem que ser o LÖVE de verdade, como acima.
+
+> Se algum controle não responder no port, rode o jogo num PC com
+> `love . --inputtest` (ou F5 no jogo): a tela mostra se o SDL enxergou o
+> controle e se ele tem mapeamento de gamepad.
 
 ### Saída do jogo no Batocera
 
@@ -115,7 +191,8 @@ espalhado em outro arquivo.
 | Janela do combo, degrau e teto do multiplicador | `Config.COMBO` |
 | Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
 | Screen shake, hit-stop, partículas de morte | `Config.JUICE` |
-| Tetos de entidades vivas (tamanho dos pools) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
+| Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 120 partículas) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
+| Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
 
 As fórmulas de wave são funções, não tabela: a curva é infinita. Para deixar o
 jogo mais fácil, o mais direto é reduzir o coeficiente quadrático de
@@ -175,12 +252,16 @@ src/pool.lua          -- pool genérico com teto fixo
 src/input.lua         -- devices (gamepad/teclado), deadzone radial, hotplug
 src/state.lua         -- pilha de estados de tela
 src/save.lua          -- recordes em love.filesystem
-src/audio.lua         -- fachada de som (no-op)
+src/audio.lua         -- efeitos sonoros com pool de vozes
 src/hud.lua           -- faixa de HUD
+src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
-src/states/           -- lobby, game, pause, gameover, inputtest
+src/states/           -- lobby, briefing, game, pause, gameover, inputtest
 src/entities/         -- player, enemy, bullet, pickup, particle
 src/systems/          -- spawner, combat, powerups, combo
+assets/sfx/           -- efeitos sonoros (.wav)
+tools/                -- gerador dos sons (fora do .love)
+build.sh              -- gera o port em dist/
 ```
 
 Decisões que sustentam os 60 FPS em hardware modesto:
@@ -189,10 +270,11 @@ Decisões que sustentam os 60 FPS em hardware modesto:
   criadas uma vez e só reinicializadas. Remoção é swap-remove O(1), sem
   `table.insert`/`table.remove` em loop quente.
 - **Grid uniforme** de 64px na broadphase de colisão ([src/systems/combat.lua](src/systems/combat.lua)),
-  com as células reaproveitadas entre frames. Com 150 inimigos, testar todos os
-  pares seria ~11k testes por frame.
+  com as células reaproveitadas entre frames. Com 100 inimigos, testar todos os
+  pares seria ~5k testes por frame.
 - Colisão por **círculo com distância ao quadrado** — nenhum `sqrt` no caminho
   quente.
+- Sem shaders; o screen shake é só um `love.graphics.translate` no canvas.
 - Power-ups **recalculam** os modificadores do zero em vez de "desfazer" efeito:
   base + `apply()` de cada ativo. Adicionar power-up é uma entrada em `DEFS`.
 
@@ -215,6 +297,24 @@ devices com eixos ao vivo, d-pad, botões, deadzone e o progresso do combo de
 saída — e lista joysticks que o SDL viu mas **não** sabe mapear como gamepad,
 que é a causa mais comum de "o controle não responde".
 
+### Aviso de frame lento
+
+Com DEBUG ligado, se o trabalho de um frame passar de 8 ms
+(`Config.PROFILE_WARN_MS`), o console mostra qual sistema pesou mais:
+
+```
+[perf] frame 10.6ms > 8ms | mais pesado: colisao | inimigos 0.06ms  colisao 10.01ms  particulas 0.00ms  resto 0.48ms | in 3 bal 6 par 7
+```
+
+- mede o **trabalho** do frame (update + draw), não o `dt`: com vsync o `dt`
+  fica em ~16,6 ms mesmo com o jogo folgado, porque inclui a espera pela tela;
+- seções: update de inimigos, colisão (grid + testes + separação) e
+  partículas (update + desenho). `resto` é todo o resto (HUD, balas, jogadores,
+  desenho geral); se ele dominar, o aviso diz "fora dos sistemas medidos" em
+  vez de culpar o sistema errado;
+- no máximo um aviso por segundo, e os primeiros 30 frames (aquecimento: cache
+  de fonte, primeiro uso do canvas) não contam.
+
 ### Teste automatizado
 
 O jogo tem um piloto automático que joga sozinho e sai com código 0 (ok) ou
@@ -230,9 +330,10 @@ echo $?                        # 0 = rodou sem erro
 ```
 
 Ao terminar, imprime um resumo: FPS mínimo, waves, kills, mortes, pickups,
-combo máximo, pausas, e os **picos de cada pool** com `denied=` (quantas vezes
-algo foi recusado por bater no teto). `denied=0` significa que os limites estão
-folgados.
+combo máximo, pausas, e os **picos de cada pool**. `denied=` conta balas e
+inimigos recusados por bater no teto (afeta o jogo: deve ser 0); `deniedFx=`
+conta partículas descartadas (só efeito visual a menos, aceitável em explosões
+grandes).
 
 `--fakepad` injeta um gamepad falso que implementa a Gamepad API do LÖVE, para
 exercitar o mesmo caminho de código dos controles reais em máquinas que não

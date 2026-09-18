@@ -21,6 +21,7 @@ local Player   = require("src.entities.player")
 local Bullet   = require("src.entities.bullet")
 local Enemy    = require("src.entities.enemy")
 local Particle = require("src.entities.particle")
+local Profiler = require("src.profiler")
 
 local Game = {}
 
@@ -283,15 +284,19 @@ function Game:update(dt)
 
   -- Grid montado antes das entidades: os mísseis consultam o inimigo mais
   -- próximo por ele (Combat.update remonta depois do movimento).
+  Profiler.start("collision")
   Combat.buildGrid(enemies)
+  Profiler.stop("collision")
 
   for i = 1, world.playerCount do
     world.players[i]:update(dt, world)
   end
 
+  Profiler.start("enemies")
   for i = 1, enemies.count do
     enemies.items[i]:update(dt, world)
   end
+  Profiler.stop("enemies")
 
   -- Balas: swap-remove pelo pool, sem table.remove.
   local i = 1
@@ -299,10 +304,12 @@ function Game:update(dt)
     if bullets.items[i]:update(dt, world) then i = i + 1 else bullets:release(i) end
   end
 
+  Profiler.start("particles")
   i = 1
   while i <= particles.count do
     if particles.items[i]:update(dt) then i = i + 1 else particles:release(i) end
   end
+  Profiler.stop("particles")
 
   -- Pickups: expiram sozinhos e são coletados por contato (poucos vivos,
   -- então o teste direto contra os jogadores é mais barato que usar o grid).
@@ -334,7 +341,9 @@ function Game:update(dt)
   local resting = Spawner.isResting()
   if not resting then Powerups.update(dt, world) end
 
+  Profiler.start("collision")
   Combat.update(dt, world)
+  Profiler.stop("collision")
   Combo.update(dt, world, resting)
 
   -- Screen shake: decai rápido e é aplicado no canvas inteiro.
@@ -357,7 +366,10 @@ function Game:update(dt)
     Smoke.max("peakEnemies", enemies.peak)
     Smoke.max("peakParticles", particles.peak)
     for i2 = 1, world.playerCount do Smoke.max("combo", world.players[i2].comboBest) end
-    Smoke.note("denied", bullets.denied + enemies.denied + particles.denied)
+    -- Balas/inimigos recusados afetam o jogo; partículas recusadas são só
+    -- efeito visual a menos (esperado em explosões grandes).
+    Smoke.note("denied", bullets.denied + enemies.denied)
+    Smoke.note("deniedFx", particles.denied)
   end
 end
 
@@ -383,7 +395,9 @@ function Game:draw()
   Spawner.draw()
 
   for i = 1, pickups.count do pickups.items[i]:draw() end
+  Profiler.start("particles")
   for i = 1, particles.count do particles.items[i]:draw() end
+  Profiler.stop("particles")
   for i = 1, enemies.count do enemies.items[i]:draw() end
   for i = 1, bullets.count do bullets.items[i]:draw() end
   for i = 1, world.playerCount do world.players[i]:draw() end
@@ -437,10 +451,11 @@ function Game:draw()
   Hud.draw(world.players, world.playerCount, hudInfo)
 
   if Config.DEBUG then
+    Profiler.setCounts(enemies.count, bullets.count, particles.count)
     love.graphics.setColor(C.textDim)
-    love.graphics.print(string.format("FPS %d  in %d  bal %d  par %d  neg %d%s",
+    love.graphics.print(string.format("FPS %d  in %d  bal %d  par %d  neg %d/%d fx%s",
       love.timer.getFPS(), enemies.count, bullets.count, particles.count,
-      bullets.denied + enemies.denied + particles.denied,
+      bullets.denied + enemies.denied, particles.denied,
       world.godMode and "  [GOD]" or ""),
       4, Config.VIRTUAL_H - 14)
     love.graphics.setColor(1, 1, 1, 1)

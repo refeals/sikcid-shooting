@@ -7,6 +7,7 @@ local Save   = require("src.save")
 local Audio  = require("src.audio")
 local Input  = require("src.input")
 local Smoke  = require("src.smoke")
+local Profiler = require("src.profiler")
 
 local Lobby     = require("src.states.lobby")
 local InputTest = require("src.states.inputtest")
@@ -75,6 +76,7 @@ function love.load(args)
 end
 
 function love.update(dt)
+  Profiler.beginFrame()   -- só mede com DEBUG ligado
   if dt > MAX_DT then dt = MAX_DT end
 
   -- O piloto do smoke escreve no device sintético ANTES do poll, para que
@@ -94,6 +96,8 @@ function love.draw()
   Screen.beginDraw()
   State.draw()
   Screen.endDraw()
+  -- Fecha a medição antes do present (a espera do vsync não entra na conta).
+  Profiler.endFrame()
 end
 
 function love.resize(w, h)

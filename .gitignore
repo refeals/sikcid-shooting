@@ -1,6 +1,11 @@
 # builds
 *.love
 *.lutro
+dist/
+
+# LÖVE AppImage (baixado ou extraído)
+*.AppImage
+squashfs-root/
 
 # lixo de SO / ferramentas
 .DS_Store
