@@ -1,1 +1,9 @@
+# builds
 *.love
+*.lutro
+
+# lixo de SO / ferramentas
+.DS_Store
+Thumbs.db
+desktop.ini
+__pycache__/

@@ -37,9 +37,16 @@ local function parseArgs(args)
       i = i + 1
     elseif a == "--inputtest" then
       Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
+    elseif a == "--mute" then
+      Config.AUDIO.master = 0
+    elseif a == "--smokesound" then
+      Config.SMOKE_SOUND = true  -- smoke com som (por padrão ele roda mudo)
     end
     i = i + 1
   end
+  -- O smoke continua chamando Audio.play (o caminho é exercitado), mas com
+  -- volume zero para não tocar som durante testes automáticos.
+  if Config.SMOKE and not Config.SMOKE_SOUND then Config.AUDIO.master = 0 end
 end
 
 function love.load(args)

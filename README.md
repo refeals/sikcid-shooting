@@ -143,10 +143,23 @@ pixel art escalam sem borrar.
 
 ### Som
 
-[src/audio.lua](src/audio.lua) é uma fachada **no-op**: as chamadas
-`Audio.play("shot")`, `"enemy_die"`, `"pickup"`, `"wave_clear"` etc. já estão
-espalhadas nos lugares certos. Para ligar o som, carregue as Sources em
-`Audio.load` e vire `Audio.enabled = true`.
+Os efeitos ficam em **`assets/sfx/<id>.wav`** (ou `.ogg`), um arquivo por som,
+com o nome igual ao id. Eles são gerados por
+[tools/gen_sfx.py](tools/gen_sfx.py), um port sem dependências do sintetizador
+do [sfxr.me](https://sfxr.me) (jsfxr): `python3 tools/gen_sfx.py` recria todos,
+`python3 tools/gen_sfx.py shot pickup` só os citados. Para ajustar um som no
+site, cole o conteúdo de `tools/sfx/<id>.json` no campo de texto do sfxr.me,
+clique em **Deserialize**, mexa e baixe o `.wav` por cima do gerado. Som sem arquivo é ignorado em silêncio — o console
+mostra no boot quantos carregaram (`[audio] N som(ns) carregado(s)...`).
+
+Os ids, e o volume, número de vozes, variação de pitch e intervalo mínimo de
+cada um, estão em `Config.SFX` em [src/config.lua](src/config.lua). Volume geral
+em `Config.AUDIO.master`; `love . --mute` roda sem som.
+
+[src/audio.lua](src/audio.lua) pré-carrega um **pool de vozes** por som e usa em
+rodízio: nenhum `Source` é criado durante o jogo (o tiro automático dispararia
+dezenas por segundo). Som novo = uma entrada em `Config.SFX` + o arquivo + uma
+chamada `Audio.play("id")` no ponto certo.
 
 ---
 

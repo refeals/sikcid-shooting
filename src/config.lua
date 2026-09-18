@@ -182,6 +182,49 @@ Config.POWERUP = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Som
+-- ---------------------------------------------------------------------------
+-- Arquivos em assets/sfx/<id>.wav (ou .ogg). Som sem arquivo é ignorado em
+-- silêncio, então dá para ir adicionando aos poucos.
+--   vol      -- volume base (0..1), multiplicado por AUDIO.master
+--   voices   -- cópias pré-carregadas: quantas instâncias tocam ao mesmo tempo
+--   pitchVar -- variação aleatória de pitch (0.05 = +-5%): evita repetição robótica
+--   minGap   -- intervalo mínimo entre dois disparos do mesmo som (s)
+Config.AUDIO = {
+  master = 0.8,
+  dir = "assets/sfx/",
+}
+
+Config.SFX = {
+  -- Tiros (tocam muito: volume baixo, várias vozes, throttle)
+  shot          = { vol = 0.30, voices = 6, pitchVar = 0.06, minGap = 0.05 },
+  shot_spread   = { vol = 0.32, voices = 6, pitchVar = 0.06, minGap = 0.05 },
+  shot_missile  = { vol = 0.35, voices = 5, pitchVar = 0.05, minGap = 0.06 },
+  shot_enemy    = { vol = 0.30, voices = 4, pitchVar = 0.08, minGap = 0.08 },
+  -- Impacto e morte
+  enemy_hit     = { vol = 0.35, voices = 4, pitchVar = 0.10, minGap = 0.04 },
+  enemy_die     = { vol = 0.45, voices = 6, pitchVar = 0.12, minGap = 0.03 },
+  tank_die      = { vol = 0.70, voices = 2, pitchVar = 0.05, minGap = 0.10 },
+  player_die    = { vol = 0.80, voices = 2, pitchVar = 0.00, minGap = 0.10 },
+  player_spawn  = { vol = 0.50, voices = 2, pitchVar = 0.00, minGap = 0.10 },
+  -- Power-ups
+  pickup        = { vol = 0.60, voices = 2, pitchVar = 0.00, minGap = 0.05 },
+  pickup_life   = { vol = 0.70, voices = 1, pitchVar = 0.00, minGap = 0.10 },
+  powerup_end   = { vol = 0.45, voices = 2, pitchVar = 0.00, minGap = 0.10 },
+  -- Waves e combo
+  door_warn     = { vol = 0.30, voices = 4, pitchVar = 0.04, minGap = 0.12 },
+  wave_start    = { vol = 0.60, voices = 1, pitchVar = 0.00, minGap = 0.50 },
+  wave_clear    = { vol = 0.70, voices = 1, pitchVar = 0.00, minGap = 0.50 },
+  combo_up      = { vol = 0.55, voices = 2, pitchVar = 0.00, minGap = 0.10 },
+  combo_lost    = { vol = 0.45, voices = 2, pitchVar = 0.00, minGap = 0.20 },
+  game_over     = { vol = 0.80, voices = 1, pitchVar = 0.00, minGap = 1.00 },
+  -- Interface
+  menu_move     = { vol = 0.45, voices = 2, pitchVar = 0.00, minGap = 0.05 },
+  menu_confirm  = { vol = 0.55, voices = 2, pitchVar = 0.00, minGap = 0.05 },
+  menu_cancel   = { vol = 0.50, voices = 2, pitchVar = 0.00, minGap = 0.05 },
+}
+
+-- ---------------------------------------------------------------------------
 -- Juice
 -- ---------------------------------------------------------------------------
 Config.JUICE = {

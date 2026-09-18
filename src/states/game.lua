@@ -157,6 +157,7 @@ function world:onEnemyKilled(enemy, killerIndex)
     Audio.play("tank_die")
   else
     self:shake(J.shakeEnemyDeath)
+    Audio.play("enemy_die")
   end
 
   if Config.SMOKE then require("src.smoke").bump("kills") end

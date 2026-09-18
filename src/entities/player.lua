@@ -88,6 +88,7 @@ function Player:spawn(x, y)
   self.aimX, self.aimY = 0, -1
   self.muzzle = 0
   self.spawnFx = P.spawnFxTime
+  Audio.play("player_spawn")
   -- Morrer custa os power-ups temporários.
   require("src.systems.powerups").clear(self)
 end

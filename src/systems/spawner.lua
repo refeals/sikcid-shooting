@@ -173,6 +173,7 @@ function Spawner.update(dt, world)
     and world.enemies.count < Spawner.maxAlive then
     local d = doors[Util.randInt(1, 4)]
     d.warn = Config.WAVE.telegraphTime
+    Audio.play("door_warn")
     Spawner.door = d
     Spawner.phase = "telegraph"
     Spawner.timer = Config.WAVE.telegraphTime

@@ -63,6 +63,7 @@ Powerups.DEFS = {
   {
     id = "life", name = "EXTRA LIFE", letter = "+",
     desc = "+1 vida na hora (max. 5)",
+    sound = "pickup_life",    -- som próprio (os outros usam "pickup")
     permanent = true, duration = 1, weight = 6,
     color = { 1.00, 0.45, 0.55, 1 },
     grant = function(p)
@@ -101,9 +102,10 @@ end
 
 -- Entrega um power-up ao jogador.
 function Powerups.give(player, def)
+  Audio.play(def.sound or "pickup")
+
   if def.permanent then
     if def.grant then def.grant(player) end
-    Audio.play("pickup")
     return
   end
 
@@ -113,7 +115,6 @@ function Powerups.give(player, def)
   for i = 1, #list do
     if list[i].def == def then
       list[i].timeLeft = def.duration
-      Audio.play("pickup")
       return
     end
   end
@@ -130,7 +131,6 @@ function Powerups.give(player, def)
 
   list[#list + 1] = { def = def, timeLeft = def.duration }
   Powerups.recompute(player)
-  Audio.play("pickup")
 end
 
 function Powerups.update(dt, world)
@@ -151,7 +151,10 @@ function Powerups.update(dt, world)
         i = i + 1
       end
     end
-    if expired then Powerups.recompute(player) end
+    if expired then
+      Powerups.recompute(player)
+      Audio.play("powerup_end")
+    end
   end
 end
 

@@ -102,7 +102,8 @@ local function bulletsVsEnemies(world)
 
         b.dead = true
         local killed = e:damage(b.dmg)
-        Audio.play(killed and "enemy_die" or "enemy_hit")
+        -- O som de morte fica em world:onEnemyKilled (cobre bala e orbe).
+        if not killed then Audio.play("enemy_hit") end
         if killed then
           e.dead = true
           world:onEnemyKilled(e, b.owner)
