@@ -46,12 +46,15 @@ function Combo.fraction(player)
   return player.comboTimer / C.window
 end
 
-function Combo.update(dt, world)
+-- `frozen` = respiro entre waves: não há inimigo para matar, então o timer
+-- do combo para (senão seria impossível manter combo de uma wave para a
+-- outra). Os efeitos visuais continuam correndo.
+function Combo.update(dt, world, frozen)
   for i = 1, world.playerCount do
     local p = world.players[i]
     if p.comboLost > 0 then p.comboLost = p.comboLost - dt end
     if p.comboPulse > 0 then p.comboPulse = p.comboPulse - dt end
-    if p.combo > 0 then
+    if p.combo > 0 and not frozen then
       p.comboTimer = p.comboTimer - dt
       if p.comboTimer <= 0 then
         p.combo = 0

@@ -108,7 +108,7 @@ function GameOver:draw()
   love.graphics.setColor(self.timer >= ACCEPT_DELAY and C.text or C.textDim)
   love.graphics.printf("START VOLTA AO LOBBY", 0, 288, W, "center")
   love.graphics.setColor(C.textDim)
-  love.graphics.printf("SELECT + START (0.5s) SAI DO JOGO", 0, 304, W, "center")
+  love.graphics.printf("SEGURE SELECT PARA SAIR DO JOGO", 0, 304, W, "center")
 
   local ex = Input.exitProgress()
   if ex > 0 then

@@ -120,12 +120,21 @@ function Device:poll(dt)
   end
   self.anyDown = any
 
-  -- Combo de saída: back + start segurados juntos. No teclado, ESC sozinho
-  -- também conta (o PC não tem "select"), mas só depois do hold completo.
-  local comboHeld = down.back and down.start
-  if self.kind == "keyboard" and down.back then comboHeld = true end
-  if comboHeld then
-    self.exitTimer = self.exitTimer + dt
+  -- Saída do jogo (o Batocera não tem hotkey de saída para LÖVE):
+  --   SELECT + START segurados        -> Config.EXIT_HOLD
+  --   SELECT sozinho segurado (pad)   -> Config.EXIT_HOLD_BACK (mais longo,
+  --                                      para um toque não fechar o jogo)
+  --   ESC segurado (teclado)          -> Config.EXIT_HOLD
+  -- exitTimer é normalizado (0..1 = progresso) para as duas durações
+  -- dividirem a mesma barra no HUD.
+  local hold = nil
+  if down.back and down.start then
+    hold = Config.EXIT_HOLD
+  elseif down.back then
+    hold = self.kind == "keyboard" and Config.EXIT_HOLD or Config.EXIT_HOLD_BACK
+  end
+  if hold then
+    self.exitTimer = self.exitTimer + dt / hold
   else
     self.exitTimer = 0
   end
@@ -145,7 +154,7 @@ end
 
 -- Progresso 0..1 do combo de saída (para o aviso no HUD).
 function Device:exitProgress()
-  return Util.clamp(self.exitTimer / Config.EXIT_HOLD, 0, 1)
+  return Util.clamp(self.exitTimer, 0, 1)
 end
 
 -- Vetor de movimento (analógico esquerdo / WASD).
@@ -297,7 +306,7 @@ function Input.update(dt)
   for i = 1, Input.count do
     local d = Input.devices[i]
     d:poll(dt)
-    if d.exitTimer >= Config.EXIT_HOLD then
+    if d.exitTimer >= 1 then
       Input.quitRequested = true
     end
   end

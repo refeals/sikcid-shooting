@@ -48,28 +48,36 @@ Depois, no Batocera: **Menu → Configurações do Jogo → Atualizar lista de j
 
 ### Saída do jogo no Batocera
 
-O Batocera não tem hotkey de saída para LÖVE, então o jogo traz a sua:
-**SELECT + START segurados por 0,5s** saem do jogo em qualquer tela. Um aviso
-discreto com barra de progresso aparece enquanto você segura.
+O Batocera não tem hotkey de saída para LÖVE, então o jogo traz a sua, que
+funciona em qualquer tela:
+
+- **SELECT segurado por 1s**, ou
+- **SELECT + START segurados por 0,5s** (mais rápido, o atalho padrão do Batocera)
+
+Uma barra de progresso aparece enquanto você segura. Um toque rápido em
+SELECT não sai: no lobby ele desvincula, no jogo abre a pausa.
 
 ---
 
 ## Controles
 
-| Ação | Gamepad | Teclado (P1) |
-|------|---------|--------------|
-| Mover | analógico esquerdo | WASD |
-| Mirar | analógico direito (ou d-pad) | setas |
-| Atirar | automático | automático |
-| Pausar | START ou BACK | Enter ou ESC |
-| Desvincular no lobby | BACK (SELECT) | ESC |
-| Abandonar a partida | BACK na pausa, com confirmação | ESC na pausa |
-| Sair do jogo | SELECT + START (0,5s) | ESC (0,5s) |
-| Teste de input | — | F5 |
+| Ação                 | Gamepad                                      | Teclado (P1)       |
+| -------------------- | -------------------------------------------- | ------------------ |
+| Mover                | analógico esquerdo                           | WASD               |
+| Mirar                | analógico direito (ou d-pad)                 | setas              |
+| Atirar               | automático                                   | automático         |
+| Pausar               | START ou BACK                                | Enter ou ESC       |
+| Desvincular no lobby | BACK (SELECT)                                | ESC                |
+| Abandonar a partida  | BACK na pausa, com confirmação               | ESC na pausa       |
+| Sair do jogo         | segurar SELECT (1s) ou SELECT + START (0,5s) | segurar ESC (0,5s) |
+| Teste de input       | —                                            | F5                 |
 
 O tiro é automático (`AUTO_FIRE_ALWAYS` em `src/config.lua`): com o analógico
 direito neutro a mira segue o movimento; com os dois neutros, mantém a última
 mira válida (no começo da partida, para cima).
+
+Entre uma wave e outra (os 3s de respiro), os timers de **power-up** e de
+**combo** ficam parados: dá para carregar os dois para a wave seguinte.
 
 ### Lobby
 
@@ -90,19 +98,19 @@ vínculo é reconhecido pelo GUID do controle).
 Tudo em **[src/config.lua](src/config.lua)**. Não existe número de balanceamento
 espalhado em outro arquivo.
 
-| O que | Onde |
-|-------|------|
-| Curva de waves (cota, inimigos vivos, cadência, tamanho do lote) | `Config.waveQuota` / `waveMaxAlive` / `waveSpawnInterval` / `waveBatch` |
-| Quando cada tipo de inimigo entra e com que frequência | `Config.ENEMY_MIX` (`from`, `base`, `perWave`, `min`) |
-| HP, velocidade, tamanho e pontos de cada inimigo | `Config.ENEMIES` |
-| Repulsão entre inimigos, knockback, tamanho da célula do grid | `Config.ENEMY_SEPARATION`, `ENEMY_KNOCKBACK`, `GRID_CELL` |
-| Vidas, velocidade, invulnerabilidade, tempo de respawn | `Config.PLAYER` |
-| Cadência, dano, velocidade de bala, spread, míssil, orbes | `Config.WEAPON` |
-| Duração, chance de drop e peso de cada power-up | `Config.POWERUP` e `DEFS` em [src/systems/powerups.lua](src/systems/powerups.lua) |
-| Janela do combo, degrau e teto do multiplicador | `Config.COMBO` |
-| Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
-| Screen shake, hit-stop, partículas de morte | `Config.JUICE` |
-| Tetos de entidades vivas (tamanho dos pools) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
+| O que                                                            | Onde                                                                              |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Curva de waves (cota, inimigos vivos, cadência, tamanho do lote) | `Config.waveQuota` / `waveMaxAlive` / `waveSpawnInterval` / `waveBatch`           |
+| Quando cada tipo de inimigo entra e com que frequência           | `Config.ENEMY_MIX` (`from`, `base`, `perWave`, `min`)                             |
+| HP, velocidade, tamanho e pontos de cada inimigo                 | `Config.ENEMIES`                                                                  |
+| Repulsão entre inimigos, knockback, tamanho da célula do grid    | `Config.ENEMY_SEPARATION`, `ENEMY_KNOCKBACK`, `GRID_CELL`                         |
+| Vidas, velocidade, invulnerabilidade, tempo de respawn           | `Config.PLAYER`                                                                   |
+| Cadência, dano, velocidade de bala, spread, míssil, orbes        | `Config.WEAPON`                                                                   |
+| Duração, chance de drop e peso de cada power-up                  | `Config.POWERUP` e `DEFS` em [src/systems/powerups.lua](src/systems/powerups.lua) |
+| Janela do combo, degrau e teto do multiplicador                  | `Config.COMBO`                                                                    |
+| Telégrafo das portas, respiro entre waves, bônus                 | `Config.WAVE`                                                                     |
+| Screen shake, hit-stop, partículas de morte                      | `Config.JUICE`                                                                    |
+| Tetos de entidades vivas (tamanho dos pools)                     | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS`               |
 
 As fórmulas de wave são funções, não tabela: a curva é infinita. Para deixar o
 jogo mais fácil, o mais direto é reduzir o coeficiente quadrático de
@@ -113,16 +121,16 @@ jogo mais fácil, o mais direto é reduzir o coeficiente quadrático de
 Cada entidade concentra **todo** o seu desenho num único método `:draw()`. Trocar
 retângulo por sprite é uma mudança local, sem tocar em lógica:
 
-| Entidade | Arquivo |
-|----------|---------|
-| Jogador (quadrado, mira, orbes, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` |
-| Inimigos (os 4 tipos, flash de dano, HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
-| Balas e mísseis | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` |
-| Power-up no chão | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup:draw` |
-| Partículas | [src/entities/particle.lua](src/entities/particle.lua) → `Particle:draw` |
-| Portas e telégrafo | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw` |
-| Arena, grade, banners | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
-| HUD | [src/hud.lua](src/hud.lua) |
+| Entidade                                         | Arquivo                                                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| Jogador (quadrado, mira, orbes, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw`       |
+| Inimigos (os 4 tipos, flash de dano, HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw`          |
+| Balas e mísseis                                  | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw`       |
+| Power-up no chão                                 | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup:draw`       |
+| Partículas                                       | [src/entities/particle.lua](src/entities/particle.lua) → `Particle:draw` |
+| Portas e telégrafo                               | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw`      |
+| Arena, grade, banners                            | [src/states/game.lua](src/states/game.lua) → `Game:draw`                 |
+| HUD                                              | [src/hud.lua](src/hud.lua)                                               |
 
 Todas as cores vêm de `Config.COLORS` — trocar a paleta é mexer em um lugar só.
 O jogo já roda com `love.graphics.setDefaultFilter("nearest")`, então sprites
@@ -176,13 +184,13 @@ Decisões que sustentam os 60 FPS em hardware modesto:
 
 Ligue `Config.DEBUG = true` em `src/config.lua` (ou rode com `--debug`):
 
-| Tecla | Efeito |
-|-------|--------|
-| F1 | hitboxes |
-| F2 | pula a wave |
-| F3 | invencibilidade |
-| F4 | dropa um power-up aleatório |
-| F5 | tela de teste de input (funciona sempre, mesmo sem DEBUG) |
+| Tecla | Efeito                                                    |
+| ----- | --------------------------------------------------------- |
+| F1    | hitboxes                                                  |
+| F2    | pula a wave                                               |
+| F3    | invencibilidade                                           |
+| F4    | dropa um power-up aleatório                               |
+| F5    | tela de teste de input (funciona sempre, mesmo sem DEBUG) |
 
 A tela de **teste de input** (F5, ou `love . --inputtest`) mostra todos os
 devices com eixos ao vivo, d-pad, botões, deadzone e o progresso do combo de

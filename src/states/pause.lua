@@ -120,7 +120,7 @@ function Pause:draw()
     love.graphics.printf("PAUSA", 0, H * 0.5 - 24, W, "center")
     love.graphics.setColor(C.textDim)
     love.graphics.printf("START CONTINUA   -   BACK ABANDONA A PARTIDA", 0, H * 0.5 - 2, W, "center")
-    love.graphics.printf("SELECT + START (0.5s) SAI DO JOGO", 0, H * 0.5 + 16, W, "center")
+    love.graphics.printf("SEGURE SELECT PARA SAIR DO JOGO", 0, H * 0.5 + 16, W, "center")
   end
 
   -- Barra do combo de saída também visível aqui.

@@ -24,18 +24,21 @@ local Powerups = {}
 Powerups.DEFS = {
   {
     id = "spread", name = "SPREAD", letter = "S",
+    desc = "3 tiros em leque",
     weapon = true, duration = PU.duration, weight = 20,
     color = { 0.45, 0.85, 1.00, 1 },
     apply = function(m) m.weapon = "spread" end,
   },
   {
     id = "rapid", name = "RAPID FIRE", letter = "R",
+    desc = "cadencia de tiro em dobro",
     weapon = true, duration = PU.duration, weight = 20,
     color = { 1.00, 0.85, 0.30, 1 },
     apply = function(m) m.fireRateMul = m.fireRateMul * 2 end,
   },
   {
     id = "missiles", name = "MISSILES", letter = "M",
+    desc = "misseis teleguiados, dano 3",
     weapon = true, duration = PU.duration, weight = 15,
     color = { 1.00, 0.55, 0.35, 1 },
     apply = function(m)
@@ -45,18 +48,21 @@ Powerups.DEFS = {
   },
   {
     id = "shield", name = "ORBITAL SHIELD", letter = "O",
+    desc = "2 orbes que destroem ao tocar",
     duration = PU.duration, weight = 15,
     color = C.orb,
     apply = function(m) m.orbs = W.orbCount end,
   },
   {
     id = "boots", name = "SPEED BOOTS", letter = "V",
+    desc = "40% mais velocidade",
     duration = PU.duration, weight = 20,
     color = { 0.55, 1.00, 0.55, 1 },
     apply = function(m) m.speedMul = m.speedMul * 1.4 end,
   },
   {
     id = "life", name = "EXTRA LIFE", letter = "+",
+    desc = "+1 vida na hora (max. 5)",
     permanent = true, duration = 1, weight = 6,
     color = { 1.00, 0.45, 0.55, 1 },
     grant = function(p)

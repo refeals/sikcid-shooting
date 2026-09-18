@@ -327,10 +327,14 @@ function Game:update(dt)
     if taken then pickups:release(i) else i = i + 1 end
   end
 
-  Powerups.update(dt, world)
+  -- No respiro entre waves os timers de power-up e combo ficam parados: não
+  -- há inimigos, então correr o relógio só desperdiçaria o power-up e
+  -- tornaria impossível carregar o combo para a próxima wave.
+  local resting = Spawner.isResting()
+  if not resting then Powerups.update(dt, world) end
 
   Combat.update(dt, world)
-  Combo.update(dt, world)
+  Combo.update(dt, world, resting)
 
   -- Screen shake: decai rápido e é aplicado no canvas inteiro.
   if world.shakeMag > 0 then

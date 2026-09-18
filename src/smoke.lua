@@ -121,6 +121,7 @@ function Smoke.reset()
     Input.addJoystick(pad.j)
     Smoke.note("pad", "fake")
   end
+  Smoke.pad = pad   -- exposto para testes pontuais de input
 end
 
 function Smoke.note(key, value)

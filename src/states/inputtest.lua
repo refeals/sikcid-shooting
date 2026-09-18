@@ -152,8 +152,8 @@ function InputTest:draw()
 
   love.graphics.setColor(C.textDim)
   local hint = self.standalone
-    and "F5 VAI PARA O LOBBY   -   ESC/SELECT+START SAI"
-    or  "F5 FECHA   -   ESC/SELECT+START SAI"
+    and "F5 VAI PARA O LOBBY   -   SEGURE ESC/SELECT PARA SAIR"
+    or  "F5 FECHA   -   SEGURE ESC/SELECT PARA SAIR"
   if Input.count > MAX_ROWS then hint = "BACK ROLA A LISTA   -   " .. hint end
   love.graphics.printf(hint, 0, H - 16, W, "center")
   love.graphics.setColor(1, 1, 1, 1)

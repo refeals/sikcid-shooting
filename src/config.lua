@@ -60,7 +60,8 @@ Config.COLORS = {
 -- Input
 -- ---------------------------------------------------------------------------
 Config.DEADZONE = 0.25        -- aplicada ao módulo do vetor, com renormalização
-Config.EXIT_HOLD = 0.5        -- segundos de back+start para sair do jogo
+Config.EXIT_HOLD = 0.5        -- segundos de back+start (ou ESC) para sair do jogo
+Config.EXIT_HOLD_BACK = 1.0   -- segundos de SELECT sozinho no gamepad para sair
 Config.BIND_DEBOUNCE = 0.25   -- ignora o start que acabou de vincular o jogador
 Config.AUTO_FIRE_ALWAYS = true
 

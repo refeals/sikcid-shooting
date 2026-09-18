@@ -179,7 +179,7 @@ function Lobby:draw()
     and "START PARA ENTRAR   -   TECLADO: ENTER"
     or  "START PARA COMECAR   -   BACK PARA SAIR DO SLOT"
   love.graphics.printf(hint, 0, 252, W, "center")
-  love.graphics.printf("SELECT + START (0.5s) SAI DO JOGO", 0, 272, W, "center")
+  love.graphics.printf("SEGURE SELECT PARA SAIR DO JOGO", 0, 272, W, "center")
 
   -- Barra do combo de saída.
   local p = Input.exitProgress()
