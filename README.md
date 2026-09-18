@@ -152,8 +152,9 @@ O tiro é automático (`AUTO_FIRE_ALWAYS` em `src/config.lua`): com o analógico
 direito neutro a mira segue o movimento; com os dois neutros, mantém a última
 mira válida (no começo da partida, para cima).
 
-Entre uma wave e outra (os 3s de respiro), os timers de **power-up** e de
-**combo** ficam parados: dá para carregar os dois para a wave seguinte.
+Entre uma wave e outra (os 3s de respiro), os timers de **power-up** — os
+ativos e os caídos no chão — e de **combo** ficam parados: nada some durante
+a pausa, e dá para carregar tudo para a wave seguinte.
 
 ### Lobby
 

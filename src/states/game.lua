@@ -311,13 +311,18 @@ function Game:update(dt)
   end
   Profiler.stop("particles")
 
+  -- No respiro entre waves, todos os relógios de recompensa ficam parados:
+  -- power-ups ativos, power-ups no chão e combo. Não há inimigos, então
+  -- correr o relógio só desperdiçaria o que o jogador conquistou.
+  local resting = Spawner.isResting()
+
   -- Pickups: expiram sozinhos e são coletados por contato (poucos vivos,
   -- então o teste direto contra os jogadores é mais barato que usar o grid).
   i = 1
   while i <= pickups.count do
     local pk = pickups.items[i]
     local taken = false
-    if pk:update(dt) then
+    if pk:update(dt, resting) then
       local r = Config.POWERUP.pickupRadius + Config.PLAYER.radius
       for pi = 1, world.playerCount do
         local p = world.players[pi]
@@ -335,10 +340,6 @@ function Game:update(dt)
     if taken then pickups:release(i) else i = i + 1 end
   end
 
-  -- No respiro entre waves os timers de power-up e combo ficam parados: não
-  -- há inimigos, então correr o relógio só desperdiçaria o power-up e
-  -- tornaria impossível carregar o combo para a próxima wave.
-  local resting = Spawner.isResting()
   if not resting then Powerups.update(dt, world) end
 
   Profiler.start("collision")

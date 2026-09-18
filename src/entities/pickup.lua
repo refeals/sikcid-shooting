@@ -25,9 +25,10 @@ function Pickup:reset(x, y, def)
   self.dead = false
 end
 
--- Devolve false quando expira (o pool recolhe).
-function Pickup:update(dt)
-  self.life = self.life - dt
+-- Devolve false quando expira (o pool recolhe). `frozen` = respiro entre
+-- waves: o pickup continua flutuando, mas o tempo de vida não corre.
+function Pickup:update(dt, frozen)
+  if not frozen then self.life = self.life - dt end
   self.bob = self.bob + dt * 4
   return self.life > 0 and not self.dead
 end
