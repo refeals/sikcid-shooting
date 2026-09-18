@@ -243,9 +243,9 @@ function Game:enter(devices, count)
     world.players[i] = p
   end
 
-  if Config.SMOKE then
-    require("src.smoke").note("state", "game/" .. world.playerCount .. "p")
-  end
+  -- A arena já está montada; o briefing fica por cima (tudo congelado) até
+  -- alguém apertar START.
+  State.push(require("src.states.briefing"), world)
 end
 
 local function allPlayersOut()

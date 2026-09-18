@@ -32,24 +32,27 @@ function Pickup:update(dt)
   return self.life > 0 and not self.dead
 end
 
--- Todo o desenho do pickup mora aqui.
+-- Ícone do power-up centrado em (x, y). Usado pelo pickup no chão e pela
+-- tela de briefing, para os dois mostrarem exatamente a mesma coisa.
+-- Trocar por sprite: só aqui.
+function Pickup.drawIcon(def, x, y, s)
+  local h = s * 0.5
+  love.graphics.setColor(def.color)
+  love.graphics.rectangle("fill", x - h, y - h, s, s)
+  love.graphics.setColor(0, 0, 0, 0.55)
+  love.graphics.rectangle("fill", x - h + 2, y - h + 2, s - 4, s - 4)
+
+  -- Letra identificando o power-up (placeholder do futuro sprite).
+  love.graphics.setColor(def.color)
+  love.graphics.printf(def.letter, x - 20, y - 7, 40, "center")
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 function Pickup:draw()
   -- Pisca nos últimos segundos avisando que vai sumir.
   if self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0 then return end
-
-  local s = PU.pickupSize
-  local h = s * 0.5
-  local y = self.y + math.sin(self.bob) * 2   -- flutua de leve
-
-  love.graphics.setColor(self.def.color)
-  love.graphics.rectangle("fill", self.x - h, y - h, s, s)
-  love.graphics.setColor(0, 0, 0, 0.55)
-  love.graphics.rectangle("fill", self.x - h + 2, y - h + 2, s - 4, s - 4)
-
-  -- Letra identificando o power-up (placeholder do futuro sprite).
-  love.graphics.setColor(self.def.color)
-  love.graphics.printf(self.def.letter, self.x - 20, y - 7, 40, "center")
-  love.graphics.setColor(1, 1, 1, 1)
+  -- Flutua de leve.
+  Pickup.drawIcon(self.def, self.x, self.y + math.sin(self.bob) * 2, PU.pickupSize)
 end
 
 return Pickup

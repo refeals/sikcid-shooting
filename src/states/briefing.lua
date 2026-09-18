@@ -1,0 +1,122 @@
+-- Briefing antes da partida: janela sobre a arena (já montada e congelada)
+-- apresentando os power-ups. A partida só começa quando um dos jogadores
+-- aperta START de novo — assim a transição do lobby para o jogo não joga
+-- ninguém direto no meio da ação.
+--
+-- A lista vem de Powerups.DEFS: power-up novo aparece aqui sozinho.
+
+local Config   = require("src.config")
+local Input    = require("src.input")
+local State    = require("src.state")
+local Audio    = require("src.audio")
+local Powerups = require("src.systems.powerups")
+local Pickup   = require("src.entities.pickup")
+
+local Briefing = {}
+
+local ACCEPT_DELAY = 0.3   -- ignora o START que saiu do lobby
+local ICON = 16
+local ROW_H = 22
+
+-- Letras das armas e dos acumuláveis, montadas uma vez a partir dos dados.
+local function lettersWhere(pred)
+  local out = {}
+  for i = 1, #Powerups.DEFS do
+    local d = Powerups.DEFS[i]
+    if pred(d) then out[#out + 1] = d.letter end
+  end
+  return table.concat(out, " ")
+end
+
+local WEAPON_LETTERS = lettersWhere(function(d) return d.weapon end)
+local STACK_LETTERS  = lettersWhere(function(d) return not d.weapon and not d.permanent end)
+
+function Briefing:enter(world)
+  self.world = world
+  self.timer = 0
+  if Config.SMOKE then require("src.smoke").note("state", "briefing") end
+end
+
+function Briefing:leave()
+  if Config.SMOKE then
+    require("src.smoke").note("state", "game/" .. self.world.playerCount .. "p")
+  end
+end
+
+function Briefing:update(dt)
+  self.timer = self.timer + dt
+  if self.timer < ACCEPT_DELAY then return end
+
+  local world = self.world
+  for i = 1, world.playerCount do
+    local d = world.players[i].device
+    if d and d.connected then
+      if d:pressed("start") then
+        Audio.play("menu_confirm")
+        State.pop()
+        return
+      elseif d:pressed("back") and not d:isDown("start") then
+        -- A partida ainda não começou: voltar é só desistir do menu.
+        Audio.play("menu_cancel")
+        State.reset(require("src.states.lobby"))
+        return
+      end
+    end
+  end
+end
+
+function Briefing:draw()
+  local W, H = Config.VIRTUAL_W, Config.VIRTUAL_H
+  local C = Config.COLORS
+  local defs = Powerups.DEFS
+
+  love.graphics.setColor(0, 0, 0, 0.72)
+  love.graphics.rectangle("fill", 0, 0, W, H)
+
+  -- Painel.
+  local pw = 440
+  -- 48px de cabeçalho + linhas + 24px da regra de acúmulo.
+  local ph = 72 + #defs * ROW_H
+  local px = math.floor((W - pw) * 0.5)
+  local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5)
+  love.graphics.setColor(C.hudBg)
+  love.graphics.rectangle("fill", px, py, pw, ph)
+  love.graphics.setColor(C.hudLine)
+  love.graphics.rectangle("line", px + 0.5, py + 0.5, pw - 1, ph - 1)
+
+  love.graphics.setColor(C.text)
+  love.graphics.printf("POWER-UPS", px, py + 8, pw, "center")
+  love.graphics.setColor(C.textDim)
+  love.graphics.printf(string.format("passe por cima para pegar  -  duram %ds",
+    Config.POWERUP.duration), px, py + 24, pw, "center")
+
+  -- Uma linha por power-up: ícone, nome, descrição.
+  local y = py + 48
+  for i = 1, #defs do
+    local d = defs[i]
+    local cy = y + ICON * 0.5
+    Pickup.drawIcon(d, px + 30, cy, ICON)
+    love.graphics.setColor(d.color)
+    love.graphics.print(d.name, px + 48, cy - 7)
+    love.graphics.setColor(C.textDim)
+    love.graphics.print(d.desc or "", px + 184, cy - 7)
+    y = y + ROW_H
+  end
+
+  -- Regra de acúmulo.
+  love.graphics.setColor(C.textDim)
+  love.graphics.printf(string.format("%s sao armas: pegar uma troca a outra.   %s acumulam.",
+    WEAPON_LETTERS, STACK_LETTERS), px, y + 4, pw, "center")
+
+  -- Convite para começar, pulsando para chamar atenção.
+  local ready = self.timer >= ACCEPT_DELAY
+  local a = ready and (0.6 + 0.4 * math.sin(self.timer * 5)) or 0.3
+  love.graphics.setColor(C.textWarn[1], C.textWarn[2], C.textWarn[3], a)
+  love.graphics.printf("START COMECA A PARTIDA", 0, py + ph + 10, W, "center")
+  love.graphics.setColor(C.textDim)
+  love.graphics.printf("BACK VOLTA PARA A SELECAO", 0, py + ph + 26, W, "center")
+
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+return Briefing

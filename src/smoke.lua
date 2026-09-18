@@ -28,11 +28,14 @@ local EVENTS = {
   { 0.50, 1, "start", false },
   { 0.80, 2, "fire",  true  },   -- qualquer botão do device 2 vincula o Jogador 2
   { 0.90, 2, "fire",  false },
-  { 1.20, 1, "start", true  },   -- inicia a partida (debounce já passou)
+  { 1.20, 1, "start", true  },   -- sai do lobby (debounce já passou)
   { 1.30, 1, "start", false },
-  -- Abre e fecha a tela de teste de input (F5), exercitando push/pop da pilha.
-  { 1.60, 0, "fn", function() love.keypressed("f5", "f5", false) end },
-  { 1.80, 0, "fn", function() love.keypressed("f5", "f5", false) end },
+  -- Abre e fecha a tela de teste de input (F5) por cima do briefing,
+  -- exercitando push/pop da pilha com três estados empilhados.
+  { 1.40, 0, "fn", function() love.keypressed("f5", "f5", false) end },
+  { 1.55, 0, "fn", function() love.keypressed("f5", "f5", false) end },
+  { 1.70, 1, "start", true  },   -- fecha o briefing: a partida começa
+  { 1.80, 1, "start", false },
   -- Pausa e retoma (START no jogo).
   { 4.00, 1, "start", true  },
   { 4.10, 1, "start", false },
