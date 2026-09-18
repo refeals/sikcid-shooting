@@ -225,6 +225,21 @@ function Input.load()
 end
 
 function Input.addJoystick(joystick)
+  -- Já conhecido? O LÖVE dispara joystickadded também para os controles que
+  -- já estavam ligados no boot, ou seja, para os mesmos que Input.load
+  -- enumerou. Sem esta checagem, UM controle vira DOIS devices e o lobby
+  -- deixa o mesmo controle virar P1 e P2.
+  for i = 1, Input.count do
+    local d = Input.devices[i]
+    if d.kind == "gamepad" and d.joystick == joystick then
+      d.connected = true
+      return d
+    end
+  end
+  for i = 1, Input.unmappedCount do
+    if Input.unmapped[i].joystick == joystick then return nil end
+  end
+
   if not joystick:isGamepad() then
     local name = joystick:getName() or "?"
     print(string.format("[input] joystick sem mapeamento gamepad: %s (guid %s)",

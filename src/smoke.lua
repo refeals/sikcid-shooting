@@ -18,6 +18,12 @@ local pad = nil
 -- Timeline: {tempo, device, ação, valor} para botões, ou {tempo, 0, "fn", fn}.
 -- Um pulso de botão = press + release. O device 2 só existe com --smoke2p.
 local EVENTS = {
+  -- Regressão: o LÖVE reanuncia os controles já ligados no boot. Adicionar o
+  -- MESMO joystick de novo não pode criar um segundo device (senão o mesmo
+  -- controle vira P1 e P2 no lobby).
+  { 0.20, 0, "fn", function()
+      if pad then love.joystickadded(pad.j); love.joystickadded(pad.j) end
+    end },
   { 0.40, 1, "start", true  },   -- vincula o Jogador 1
   { 0.50, 1, "start", false },
   { 0.80, 2, "fire",  true  },   -- qualquer botão do device 2 vincula o Jogador 2
@@ -40,7 +46,21 @@ local EVENTS = {
   { 7.50, 0, "fn", function()
       if pad then love.joystickadded(pad.j) end
     end },
+  -- BACK durante o jogo abre a pausa; BACK de novo pede confirmação de
+  -- abandono; START cancela a confirmação; START retoma a partida.
+  { 8.00, 1, "back",  true  },
+  { 8.10, 1, "back",  false },
+  { 8.50, 1, "back",  true  },
+  { 8.60, 1, "back",  false },
+  { 9.00, 1, "start", true  },
+  { 9.10, 1, "start", false },
+  { 9.50, 1, "start", true  },
+  { 9.60, 1, "start", false },
 }
+
+-- O consumo do roteiro é sequencial, então a lista tem que estar em ordem de
+-- tempo (evita que um evento novo fora de lugar engula os seguintes).
+table.sort(EVENTS, function(a, b) return a[1] < b[1] end)
 
 -- ---------------------------------------------------------------------------
 -- Gamepad falso (--fakepad): implementa a Gamepad API do LÖVE com um stub,
@@ -117,10 +137,11 @@ end
 
 local function finish(code)
   local s = Smoke.stats
+  s.devices = Input.count
   print(string.format(
-    "[smoke] t=%.1fs estado=%s fpsMin=%d waves=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
+    "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
     "combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d",
-    Smoke.t, tostring(s.state or "?"), Smoke.fpsMin,
+    Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
     s.waves or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0))

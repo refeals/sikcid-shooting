@@ -263,15 +263,12 @@ function Game:update(dt)
       State.push(require("src.states.pause"), world, "waiting", i)
       return
     end
-    if d and d.connected then
-      -- START pausa; BACK (sem START) abandona a partida.
-      if d:pressed("start") then
-        State.push(require("src.states.pause"), world, "paused")
-        return
-      elseif d:pressed("back") and not d:isDown("start") then
-        State.switch(require("src.states.lobby"))
-        return
-      end
+    -- START e BACK abrem a pausa. Sair da partida só pelo menu de pausa
+    -- (com confirmação): um toque em SELECT não pode jogar o jogador fora.
+    if d and d.connected and (d:pressed("start") or
+      (d:pressed("back") and not d:isDown("start"))) then
+      State.push(require("src.states.pause"), world, "paused")
+      return
     end
   end
 

@@ -21,6 +21,7 @@ function Pause:enter(world, mode, playerIndex)
   self.mode = mode or "paused"
   self.playerIndex = playerIndex
   self.timer = 0
+  self.confirmQuit = false   -- BACK pede confirmação antes de abandonar
   Audio.play("menu_confirm")
   if Config.SMOKE then
     require("src.smoke").bump(self.mode == "waiting" and "waits" or "pauses")
@@ -69,12 +70,23 @@ function Pause:update(dt)
     local d = world.players[i].device
     if d and d.connected then
       if d:pressed("start") then
-        Audio.play("menu_confirm")
-        State.pop()
+        if self.confirmQuit then
+          -- START cancela o pedido de abandono antes de retomar.
+          self.confirmQuit = false
+          Audio.play("menu_cancel")
+        else
+          Audio.play("menu_confirm")
+          State.pop()
+        end
         return
       elseif d:pressed("back") and not d:isDown("start") then
-        Audio.play("menu_cancel")
-        State.reset(require("src.states.lobby"))
+        if self.confirmQuit then
+          Audio.play("menu_confirm")
+          State.reset(require("src.states.lobby"))
+        else
+          self.confirmQuit = true
+          Audio.play("menu_move")
+        end
         return
       end
     end
@@ -96,11 +108,18 @@ function Pause:draw()
     love.graphics.setColor(C.textDim)
     love.graphics.printf("RECONECTE O CONTROLE PARA CONTINUAR", 0, H * 0.5 - 4, W, "center")
     love.graphics.printf("BACK ABANDONA A PARTIDA", 0, H * 0.5 + 14, W, "center")
+  elseif self.confirmQuit then
+    love.graphics.setColor(C.doorWarn)
+    love.graphics.printf("ABANDONAR A PARTIDA?", 0, H * 0.5 - 24, W, "center")
+    love.graphics.setColor(C.text)
+    love.graphics.printf("BACK CONFIRMA   -   START CONTINUA JOGANDO", 0, H * 0.5 - 2, W, "center")
+    love.graphics.setColor(C.textDim)
+    love.graphics.printf("o progresso desta partida e perdido", 0, H * 0.5 + 16, W, "center")
   else
     love.graphics.setColor(C.text)
     love.graphics.printf("PAUSA", 0, H * 0.5 - 24, W, "center")
     love.graphics.setColor(C.textDim)
-    love.graphics.printf("START CONTINUA   -   BACK VOLTA AO LOBBY", 0, H * 0.5 - 2, W, "center")
+    love.graphics.printf("START CONTINUA   -   BACK ABANDONA A PARTIDA", 0, H * 0.5 - 2, W, "center")
     love.graphics.printf("SELECT + START (0.5s) SAI DO JOGO", 0, H * 0.5 + 16, W, "center")
   end
 

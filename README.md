@@ -61,8 +61,9 @@ discreto com barra de progresso aparece enquanto você segura.
 | Mover | analógico esquerdo | WASD |
 | Mirar | analógico direito (ou d-pad) | setas |
 | Atirar | automático | automático |
-| Pausar | START | Enter |
-| Voltar / desvincular | BACK (SELECT) | ESC |
+| Pausar | START ou BACK | Enter ou ESC |
+| Desvincular no lobby | BACK (SELECT) | ESC |
+| Abandonar a partida | BACK na pausa, com confirmação | ESC na pausa |
 | Sair do jogo | SELECT + START (0,5s) | ESC (0,5s) |
 | Teste de input | — | F5 |
 
