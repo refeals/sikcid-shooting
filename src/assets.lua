@@ -80,6 +80,9 @@ local function alphaBleed(data)
 end
 
 local function newSmoothImage(data, mipmaps)
+  -- WebGL 1 (the browser build) can't mipmap non-power-of-two textures, and
+  -- the cut sprites are any size: there they go without mipmaps.
+  if mipmaps and not love.graphics.getSupported().fullnpot then mipmaps = false end
   local img = love.graphics.newImage(data, { mipmaps = mipmaps })
   img:setFilter("linear", "linear")
   if mipmaps then img:setMipmapFilter("linear") end

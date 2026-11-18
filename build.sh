@@ -11,6 +11,17 @@
 #       ./build.sh --run            gera e abre o .love no LÖVE local para testar
 #       ./build.sh --deploy [host]  gera e copia para o Batocera (padrão:
 #                                   root@batocera.local, ou $BATOCERA_HOST)
+#
+# Com --web gera a versão de navegador (love.js) para o itch.io, no lugar do
+# port Batocera:
+#
+#   dist/
+#     web/                   <- página jogável (index.html, love.js, game.data...)
+#     SikCidShootin-web.zip  <- o mesmo, zipado para upload no itch.io
+#
+#       ./build.sh --web            gera dist/web/ e o zip
+#       ./build.sh --web --run      gera e serve em http://localhost:8000/
+#       ./build.sh --web --compat   versão sem threads (sem SharedArrayBuffer)
 set -e
 cd "$(dirname "$(readlink -f "$0")")"
 
@@ -25,15 +36,22 @@ Uso:  ./build.sh                  gera o dist/
       ./build.sh --run            gera e abre o .love no LOVE local para testar
       ./build.sh --deploy [host]  gera e copia para o Batocera
                                   (padrao: root@batocera.local, ou $BATOCERA_HOST)
+      ./build.sh --web            gera a versao web (dist/web/ + zip p/ itch.io)
+      ./build.sh --web --run      gera e serve em http://localhost:8000/
+      ./build.sh --web --compat   versao web sem threads (sem SharedArrayBuffer)
 EOF
 }
 
 RUN=0
 DEPLOY=0
+WEB=0
+COMPAT=0
 HOST="${BATOCERA_HOST:-root@batocera.local}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --run) RUN=1 ;;
+    --web) WEB=1 ;;
+    --compat) COMPAT=1 ;;
     --deploy)
       DEPLOY=1
       # Host opcional logo depois (qualquer coisa que não seja outra opção).
@@ -44,6 +62,13 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$WEB" = 1 ] && [ "$DEPLOY" = 1 ]; then
+  echo "--web e --deploy nao combinam: o deploy e so para o Batocera."; exit 1
+fi
+if [ "$COMPAT" = 1 ] && [ "$WEB" = 0 ]; then
+  echo "--compat so vale junto com --web."; exit 1
+fi
 
 # 1. .love -------------------------------------------------------------------
 # Lista do que ENTRA (não do que sai): pasta nova de desenvolvimento nunca vaza
@@ -58,6 +83,69 @@ mkdir -p "${DATA_DIR}"
 rm -f "${LOVE_FILE}"
 zip -9 -q -r "${LOVE_FILE}" main.lua conf.lua src assets \
   -x '*/.gitkeep' '*sample*.png' '*/desktop.ini' 'assets/sfx/Audio/*'
+
+# 1b. Web (--web) ---------------------------------------------------------------
+# O mesmo .love vira página web com o love.js (LÖVE 11.4 em WebAssembly). Os
+# passos do Batocera (launcher, aviso do AppImage, deploy) não rodam.
+#
+# Versão do love.js pinada: o patch do Module.FS abaixo depende do love.js
+# exato que ela gera. O modo normal usa threads (SharedArrayBuffer) e precisa
+# dos headers COOP/COEP: no itch.io é o checkbox "SharedArrayBuffer support";
+# localmente, tools/serve_web.py. --compat roda sem eles, com áudio pior.
+if [ "$WEB" = 1 ]; then
+  WEB_DIR="dist/web"
+  WEB_ZIP="dist/${NAME}-web.zip"
+  WEB_MEMORY=67108864   # heap inicial (64 MB); cresce sozinho até 2 GB
+  LOVEJS="love.js@11.4.1"
+
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "ERRO: npx nao encontrado. Instale o Node.js (o npx vem junto)."
+    exit 1
+  fi
+
+  rm -rf "${WEB_DIR}"
+  LOVEJS_ARGS=(-t "SikCid Shootin'" -m "${WEB_MEMORY}")
+  if [ "$COMPAT" = 1 ]; then LOVEJS_ARGS+=(-c); fi
+  npx --yes "${LOVEJS}" "${LOVEJS_ARGS[@]}" "${LOVE_FILE}" "${WEB_DIR}"
+
+  # O love.js só grava o save no IndexedDB no beforeunload, que o navegador
+  # costuma cortar ao fechar a aba. Expor o FS do Emscripten como Module.FS
+  # deixa o index.html gravar a cada poucos segundos. Sem o patch o save web
+  # some, então o build falha em vez de seguir.
+  sed -i 's/Module\["FS_unlink"\]=FS\.unlink/&;Module["FS"]=FS/' "${WEB_DIR}/love.js"
+  if ! grep -q 'Module\["FS"\]=FS' "${WEB_DIR}/love.js"; then
+    echo "ERRO: o patch do Module.FS nao aplicou em ${WEB_DIR}/love.js."
+    echo "      A versao do love.js mudou? O save da versao web depende dele."
+    exit 1
+  fi
+
+  # Página própria (web/index.html) no lugar da gerada; o tema dela sai junto.
+  sed "s/@MEMORY@/${WEB_MEMORY}/" web/index.html > "${WEB_DIR}/index.html"
+  rm -rf "${WEB_DIR}/theme"
+
+  # O itch.io quer o index.html na raiz do zip.
+  rm -f "${WEB_ZIP}"
+  (cd "${WEB_DIR}" && zip -9 -q -r "../$(basename "${WEB_ZIP}")" .)
+
+  echo "Build web pronto:"
+  echo "  ${WEB_DIR}/"
+  echo "  ${WEB_ZIP}  ($(du -h "${WEB_ZIP}" | cut -f1))"
+  if [ "$COMPAT" = 1 ]; then
+    echo "  modo compat: sem threads, roda sem SharedArrayBuffer (audio pior)"
+  else
+    echo
+    echo "No itch.io, ligue 'SharedArrayBuffer support' nas opcoes de embed"
+    echo "(checklist completo no README, \"Build web (itch.io)\")."
+  fi
+
+  if [ "$RUN" = 1 ]; then
+    echo
+    echo "Smoke de desempenho (FPS no canto, wave 10, 2 bots invenciveis):"
+    echo "  http://localhost:8000/?--smoke&60&--smoke2p&--smokegod&--wave&10&--debug"
+    python3 tools/serve_web.py "${WEB_DIR}" 8000
+  fi
+  exit 0
+fi
 
 # 2. Launcher ------------------------------------------------------------------
 # Só o .love e o .sh são substituídos: o dist/ NÃO é apagado, senão o love/

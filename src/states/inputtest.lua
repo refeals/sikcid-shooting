@@ -150,9 +150,9 @@ function InputTest:draw()
   end
 
   love.graphics.setColor(C.textDim)
-  local hint = self.standalone
-    and "F5 VAI PARA O LOBBY   -   SEGURE ESC/SELECT PARA SAIR"
-    or  "F5 FECHA   -   SEGURE ESC/SELECT PARA SAIR"
+  local hint = self.standalone and "F5 VAI PARA O LOBBY" or "F5 FECHA"
+  -- The browser build has no quit (see Input).
+  if not Config.WEB then hint = hint .. "   -   SEGURE ESC/SELECT PARA SAIR" end
   if Input.count > MAX_ROWS then hint = "BACK ROLA A LISTA   -   " .. hint end
   love.graphics.printf(hint, 0, H - 16, W, "center")
   love.graphics.setColor(1, 1, 1, 1)

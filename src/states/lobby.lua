@@ -275,8 +275,10 @@ function Lobby:draw()
   if bound then
     UI.text("body", "D-PAD TROCA A COR   -   Y SORTEIA", 0, 284, C.text, W, "center")
   end
-  UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 298, C.textDim, W, "center")
-  UI.exitBar(W * 0.5, 314)
+  if not Config.WEB then   -- the browser build has no quit (see Input)
+    UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 298, C.textDim, W, "center")
+    UI.exitBar(W * 0.5, 314)
+  end
 
   if Config.DEBUG then
     UI.text("body", string.format("FPS %d  devices %d", love.timer.getFPS(), Input.count), 4, H - 12, C.textDim)

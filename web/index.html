@@ -1,0 +1,144 @@
+<!doctype html>
+<!--
+  Page for the love.js build (./build.sh --web). Replaces the index.html that
+  love.js generates: no title bar or footer, black page, canvas scaled to fit
+  (itch.io viewport and its fullscreen button). @MEMORY@ is filled by build.sh.
+-->
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+    <title>SikCid Shootin'</title>
+    <link rel="icon" href="data:,">
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      /* The canvas buffer stays 1280x720; CSS letterboxes it to the viewport.
+         !important because Emscripten/SDL may write an inline size. */
+      #canvas {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(100vw, calc(100vh * 16 / 9)) !important;
+        height: min(100vh, calc(100vw * 9 / 16)) !important;
+        display: block;
+        visibility: hidden;
+        outline: none;
+      }
+      #status {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        color: #8a93a6;
+        font: 16px/1.4 system-ui, sans-serif;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="status">Carregando...</div>
+
+    <script>
+      var statusEl = document.getElementById('status');
+      var canvasEl = document.getElementById('canvas');
+
+      function showStatus(text) {
+        statusEl.textContent = text;
+        statusEl.style.display = 'flex';
+      }
+
+      window.onload = function () { window.focus(); };
+      window.onclick = function () { window.focus(); };
+
+      // Space and arrow keys must not scroll the page (or the itch.io page around the iframe).
+      window.addEventListener('keydown', function (e) {
+        if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) e.preventDefault();
+      }, false);
+
+      canvasEl.addEventListener('webglcontextlost', function (e) {
+        e.preventDefault();
+        canvasEl.style.visibility = 'hidden';
+        showStatus('O contexto WebGL foi perdido. Recarregue a página.');
+      }, false);
+
+      // Query string -> game arguments, for local testing:
+      //   http://localhost:8000/?--debug&--wave&10
+      var gameArgs = location.search.slice(1).split('&').filter(Boolean).map(function (s) {
+        return decodeURIComponent(s.replace(/\+/g, ' '));
+      });
+
+      // Saves: love.js keeps love.filesystem in memory (MEMFS over IDBFS) and
+      // only writes to IndexedDB on beforeunload, which browsers often cut
+      // short. Push to IndexedDB every few seconds and when the tab is hidden.
+      // Module.FS is exposed by a patch build.sh applies to love.js.
+      // Never sync while run dependencies are pending: the first sync loads
+      // IndexedDB into memory, and pushing before it ends would wipe the saves.
+      var saveSyncing = false;
+      function syncSaves() {
+        if (saveSyncing || !Module.FS || Module.remainingDependencies > 0) return;
+        saveSyncing = true;
+        Module.FS.syncfs(false, function (err) {
+          saveSyncing = false;
+          if (err) console.error('[save sync]', err);
+        });
+      }
+
+      var Module = {
+        arguments: ['./game.love'].concat(gameArgs),
+        INITIAL_MEMORY: @MEMORY@,
+        printErr: console.error.bind(console),
+        canvas: canvasEl,
+        setStatus: function (text) {
+          if (text) {
+            showStatus(text);
+          } else if (Module.remainingDependencies === 0) {
+            statusEl.style.display = 'none';
+            canvasEl.style.visibility = 'visible';
+          }
+        },
+        totalDependencies: 0,
+        remainingDependencies: 0,
+        monitorRunDependencies: function (left) {
+          this.remainingDependencies = left;
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left
+            ? 'Preparando... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')'
+            : '');
+        },
+        onRuntimeInitialized: function () {
+          setInterval(syncSaves, 3000);
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') syncSaves();
+          });
+        }
+      };
+      Module.setStatus('Baixando...');
+
+      // Only a failure while loading takes over the page. Once the game runs,
+      // Lua errors show on LÖVE's own error screen, and Emscripten can throw
+      // harmless exceptions (main loop unwind, exit) that must not hide it.
+      window.onerror = function () {
+        if (canvasEl.style.visibility === 'visible') return;
+        showStatus('Erro ao carregar o jogo. Detalhes no console do navegador (F12).');
+        Module.setStatus = function (text) {
+          if (text) console.error('[post-exception status] ' + text);
+        };
+      };
+
+      function applicationLoad() {
+        Love(Module);
+      }
+    </script>
+    <script src="game.js"></script>
+    <script async src="love.js" onload="applicationLoad()"></script>
+  </body>
+</html>

@@ -9,6 +9,7 @@ local Config = {}
 -- ---------------------------------------------------------------------------
 Config.DEBUG = false          -- F1..F4 e overlay de FPS/entidades
 Config.SMOKE = false          -- ligado por --smoke (teste automatizado)
+Config.WEB = love.system.getOS() == "Web"   -- browser build (love.js, itch.io)
 
 Config.VIRTUAL_W = 640
 Config.VIRTUAL_H = 360

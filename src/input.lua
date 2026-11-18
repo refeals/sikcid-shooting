@@ -147,7 +147,9 @@ function Device:poll(dt)
   elseif down.back then
     hold = self.kind == "keyboard" and Config.EXIT_HOLD or Config.EXIT_HOLD_BACK
   end
-  if hold then
+  -- No quit combo in the browser: love.event.quit freezes the canvas, and ESC
+  -- (also the pause key) would kill the game for good.
+  if hold and not Config.WEB then
     self.exitTimer = self.exitTimer + dt / hold
   else
     self.exitTimer = 0
