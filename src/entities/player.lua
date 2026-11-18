@@ -66,6 +66,7 @@ function Player.new(index, device)
     invuln = 0,
     respawnTimer = 0,
     fireCooldown = 0,
+    target = nil,             -- enemy locked by the auto-aim
     orbAngle = 0,
     muzzle = 0,               -- clarão curto do cano ao atirar
     spawnFx = 0,              -- anel de respawn
@@ -93,6 +94,7 @@ function Player:spawn(x, y)
   self.invuln = P.invulnTime
   self.respawnTimer = 0
   self.fireCooldown = 0
+  self.target = nil
   self.aimX, self.aimY = 0, -1
   self.angle = UP
   self.muzzle = 0
@@ -103,33 +105,65 @@ function Player:spawn(x, y)
 end
 
 -- ---------------------------------------------------------------------------
--- Mira: analógico direito > d-pad > direção do movimento > última mira válida.
--- Devolve também se o jogador está "mirando de propósito" (para AUTO_FIRE
--- desligado).
+-- Auto-aim target: keeps the locked enemy while it lives and stays in range,
+-- unless another one is clearly closer (switchRatio), so the aim does not
+-- flicker between two enemies at about the same distance.
 -- ---------------------------------------------------------------------------
-function Player:updateAim(moveX, moveY)
+function Player:autoTarget(world)
+  local A = Config.AUTO_AIM
+  if not A.enabled then
+    self.target = nil
+    return nil
+  end
+  local r2 = A.radius * A.radius
+
+  local t, td2 = self.target, nil
+  if t then
+    td2 = Util.dist2(self.x, self.y, t.x, t.y)
+    if t.dead or td2 > r2 then t, td2 = nil, nil end
+  end
+
+  local best = world:nearestEnemy(self.x, self.y, A.radius)
+  if not t then
+    t = best
+  elseif best and best ~= t then
+    local ratio2 = A.switchRatio * A.switchRatio
+    if Util.dist2(self.x, self.y, best.x, best.y) < td2 * ratio2 then t = best end
+  end
+
+  self.target = t
+  return t
+end
+
+-- ---------------------------------------------------------------------------
+-- Aim: right stick > d-pad > auto-aim target > movement direction > last aim.
+-- Returns whether the ship should fire: only with manual aim or a target.
+-- ---------------------------------------------------------------------------
+function Player:updateAim(moveX, moveY, world)
   local d = self.device
-  local aiming = false
 
   local ax, ay = d:aimVector()
+  if ax == 0 and ay == 0 then ax, ay = d:dpadVector() end
   if ax ~= 0 or ay ~= 0 then
-    aiming = true
-  else
-    ax, ay = d:dpadVector()
-    if ax ~= 0 or ay ~= 0 then aiming = true end
+    -- Manual aim wins; drop the lock so releasing the stick picks afresh.
+    self.target = nil
+    self.aimX, self.aimY = Util.normalize(ax, ay)
+    return true
   end
 
-  if aiming then
-    local nx, ny = Util.normalize(ax, ay)
-    self.aimX, self.aimY = nx, ny
-  elseif moveX ~= 0 or moveY ~= 0 then
-    -- Sem mira explícita: segue o movimento, mas não vira "última mira".
-    local nx, ny = Util.normalize(moveX, moveY)
-    self.aimX, self.aimY = nx, ny
+  local t = self:autoTarget(world)
+  if t then
+    local nx, ny, len = Util.normalize(t.x - self.x, t.y - self.y)
+    if len > 0 then self.aimX, self.aimY = nx, ny end
+    return true
   end
-  -- Caso contrário mantém self.aimX/aimY (última mira válida).
 
-  return aiming
+  -- No manual aim and no target: hold fire, face the movement direction
+  -- (or keep the last aim while standing still).
+  if moveX ~= 0 or moveY ~= 0 then
+    self.aimX, self.aimY = Util.normalize(moveX, moveY)
+  end
+  return false
 end
 
 function Player:update(dt, world)
@@ -167,7 +201,7 @@ function Player:update(dt, world)
   if self.y < a.y + r then self.y, self.vy = a.y + r, 0 end
   if self.y > a.y + a.h - r then self.y, self.vy = a.y + a.h - r, 0 end
 
-  local aiming = self:updateAim(moveX, moveY)
+  local wantsFire = self:updateAim(moveX, moveY, world)
   -- Purely visual: the ship turns quickly but not instantly toward the aim.
   self.angle = Util.angleLerp(self.angle, math.atan2(self.aimY, self.aimX),
     math.min(1, P.turnRate * dt))
@@ -175,7 +209,6 @@ function Player:update(dt, world)
 
   -- Tiro automático.
   if self.fireCooldown > 0 then self.fireCooldown = self.fireCooldown - dt end
-  local wantsFire = Config.AUTO_FIRE_ALWAYS or aiming
   if wantsFire and self.fireCooldown <= 0 then
     local fn = WEAPONS[self.mods.weapon] or WEAPONS.single
     fn(self, world)

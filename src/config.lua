@@ -232,7 +232,15 @@ Config.DEADZONE = 0.25        -- aplicada ao módulo do vetor, com renormalizaç
 Config.EXIT_HOLD = 0.5        -- segundos de back+start (ou ESC) para sair do jogo
 Config.EXIT_HOLD_BACK = 1.0   -- segundos de SELECT sozinho no gamepad para sair
 Config.BIND_DEBOUNCE = 0.25   -- ignora o start que acabou de vincular o jogador
-Config.AUTO_FIRE_ALWAYS = true
+
+-- Auto-aim: with no manual aim (right stick / d-pad), the ship aims and fires
+-- at the nearest enemy within `radius`; with none in range it holds fire.
+Config.AUTO_AIM = {
+  enabled = true,      -- false = fire only while aiming by hand (stick / d-pad)
+  radius = 200,        -- px: enemies farther than this are never auto-targeted
+  switchRatio = 0.75,  -- another enemy steals the lock only when closer than
+                       -- this fraction of the locked enemy's distance
+}
 
 -- ---------------------------------------------------------------------------
 -- Jogador
