@@ -135,18 +135,60 @@ local function extractSprite(sheet, rect, grey)
   return newSmoothImage(d, true), w, h
 end
 
+-- Outline silhouette: the sprite's alpha dilated by `r` texels, all white (so
+-- setColor tints it exactly). Drawn under the sprite at the same size and
+-- angle, only the rim shows. It needs a wider transparent border (PAD + r) so
+-- the dilation has room; that pad is stored in the sprite record, and the
+-- record keeps the ORIGINAL w/h so Assets.draw scales it like the sprite.
+local function extractOutline(sheet, rect, r)
+  local x, y, w, h = rect[1], rect[2], rect[3], rect[4]
+  local pad = PAD + r
+  local dw, dh = w + pad * 2, h + pad * 2
+  local d = love.image.newImageData(dw, dh)
+  d:paste(sheet.data, pad, pad, x, y, w, h)
+  local snapshot = d:clone()
+  -- r passes of a 3x3 max filter on alpha.
+  for _ = 1, r do
+    for py = 0, dh - 1 do
+      for px = 0, dw - 1 do
+        local a = 0
+        for oy = -1, 1 do
+          local ny = py + oy
+          if ny >= 0 and ny < dh then
+            for ox = -1, 1 do
+              local nx = px + ox
+              if nx >= 0 and nx < dw then
+                local _, _, _, na = snapshot:getPixel(nx, ny)
+                if na > a then a = na end
+              end
+            end
+          end
+        end
+        d:setPixel(px, py, 1, 1, 1, a)
+      end
+    end
+    snapshot:paste(d, 0, 0, 0, 0, dw, dh)
+  end
+  return newSmoothImage(d, true), w, h, pad
+end
+
 local function loadSprites(sheets)
   for role, def in pairs(Config.ART.sprites) do
     local sheetId, name = def[1]:match("^(%w+):(.+)$")
     local sheet = sheets[sheetId]
     local rect = sheet and sheet.rects[name]
     if rect then
-      local img, w, h = extractSprite(sheet, rect, def.grey)
-      Assets.sprites[role] = { image = img, w = w, h = h, rot = def.rot or 0 }
+      local img, w, h, pad
+      if def.outline then
+        img, w, h, pad = extractOutline(sheet, rect, def.outline)
+      else
+        img, w, h = extractSprite(sheet, rect, def.grey)
+      end
+      Assets.sprites[role] = { image = img, w = w, h = h, rot = def.rot or 0, pad = pad or PAD }
       Assets.loaded = Assets.loaded + 1
     else
       print(string.format("[assets] sprite '%s' (%s) not found", role, def[1]))
-      Assets.sprites[role] = { image = placeholder, w = 8, h = 8, rot = 0 }
+      Assets.sprites[role] = { image = placeholder, w = 8, h = 8, rot = 0, pad = 0 }
       Assets.missing = Assets.missing + 1
     end
   end
@@ -212,7 +254,7 @@ function Assets.draw(role, x, y, angle, size, stretchX, stretchY)
   if not s then return end
   local k = size / math.max(s.w, s.h)
   love.graphics.draw(s.image, x, y, (angle or 0) - s.rot,
-    k * (stretchX or 1), k * (stretchY or 1), s.w * 0.5 + PAD, s.h * 0.5 + PAD)
+    k * (stretchX or 1), k * (stretchY or 1), s.w * 0.5 + s.pad, s.h * 0.5 + s.pad)
 end
 
 return Assets

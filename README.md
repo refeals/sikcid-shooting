@@ -243,7 +243,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 
 | O que | Arquivo |
 |-------|---------|
-| Jogador (nave recolorida, chama, crosshair, orbes, escudo, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
+| Jogador (nave recolorida, contorno, chama, crosshair, orbes, escudo, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
 | Inimigos (os 4 tipos, flash de dano, barra de HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
 | Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
 | Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
@@ -288,6 +288,14 @@ A arte vem dos pacotes da [Kenney](https://kenney.nl) (CC0) em `assets/art/`:
   cada caractere numa célula fixa, e o placar não treme quando muda. São fontes
   pixel com grade de 8px: use só tamanhos múltiplos de 8, senão os traços saem
   com larguras diferentes.
+- **Contorno dos jogadores:** na arena, cada nave tem uma borda na cor do
+  jogador clareada, pulsando de leve, para achar a própria nave no meio do
+  caos. É o papel `playerOutline` em `Config.ART.sprites`: a mesma nave com o
+  alfa dilatado em `outline` texels (4), gerada no boot como silhueta branca e
+  tingida no desenho. Não há shader em runtime. Contornos mais grossos também
+  preenchem os vãos entre asas e corpo (com 5, a nave vira uma placa sólida).
+  Cor e pulso ficam em `Config.ART.outline`. Lobby e vidas do HUD continuam
+  sem contorno.
 - **Chama do motor:** duas camadas aditivas (chama na cor do jogador e núcleo
   branco), mais longa quanto mais rápido a nave anda. Tamanhos em
   `Config.ART.size` (`engineFlame`, `engineCore`) e ajustes em

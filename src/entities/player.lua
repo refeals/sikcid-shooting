@@ -230,6 +230,16 @@ function Player:draw()
 
   local fx, fy = math.cos(self.angle), math.sin(self.angle)
 
+  -- Outline: a lightened, gently pulsing silhouette under the flame and the
+  -- ship, so each player finds their own ship in the chaos. Arena only
+  -- (drawShip, used by the lobby and HUD, stays clean). Blinks with the ship
+  -- (drawn after the invulnerability early-out above).
+  local O = Config.ART.outline
+  local l = O.lighten
+  g.setColor(c[1] + (1 - c[1]) * l, c[2] + (1 - c[2]) * l, c[3] + (1 - c[3]) * l,
+    O.alpha + O.pulseAmp * math.sin(self.engineT * O.pulseRate * math.pi * 2))
+  Assets.draw("playerOutline", self.x, self.y, self.angle, SIZE.playerShip)
+
   -- Engine flame behind the ship while moving (two frames flickering): an
   -- outer flame in the player's color with a white core over it, both
   -- additive and longer the faster the ship goes. Each layer is anchored so

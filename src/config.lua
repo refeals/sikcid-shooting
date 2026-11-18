@@ -114,6 +114,11 @@ Config.ART = {
   -- (the engine flame takes the player's color).
   sprites = {
     playerShip   = { "ss2:spaceShips_002", rot = math.pi / 2 },
+    -- Same ship, alpha dilated by `outline` texels into a white silhouette:
+    -- the arena outline (see Config.ART.outline). The ship is 101 texels wide
+    -- drawn at 24px, so 1 texel ~ 0.24 logical px. Wider outlines also fill
+    -- the gaps between the ship's wings and body (5 already turns it solid).
+    playerOutline = { "ss2:spaceShips_002", rot = math.pi / 2, outline = 4 },
     engineFlame1 = { "ss2:spaceEffects_001", rot = -math.pi / 2, grey = true },
     engineFlame2 = { "ss2:spaceEffects_002", rot = -math.pi / 2, grey = true },
     orb          = { "ss2:spaceParts_080" },
@@ -167,6 +172,10 @@ Config.ART = {
   },
   gridAlpha = 0.18,           -- the 40px arena grid, kept faint under the stars
   door = { thick = 18, light = 7 },  -- hatch depth into the arena / light size
+  -- Player outline in the arena (not in the lobby or HUD): the player's color
+  -- mixed toward white by `lighten`, alpha pulsing gently around `alpha` so
+  -- the ship stands out in the chaos without blinking.
+  outline = { lighten = 0.45, alpha = 0.85, pulseAmp = 0.15, pulseRate = 3 },
   -- Player engine flame (additive): two frames flickering, stretched longer
   -- the faster the ship moves (stretchMin at flameMinSpeed, stretchMax at
   -- full speed).
