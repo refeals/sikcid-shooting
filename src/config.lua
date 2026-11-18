@@ -330,10 +330,18 @@ Config.POWERUP = {
 -- ---------------------------------------------------------------------------
 -- Som
 -- ---------------------------------------------------------------------------
--- Arquivos em assets/sfx/<id>.wav (ou .ogg). Som sem arquivo é ignorado em
--- silêncio, então dá para ir adicionando aos poucos.
+-- Dois tipos de arquivo, ambos em assets/sfx/:
+--   * Kenney (Sci-Fi Sounds, CC0): `src` + `variants` apontam para
+--     "<src>_000.ogg".."<src>_00N.ogg"; cada disparo sorteia uma variação
+--     diferente da anterior. Só os arquivos usados ficam em assets/sfx/kenney/
+--     (o pacote completo em assets/sfx/Audio/ fica fora do build).
+--   * sfxr: "<id>.wav" (ou .ogg), gerado por tools/gen_sfx.py. É o som dos
+--     ids sem `src` e o fallback dos que têm, se nenhuma variação carregar.
+-- Som sem arquivo é ignorado em silêncio, então dá para ir adicionando aos poucos.
 --   vol      -- volume base (0..1), multiplicado por AUDIO.master
---   voices   -- cópias pré-carregadas: quantas instâncias tocam ao mesmo tempo
+--   voices   -- cópias pré-carregadas: quantas instâncias tocam ao mesmo tempo.
+--               Com variações, é o total, repartido entre elas (mínimo 1 cada)
+--   pitch    -- pitch base (1 = original), antes da variação aleatória
 --   pitchVar -- variação aleatória de pitch (0.05 = +-5%): evita repetição robótica
 --   minGap   -- intervalo mínimo entre dois disparos do mesmo som (s)
 Config.AUDIO = {
@@ -342,23 +350,34 @@ Config.AUDIO = {
 }
 
 Config.SFX = {
-  -- Tiros (tocam muito: volume baixo, várias vozes, throttle)
-  shot          = { vol = 0.30, voices = 6, pitchVar = 0.06, minGap = 0.05 },
-  shot_spread   = { vol = 0.32, voices = 6, pitchVar = 0.06, minGap = 0.05 },
-  shot_missile  = { vol = 0.35, voices = 5, pitchVar = 0.05, minGap = 0.06 },
-  shot_enemy    = { vol = 0.30, voices = 4, pitchVar = 0.08, minGap = 0.08 },
+  -- Tiros (tocam muito: volume baixo, várias vozes, throttle). O tiro inimigo
+  -- usa o mesmo laser do spread, bem mais grave, para soar como ameaça.
+  shot          = { src = "kenney/laserSmall", variants = 5,
+                    vol = 0.26, voices = 6, pitchVar = 0.06, minGap = 0.05 },
+  shot_spread   = { src = "kenney/laserRetro", variants = 5,
+                    vol = 0.25, voices = 6, pitchVar = 0.06, minGap = 0.05 },
+  shot_missile  = { src = "kenney/laserLarge", variants = 5,
+                    vol = 0.20, voices = 5, pitch = 0.9, pitchVar = 0.05, minGap = 0.06 },
+  shot_enemy    = { src = "kenney/laserRetro", variants = 5,
+                    vol = 0.18, voices = 4, pitch = 0.7, pitchVar = 0.08, minGap = 0.08 },
   -- Impacto e morte
-  enemy_hit     = { vol = 0.35, voices = 4, pitchVar = 0.10, minGap = 0.04 },
-  enemy_die     = { vol = 0.45, voices = 6, pitchVar = 0.12, minGap = 0.03 },
-  tank_die      = { vol = 0.70, voices = 2, pitchVar = 0.05, minGap = 0.10 },
-  player_die    = { vol = 0.80, voices = 2, pitchVar = 0.00, minGap = 0.10 },
-  player_spawn  = { vol = 0.50, voices = 2, pitchVar = 0.00, minGap = 0.10 },
+  enemy_hit     = { src = "kenney/impactMetal", variants = 5,
+                    vol = 0.16, voices = 4, pitchVar = 0.10, minGap = 0.04 },
+  enemy_die     = { src = "kenney/explosionCrunch", variants = 5,
+                    vol = 0.32, voices = 6, pitchVar = 0.12, minGap = 0.03 },
+  tank_die      = { src = "kenney/lowFrequency_explosion", variants = 2,
+                    vol = 0.55, voices = 2, pitchVar = 0.05, minGap = 0.10 },
+  player_die    = { src = "kenney/lowFrequency_explosion", variants = 2,
+                    vol = 0.60, voices = 2, pitch = 0.8, pitchVar = 0.00, minGap = 0.10 },
+  player_spawn  = { src = "kenney/forceField", variants = 5,
+                    vol = 0.30, voices = 2, pitchVar = 0.00, minGap = 0.10 },
   -- Power-ups
   pickup        = { vol = 0.60, voices = 2, pitchVar = 0.00, minGap = 0.05 },
   pickup_life   = { vol = 0.70, voices = 1, pitchVar = 0.00, minGap = 0.10 },
   powerup_end   = { vol = 0.45, voices = 2, pitchVar = 0.00, minGap = 0.10 },
   -- Waves e combo
-  door_warn     = { vol = 0.30, voices = 4, pitchVar = 0.04, minGap = 0.12 },
+  door_warn     = { src = "kenney/doorOpen", variants = 3,
+                    vol = 0.15, voices = 4, pitchVar = 0.04, minGap = 0.12 },
   wave_start    = { vol = 0.60, voices = 1, pitchVar = 0.00, minGap = 0.50 },
   wave_clear    = { vol = 0.70, voices = 1, pitchVar = 0.00, minGap = 0.50 },
   combo_up      = { vol = 0.55, voices = 2, pitchVar = 0.00, minGap = 0.10 },

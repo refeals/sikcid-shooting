@@ -51,8 +51,9 @@ done
 # O arquivo anterior é apagado antes: zip sobre um arquivo existente só
 # adiciona entradas, nunca remove as que sumiram do projeto.
 # Excluded from assets/: the Kenney preview images (*sample*.png), Windows
-# desktop.ini files, and the Kenney sound pack in assets/sfx/Audio/, which the
-# game does not use yet.
+# desktop.ini files, and the full Kenney sound pack in assets/sfx/Audio/ (~6 MB
+# source pack). The sounds the game actually plays are copied into
+# assets/sfx/kenney/, which is packed like any other asset.
 mkdir -p "${DATA_DIR}"
 rm -f "${LOVE_FILE}"
 zip -9 -q -r "${LOVE_FILE}" main.lua conf.lua src assets \

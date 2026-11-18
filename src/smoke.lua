@@ -8,6 +8,8 @@ local Input  = require("src.input")
 local Smoke = {
   t = 0,
   fpsMin = 9999,
+  fpsTime = 0,         -- current 1s FPS window (see Smoke.update)
+  fpsFrames = 0,
   stats = {},          -- preenchido pelo jogo via Smoke.note/Smoke.bump
   nextEvent = 1,
 }
@@ -132,6 +134,7 @@ end
 function Smoke.reset()
   Smoke.t = 0
   Smoke.fpsMin = 9999
+  Smoke.fpsTime, Smoke.fpsFrames = 0, 0
   Smoke.nextEvent = 1
   Smoke.stats = {}
   Smoke.goTimer, Smoke.goPressed = 0, false
@@ -183,10 +186,18 @@ end
 function Smoke.update(dt)
   Smoke.t = Smoke.t + dt
 
-  -- Ignora o primeiro segundo (carga de assets/janela) na métrica de FPS.
+  -- FPS por janela de 1s, contado aqui e só depois do primeiro segundo. O
+  -- love.timer.getFPS não serve: a primeira janela dele começa antes do
+  -- love.load e inclui o tempo de carga, o que derrubava o fpsMin conforme o
+  -- boot demorava mais ou menos (sem nada mudar no jogo).
   if Smoke.t > 1.0 then
-    local fps = love.timer.getFPS()
-    if fps > 0 and fps < Smoke.fpsMin then Smoke.fpsMin = fps end
+    Smoke.fpsTime = Smoke.fpsTime + dt
+    Smoke.fpsFrames = Smoke.fpsFrames + 1
+    if Smoke.fpsTime >= 1.0 then
+      local fps = math.floor(Smoke.fpsFrames / Smoke.fpsTime)
+      if fps < Smoke.fpsMin then Smoke.fpsMin = fps end
+      Smoke.fpsTime, Smoke.fpsFrames = 0, 0
+    end
   end
 
   while EVENTS[Smoke.nextEvent] and Smoke.t >= EVENTS[Smoke.nextEvent][1] do

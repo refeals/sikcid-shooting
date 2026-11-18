@@ -40,8 +40,9 @@ dist/
 
 O `.love` leva só `main.lua`, `conf.lua`, `src/` e `assets/` (com `main.lua` na
 raiz do zip, como o LÖVE exige). De `assets/` ficam de fora as imagens de
-amostra da Kenney (`*sample*.png`), os `desktop.ini` e o pacote de sons
-`assets/sfx/Audio/`, que o jogo ainda não usa. O build **não apaga** o `dist/`: só troca o
+amostra da Kenney (`*sample*.png`), os `desktop.ini` e o pacote completo de
+sons `assets/sfx/Audio/` (~6 MB). Os sons que o jogo usa ficam copiados em
+`assets/sfx/kenney/` e entram normalmente. O build **não apaga** o `dist/`: só troca o
 `.love` e o `.sh`, então o `love/` extraído continua lá entre builds. Se o
 `love/` estiver faltando, o script avisa no final com os passos de extração.
 
@@ -288,23 +289,55 @@ O vermelho das naves e mísseis da Kenney vira a cor do jogador no shader de
 
 ### Som
 
-Os efeitos ficam em **`assets/sfx/<id>.wav`** (ou `.ogg`), um arquivo por som,
-com o nome igual ao id. Eles são gerados por
+Os sons de combate e do mundo vêm do pacote **Sci-Fi Sounds da
+[Kenney](https://kenney.nl)** (CC0):
+
+| id | Arquivo Kenney | Observação |
+|----|----------------|------------|
+| `shot` | `laserSmall` | |
+| `shot_spread` | `laserRetro` | |
+| `shot_missile` | `laserLarge` | pitch 0,9 |
+| `shot_enemy` | `laserRetro` | pitch 0,7: mais grave que o spread |
+| `enemy_hit` | `impactMetal` | |
+| `enemy_die` | `explosionCrunch` | |
+| `tank_die` | `lowFrequency_explosion` | |
+| `player_die` | `lowFrequency_explosion` | pitch 0,8 |
+| `player_spawn` | `forceField` | |
+| `door_warn` | `doorOpen` | |
+
+Cada um aponta para o arquivo com `src` e `variants` em `Config.SFX`
+(`src = "kenney/laserSmall", variants = 5` carrega `laserSmall_000.ogg` a
+`_004.ogg`). A cada disparo sai uma variação sorteada, nunca a mesma duas vezes
+seguidas. Só os arquivos usados ficam em **`assets/sfx/kenney/`**. O pacote
+completo, em `assets/sfx/Audio/`, fica fora do `.love` (o `build.sh` o exclui)
+e serve de fonte: para trocar um som, copie as variações desejadas para
+`kenney/` e mude o `src`. Os `thrusterFire` do pacote são loops de 5 s e não
+servem para disparos.
+
+Os demais sons (pickups, combo, waves, game over e menu) são sfxr, em
+**`assets/sfx/<id>.wav`** (ou `.ogg`), um arquivo por som, com o nome igual ao
+id. Esses `.wav` também são o **fallback** dos sons Kenney: se nenhuma variação
+de um id carregar, o jogo usa o `<id>.wav`. Eles são gerados por
 [tools/gen_sfx.py](tools/gen_sfx.py), um port sem dependências do sintetizador
 do [sfxr.me](https://sfxr.me) (jsfxr): `python3 tools/gen_sfx.py` recria todos,
 `python3 tools/gen_sfx.py shot pickup` só os citados. Para ajustar um som no
 site, cole o conteúdo de `tools/sfx/<id>.json` no campo de texto do sfxr.me,
 clique em **Deserialize**, mexa e baixe o `.wav` por cima do gerado. Som sem arquivo é ignorado em silêncio — o console
-mostra no boot quantos carregaram (`[audio] N som(ns) carregado(s)...`).
+mostra no boot quantos carregaram, quantas variações Kenney, quantos caíram no
+fallback e quanto tempo levou (`[audio] N som(ns) carregado(s) (V variacao(oes)
+Kenney), F no fallback sfxr...`).
 
-Os ids, e o volume, número de vozes, variação de pitch e intervalo mínimo de
-cada um, estão em `Config.SFX` em [src/config.lua](src/config.lua). Volume geral
-em `Config.AUDIO.master`; `love . --mute` roda sem som.
+Os ids, e o volume, número de vozes, pitch base, variação de pitch e intervalo
+mínimo de cada um, estão em `Config.SFX` em [src/config.lua](src/config.lua).
+Volume geral em `Config.AUDIO.master`; `love . --mute` roda sem som.
 
-[src/audio.lua](src/audio.lua) pré-carrega um **pool de vozes** por som e usa em
-rodízio: nenhum `Source` é criado durante o jogo (o tiro automático dispararia
-dezenas por segundo). Som novo = uma entrada em `Config.SFX` + o arquivo + uma
-chamada `Audio.play("id")` no ponto certo.
+[src/audio.lua](src/audio.lua) pré-carrega um **pool de vozes** por arquivo e
+usa em rodízio: nenhum `Source` é criado durante o jogo (o tiro automático
+dispararia dezenas por segundo). Num som com variações, `voices` é o total,
+repartido entre elas (no mínimo uma voz cada). Os clones de um `Source`
+estático dividem o mesmo buffer, então mais vozes não gastam mais memória. Som
+novo = uma entrada em `Config.SFX` + o arquivo + uma chamada
+`Audio.play("id")` no ponto certo.
 
 ### Música
 
@@ -342,7 +375,9 @@ ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome
   ([itch.io](https://clement-panchout.itch.io)).
 - Arte e fontes: **[Kenney](https://kenney.nl)** (CC0): Space Shooter Extension,
   Simple Space, UI Pack (Sci-Fi) e Kenney Fonts.
-- Efeitos sonoros: gerados com o sintetizador do [sfxr](https://sfxr.me)
+- Efeitos sonoros de combate: **[Kenney](https://kenney.nl)** (CC0), Sci-Fi
+  Sounds.
+- Demais efeitos sonoros: gerados com o sintetizador do [sfxr](https://sfxr.me)
   (jsfxr), via [tools/gen_sfx.py](tools/gen_sfx.py).
 
 ---
@@ -359,7 +394,7 @@ src/pool.lua          -- pool genérico com teto fixo
 src/input.lua         -- devices (gamepad/teclado), deadzone radial, hotplug
 src/state.lua         -- pilha de estados de tela
 src/save.lua          -- recordes em love.filesystem
-src/audio.lua         -- efeitos sonoros com pool de vozes
+src/audio.lua         -- efeitos sonoros: variações Kenney, pool de vozes
 src/music.lua         -- música de fundo: crossfade, pausa abafada
 src/hud.lua           -- faixa de HUD
 src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
@@ -371,7 +406,8 @@ src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest
 src/entities/         -- player, enemy, bullet, pickup, particle
 src/systems/          -- spawner, combat, powerups, combo
-assets/sfx/           -- efeitos sonoros (.wav)
+assets/sfx/           -- efeitos sfxr (.wav); kenney/ = sons Kenney usados;
+                         Audio/ = pacote Kenney completo (fora do .love)
 assets/music/         -- música de fundo (.ogg)
 assets/art/           -- arte da Kenney: folhas + XML, UIPack, fontes
 tools/                -- gerador dos sons (fora do .love)
@@ -447,7 +483,8 @@ love . --smoke 13 --smoke2p --shots   # salva screenshots de cada tela
 echo $?                        # 0 = rodou sem erro
 ```
 
-Ao terminar, imprime um resumo: FPS mínimo, waves, kills, mortes, pickups,
+Ao terminar, imprime um resumo: FPS mínimo (contado em janelas de 1s depois do
+primeiro segundo, sem incluir o tempo de carga), waves, kills, mortes, pickups,
 combo máximo, pausas, e os **picos de cada pool**. `denied=` conta balas e
 inimigos recusados por bater no teto (afeta o jogo: deve ser 0); `deniedFx=`
 conta partículas descartadas (só efeito visual a menos, aceitável em explosões
