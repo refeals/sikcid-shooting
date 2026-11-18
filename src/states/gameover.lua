@@ -9,6 +9,7 @@ local Save   = require("src.save")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
 local UI     = require("src.ui")
+local Assets = require("src.assets")
 local Starfield = require("src.starfield")
 
 local GameOver = {}
@@ -53,8 +54,8 @@ end
 local function drawPlayerColumn(s, i, x, y, w)
   local C = Config.COLORS
   local color = Config.PLAYER_COLORS[i]
-  local top = UI.window(x, y, w, 64, string.format("JOGADOR %d", i), color)
-  UI.text("monoLarge", string.format("%07d", s.scores[i] or 0), x, top + 6, C.text, w, "center")
+  local top = UI.window(x, y, w, 74, string.format("JOGADOR %d", i), color)
+  UI.digits("digits", string.format("%07d", s.scores[i] or 0), x, top + 6, C.text, w, "center")
   UI.text("body", string.format("COMBO MÁX  %d", s.combos[i] or 0), x, top + 32, C.textDim, w, "center")
 end
 
@@ -74,8 +75,15 @@ function GameOver:draw()
   if s.playerCount >= 2 then
     drawPlayerColumn(s, 1, W * 0.5 - 212, 74, 200)
     drawPlayerColumn(s, 2, W * 0.5 + 12, 74, 200)
-    UI.text("title", string.format("TOTAL DA DUPLA  %d", (s.scores[1] or 0) + (s.scores[2] or 0)),
-      0, 150, C.text, W, "center")
+    -- Label in the title font, the number in the digits font (Rocket Square
+    -- draws "0" as a box), centered together.
+    local label = "TOTAL DA DUPLA  "
+    local total = tostring((s.scores[1] or 0) + (s.scores[2] or 0))
+    local lw = Assets.font("title"):getWidth(label)
+    local x0 = math.floor((W - lw - UI.digitsWidth("digits", total)) * 0.5)
+    UI.text("title", label, x0, 154, C.text)
+    UI.digits("digits", total, x0 + lw, 154 + Assets.font("title"):getAscent() - Assets.font("digits"):getAscent(),
+      C.text)
   else
     drawPlayerColumn(s, 1, W * 0.5 - 100, 74, 200)
   end
@@ -84,7 +92,7 @@ function GameOver:draw()
   local beat = s.beat
   local rw = 424
   local rx = W * 0.5 - rw * 0.5
-  local top = UI.window(rx, 176, rw, 66, "RECORDES", C.textWarn)
+  local top = UI.window(rx, 178, rw, 76, "RECORDES", C.textWarn)
   local labels = {
     { key = "solo", text = "MELHOR SOLO",     value = Save.get("solo") },
     { key = "duo",  text = "MELHOR EM DUPLA", value = Save.get("duo") },
@@ -97,7 +105,7 @@ function GameOver:draw()
     local isNew = beat[L.key]
     local on = isNew and math.floor(self.blink * 6) % 2 == 0
     UI.text("body", L.text, x, top + 8, C.textDim, cw, "center")
-    UI.text("monoLarge", tostring(L.value), x, top + 14, on and C.textWarn or (isNew and C.text or C.textDim),
+    UI.digits("digits", tostring(L.value), x, top + 14, on and C.textWarn or (isNew and C.text or C.textDim),
       cw, "center")
     if isNew then
       UI.text("body", "NOVO RECORDE!", x, top + 40, on and C.textWarn or C.text, cw, "center")

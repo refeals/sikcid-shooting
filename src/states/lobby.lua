@@ -240,7 +240,7 @@ end
 local function drawRecord(label, value, x, y, w)
   local C = Config.COLORS
   UI.text("body", label, x, y, C.textDim, w, "center")
-  UI.text("monoLarge", tostring(value), x, y + 6, C.textWarn, w, "center")
+  UI.digits("digits", tostring(value), x, y + 6, C.textWarn, w, "center")
 end
 
 function Lobby:draw()
@@ -254,14 +254,14 @@ function Lobby:draw()
   UI.text("big", "SIKCID SHOOTIN'", 0, 14, C.text, W, "center")
   UI.text("body", "ARENA COOPERATIVA PARA 1-2 JOGADORES", 0, 44, C.textDim, W, "center")
 
-  local sw, sh = 200, 120
-  drawSlot(1, W * 0.5 - sw - 12, 64, sw, sh)
-  drawSlot(2, W * 0.5 + 12, 64, sw, sh)
+  local sw, sh = 200, 130
+  drawSlot(1, W * 0.5 - sw - 12, 60, sw, sh)
+  drawSlot(2, W * 0.5 + 12, 60, sw, sh)
 
   -- Records: best solo, best single score in a duo, best duo total.
   local rw = 2 * sw + 24
   local rx = W * 0.5 - rw * 0.5
-  local top = UI.window(rx, 196, rw, 52, "RECORDES", C.textWarn)
+  local top = UI.window(rx, 198, rw, 62, "RECORDES", C.textWarn)
   local cw = rw / 3
   drawRecord("MELHOR SOLO", Save.get("solo"), rx, top + 8, cw)
   drawRecord("MELHOR EM DUPLA", Save.get("duo"), rx + cw, top + 8, cw)
@@ -271,12 +271,12 @@ function Lobby:draw()
   local hint = bound
     and "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT"
     or  "START PARA ENTRAR   -   TECLADO: ENTER"
-  UI.text("body", hint, 0, 266, C.text, W, "center")
+  UI.text("body", hint, 0, 270, C.text, W, "center")
   if bound then
-    UI.text("body", "D-PAD TROCA A COR   -   Y SORTEIA", 0, 280, C.text, W, "center")
+    UI.text("body", "D-PAD TROCA A COR   -   Y SORTEIA", 0, 284, C.text, W, "center")
   end
-  UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 294, C.textDim, W, "center")
-  UI.exitBar(W * 0.5, 310)
+  UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 298, C.textDim, W, "center")
+  UI.exitBar(W * 0.5, 314)
 
   if Config.DEBUG then
     UI.text("body", string.format("FPS %d  devices %d", love.timer.getFPS(), Input.count), 4, H - 12, C.textDim)

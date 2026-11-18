@@ -230,14 +230,25 @@ function Player:draw()
 
   local fx, fy = math.cos(self.angle), math.sin(self.angle)
 
-  -- Engine flame behind the ship while moving (two frames flickering).
+  -- Engine flame behind the ship while moving (two frames flickering): an
+  -- outer flame in the player's color with a white core over it, both
+  -- additive and longer the faster the ship goes. Each layer is anchored so
+  -- its near end stays at the ship's tail while it stretches.
   local speed2 = self.vx * self.vx + self.vy * self.vy
   if speed2 > P.flameMinSpeed * P.flameMinSpeed then
-    local frame = math.floor(self.engineT * 20) % 2 == 0 and "engineFlame1" or "engineFlame2"
+    local E = Config.ART.engine
+    local frame = math.floor(self.engineT * E.flickerRate) % 2 == 0 and "engineFlame1" or "engineFlame2"
+    local t = math.min(1, (math.sqrt(speed2) - P.flameMinSpeed) / (P.speed - P.flameMinSpeed))
+    local stretch = E.stretchMin + (E.stretchMax - E.stretchMin) * t
     local back = SIZE.playerShip * 0.5
+    local rot = self.angle + math.pi
+    local d = back + SIZE.engineFlame * 0.5 * (stretch - 1)
     g.setBlendMode("add")
-    g.setColor(1, 1, 1, 1)
-    Assets.draw(frame, self.x - fx * back, self.y - fy * back, self.angle + math.pi, SIZE.engineFlame)
+    g.setColor(c[1], c[2], c[3], 1)
+    Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineFlame, 1, stretch)
+    d = back + SIZE.engineCore * 0.5 * (stretch - 1)
+    g.setColor(1, 1, 1, E.coreAlpha)
+    Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineCore, 1, stretch)
     g.setBlendMode("alpha")
   end
 

@@ -17,6 +17,13 @@ local GREY_BASE = 218 / 255   -- base tone of the Grey/Extra pieces
 
 local img = {}
 local panelQuads = {}         -- 9-slice quads per panel style
+
+-- UI.digits: one-character strings for every printable byte (built once, so
+-- drawing a score never creates strings) and, per font role, the width of its
+-- widest digit, used as the fixed cell of every character.
+local CHARS = {}
+for b = 32, 126 do CHARS[b] = string.char(b) end
+local digitCell = {}
 local PANEL_BORDER = 8        -- texels kept unstretched at each panel edge
 
 local PANELS = {
@@ -61,6 +68,13 @@ function UI.load()
   img.trackR = Assets.uiImage("Extra/bar_shadow_round_small_r")
   img.badge = Assets.uiImage("Grey/bar_round_large_square", true)
   img.crosshair = Assets.uiImage("Extra/crosshair_b", true)
+
+  for role in pairs(Config.ART.fonts) do
+    local font = Assets.font(role)
+    local w = 0
+    for b = 48, 57 do w = math.max(w, font:getWidth(CHARS[b])) end
+    digitCell[role] = w
+  end
 end
 
 -- 9-slice panel. `color` tints the whole panel ({r,g,b,a}); defaults to the
@@ -140,7 +154,7 @@ function UI.window(x, y, w, h, title, tabColor, panelColor)
   UI.panel(x, y, w, h, panelColor)
   local th = Config.ART.ui.tabH
   if title then
-    UI.tab(tabColor or Config.ART.ui.neutral, title, x, y, w, th)
+    UI.tab(tabColor or Config.ART.ui.neutral, title, x, y, w, th, Config.ART.ui.tabFont)
   end
   -- Same content origin with or without a tab, so layouts don't shift.
   return y + th
@@ -199,6 +213,33 @@ function UI.text(fontRole, str, x, y, color, w, align)
   end
   -- Body is the default font everywhere; leave it set for plain prints.
   love.graphics.setFont(Assets.font("body"))
+end
+
+-- Width UI.digits would take for `str` in a font role.
+function UI.digitsWidth(fontRole, str)
+  return digitCell[fontRole] * #str
+end
+
+-- Numbers in a proportional font without jitter: every character is centered
+-- in a fixed cell (the widest digit), so a score never shifts as it changes.
+-- Same alignment rules as UI.text; returns the drawn width.
+function UI.digits(fontRole, str, x, y, color, w, align)
+  local font = Assets.font(fontRole)
+  local cell = digitCell[fontRole]
+  local n = #str
+  local total = cell * n
+  if w then
+    if align == "center" then x = x + (w - total) * 0.5
+    elseif align == "right" then x = x + w - total end
+  end
+  love.graphics.setFont(font)
+  love.graphics.setColor(color or Config.COLORS.text)
+  for i = 1, n do
+    local ch = CHARS[str:byte(i)] or CHARS[63]   -- "?" for anything unprintable
+    love.graphics.print(ch, math.floor(x + (i - 1) * cell + (cell - font:getWidth(ch)) * 0.5), math.floor(y))
+  end
+  love.graphics.setFont(Assets.font("body"))
+  return total
 end
 
 return UI

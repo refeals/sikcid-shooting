@@ -108,10 +108,29 @@ local function loadSheets()
   return sheets
 end
 
-local function extractSprite(sheet, rect)
+-- Turns a sprite into greyscale, normalized so its brightest opaque texel is
+-- white. Tinting a colored sprite multiplies colors (an orange flame tinted
+-- blue comes out green); a white-based one takes the tint exactly.
+local function toGrey(data)
+  local maxLum = 0
+  data:mapPixel(function(_, _, r, g, b, a)
+    local lum = 0.299 * r + 0.587 * g + 0.114 * b
+    if a > 0 and lum > maxLum then maxLum = lum end
+    return lum, lum, lum, a
+  end)
+  if maxLum <= 0 then return end
+  local k = 1 / maxLum
+  data:mapPixel(function(_, _, r, _, _, a)
+    local v = math.min(1, r * k)
+    return v, v, v, a
+  end)
+end
+
+local function extractSprite(sheet, rect, grey)
   local x, y, w, h = rect[1], rect[2], rect[3], rect[4]
   local d = love.image.newImageData(w + PAD * 2, h + PAD * 2)
   d:paste(sheet.data, PAD, PAD, x, y, w, h)
+  if grey then toGrey(d) end
   alphaBleed(d)
   return newSmoothImage(d, true), w, h
 end
@@ -122,7 +141,7 @@ local function loadSprites(sheets)
     local sheet = sheets[sheetId]
     local rect = sheet and sheet.rects[name]
     if rect then
-      local img, w, h = extractSprite(sheet, rect)
+      local img, w, h = extractSprite(sheet, rect, def.grey)
       Assets.sprites[role] = { image = img, w = w, h = h, rot = def.rot or 0 }
       Assets.loaded = Assets.loaded + 1
     else

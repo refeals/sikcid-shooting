@@ -118,7 +118,9 @@ function Pause:draw()
     line1 = "RECONECTE O CONTROLE PARA CONTINUAR"
     line2 = "BACK ABANDONA A PARTIDA"
   elseif self.confirmQuit then
-    title, tab = "CONFIRMAÇÃO", C.doorWarn
+    -- No accents in tab titles: they would sit on the tab's bevel (see
+    -- Config.ART.ui.tabH).
+    title, tab = "CONFIRMAR", C.doorWarn
     headline, headColor = "ABANDONAR A PARTIDA?", C.doorWarn
     line1 = "BACK CONFIRMA   -   START CONTINUA JOGANDO"
     line2 = "O PROGRESSO DESTA PARTIDA É PERDIDO"
@@ -130,7 +132,7 @@ function Pause:draw()
     line2 = "SEGURE SELECT PARA SAIR DO JOGO"
   end
 
-  local pw, ph = 340, 92
+  local pw, ph = 360, 102
   local px, py = math.floor((W - pw) * 0.5), math.floor((H - ph) * 0.5)
   local top = UI.window(px, py, pw, ph, title, tab)
   -- Rocket Square is wide: only the short "PAUSA" fits the big size.

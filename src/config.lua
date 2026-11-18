@@ -109,11 +109,13 @@ Config.ART = {
 
   -- Role -> "sheet:sprite". Every role is extracted once at boot (nothing is
   -- created during gameplay). `rot` is the sprite's own facing in radians
-  -- (Kenney ships point down = pi/2), subtracted when aiming it.
+  -- (Kenney ships point down = pi/2), subtracted when aiming it. `grey`
+  -- converts the sprite to white-based greyscale so setColor tints it exactly
+  -- (the engine flame takes the player's color).
   sprites = {
     playerShip   = { "ss2:spaceShips_002", rot = math.pi / 2 },
-    engineFlame1 = { "ss2:spaceEffects_001", rot = -math.pi / 2 },
-    engineFlame2 = { "ss2:spaceEffects_002", rot = -math.pi / 2 },
+    engineFlame1 = { "ss2:spaceEffects_001", rot = -math.pi / 2, grey = true },
+    engineFlame2 = { "ss2:spaceEffects_002", rot = -math.pi / 2, grey = true },
     orb          = { "ss2:spaceParts_080" },
     shot         = { "ss2:spaceMissiles_012", rot = -math.pi / 2 },
     missile      = { "ss2:spaceMissiles_003", rot = -math.pi / 2 },
@@ -138,7 +140,8 @@ Config.ART = {
   -- collision circle for readability, never the other way around.
   size = {
     playerShip = 24,
-    engineFlame = 12,
+    engineFlame = 18,         -- outer flame, tinted with the player color
+    engineCore = 10,          -- white-hot core drawn over it
     orb = 10,
     shot = 8,
     missile = 15,
@@ -164,6 +167,10 @@ Config.ART = {
   },
   gridAlpha = 0.18,           -- the 40px arena grid, kept faint under the stars
   door = { thick = 18, light = 7 },  -- hatch depth into the arena / light size
+  -- Player engine flame (additive): two frames flickering, stretched longer
+  -- the faster the ship moves (stretchMin at flameMinSpeed, stretchMax at
+  -- full speed).
+  engine = { flickerRate = 20, coreAlpha = 0.9, stretchMin = 0.8, stretchMax = 1.25 },
   enemyTurnRate = 10,     -- how fast enemy sprites ease toward their heading
   tankSpin = 0.8,         -- rad/s: the tank (a station) slowly rotates in place
   enemyShotSpin = 6,      -- rad/s: enemy star shots spin
@@ -178,7 +185,13 @@ Config.ART = {
     panel = { 0.16, 0.18, 0.25, 0.90 },
     panelLight = { 0.28, 0.30, 0.40, 0.95 },
     neutral = { 0.55, 0.57, 0.66, 1 },   -- tab color for screens owned by no one
-    tabH = 12,
+    -- Window title tab height. Rocket Square 16 caps are 10px, about half the
+    -- tab, the same proportion the old 12px tab had with the 8px font. The
+    -- tab's bevel takes ~4px top and bottom, so accents and cedillas ("Ã",
+    -- "Ç") would sit on it: keep tab titles unaccented.
+    tabH = 22,
+    tabFont = "title",                   -- window title tab font role
+    hudTab = { w = 24, h = 14 },         -- the "P1"/"P2" tab in the 40px HUD strip
   },
 
   -- Kenney pixel fonts sit on an 8px grid: only multiples of 8 keep every
@@ -189,8 +202,10 @@ Config.ART = {
     big   = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 24 },
     body  = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 8 },
     large = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 16 },
-    mono  = { file = "assets/art/Fonts/Kenney Mini Square Mono.ttf", size = 8 },
-    monoLarge = { file = "assets/art/Fonts/Kenney Mini Square Mono.ttf", size = 16 },
+    -- Scores and records. Kenney Mini (not the Square cut): its chamfered "0"
+    -- reads as a zero, where the Square fonts draw a plain box. It is not
+    -- monospaced, so it is drawn with UI.digits (fixed cell per character).
+    digits = { file = "assets/art/Fonts/Kenney Mini.ttf", size = 16 },
   },
 
   -- Palette-swap shader (src/shaders.lua): which texels count as "Kenney red"

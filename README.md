@@ -271,13 +271,27 @@ A arte vem dos pacotes da [Kenney](https://kenney.nl) (CC0) em `assets/art/`:
 - **Sprites:** recortados das folhas `spaceShooter2_spritesheet` e
   `simpleSpace_sheet` pelos atlas XML. Cada papel (nave do jogador, inimigo,
   tiro...) aponta para um sprite em `Config.ART.sprites`, e o tamanho na tela
-  fica em `Config.ART.size`. Trocar um sprite é mudar o nome ali.
+  fica em `Config.ART.size`. Trocar um sprite é mudar o nome ali. Com
+  `grey = true`, o sprite é convertido no boot para tons de cinza com base
+  branca, para que `setColor` o tinja na cor exata (a chama do motor usa isso
+  para sair na cor do jogador).
 - **UI:** peças do `UIPack`, desenhadas por [src/ui.lua](src/ui.lua)
   (painel 9-slice, aba, barra, badge, crosshair), tingidas com qualquer cor.
-- **Fontes:** Kenney Rocket Square (títulos), Mini Square (texto) e Mini Square
-  Mono (números), em `Config.ART.fonts`. São fontes pixel com grade de 8px:
-  use só tamanhos múltiplos de 8, senão os traços saem com larguras
-  diferentes.
+  As abas de título das janelas têm `Config.ART.ui.tabH` (22px) com Rocket
+  Square 16; a aba "P1"/"P2" do HUD tem tamanho próprio (`hudTab`) para caber
+  na faixa de 40px. Títulos de aba ficam **sem acento**: til e cedilha caem em
+  cima da borda chanfrada.
+- **Fontes:** Kenney Rocket Square (títulos), Mini Square (texto) e Kenney
+  Mini (placar e recordes, papel `digits`), em `Config.ART.fonts`. As fontes
+  "Square" desenham o zero como um quadrado; a Mini tem o zero chanfrado. Como
+  ela não é monoespaçada, os números passam por `UI.digits`, que centraliza
+  cada caractere numa célula fixa, e o placar não treme quando muda. São fontes
+  pixel com grade de 8px: use só tamanhos múltiplos de 8, senão os traços saem
+  com larguras diferentes.
+- **Chama do motor:** duas camadas aditivas (chama na cor do jogador e núcleo
+  branco), mais longa quanto mais rápido a nave anda. Tamanhos em
+  `Config.ART.size` (`engineFlame`, `engineCore`) e ajustes em
+  `Config.ART.engine`.
 
 A lógica continua em 640x360, mas o canvas é desenhado no maior múltiplo
 inteiro que cabe na janela: 1280x720 em 720p, 1920x1080 em 1080p. Assim os

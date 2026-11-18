@@ -20,6 +20,7 @@ local LIFE_GAP = 10           -- center-to-center spacing of the life ships
 local COMBO_BAR_W = 92
 local ICON = 11               -- power-up badge size
 local ICON_GAP = 3
+local PLAYER_TAGS = { "P1", "P2" }   -- built once: no string concat per frame
 
 local function drawPowerups(p, x, y)
   local list = p.powerups
@@ -41,18 +42,22 @@ local function drawPlayerPanel(p, x, y)
   local C = Config.COLORS
   UI.panel(x, y, PANEL_W, PANEL_H)
 
-  -- Row 1: tab, score, lives.
-  UI.tab(p.color, "P" .. p.index, x + PAD, y + PAD, 22, 11)
-  local mono = Assets.font("monoLarge")
+  -- Row 1: tab, score, lives. The score's baseline sits on the tab's bottom
+  -- edge and the lives are centered on the tab.
+  local tab = Config.ART.ui.hudTab
+  UI.tab(p.color, PLAYER_TAGS[p.index], x + PAD, y + PAD, tab.w, tab.h)
+  local font = Assets.font("digits")
   local score = string.format("%07d", p.score)
-  UI.text("monoLarge", score, x + PAD + 28, y + PAD + 11 - mono:getAscent(), p.out and C.textDim or C.text)
+  local sx = x + PAD + tab.w + 6
+  local sw = UI.digits("digits", score, sx, y + PAD + tab.h - font:getAscent(), p.out and C.textDim or C.text)
 
-  local lx = x + PAD + 28 + mono:getWidth(score) + 10
+  local lx = sx + sw + 10
+  local midY = y + PAD + tab.h * 0.5
   if p.out then
-    UI.text("body", "FORA", lx, y + PAD + 2, C.textDim)
+    UI.text("body", "FORA", lx, midY - 3, C.textDim)
   else
     for i = 1, p.lives do
-      Player.drawShip(p.color, lx + (i - 1) * LIFE_GAP, y + PAD + 5, -math.pi / 2, Config.ART.size.hudLife)
+      Player.drawShip(p.color, lx + (i - 1) * LIFE_GAP, midY, -math.pi / 2, Config.ART.size.hudLife)
     end
   end
 
