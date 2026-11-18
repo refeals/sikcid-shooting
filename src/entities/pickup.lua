@@ -1,6 +1,8 @@
 -- Power-up caído no chão. Pooled.
 
 local Config = require("src.config")
+local Assets = require("src.assets")
+local UI     = require("src.ui")
 
 local PU = Config.POWERUP
 
@@ -33,27 +35,40 @@ function Pickup:update(dt, frozen)
   return self.life > 0 and not self.dead
 end
 
--- Ícone do power-up centrado em (x, y). Usado pelo pickup no chão e pela
--- tela de briefing, para os dois mostrarem exatamente a mesma coisa.
--- Trocar por sprite: só aqui.
-function Pickup.drawIcon(def, x, y, s)
-  local h = s * 0.5
-  love.graphics.setColor(def.color)
-  love.graphics.rectangle("fill", x - h, y - h, s, s)
-  love.graphics.setColor(0, 0, 0, 0.55)
-  love.graphics.rectangle("fill", x - h + 2, y - h + 2, s - 4, s - 4)
+-- Power-up icon centered at (x, y), `s` px wide: a UIPack badge in the
+-- power-up color with its letter (or the plus icon for extra life). Shared by
+-- the pickup on the ground, the briefing and the HUD so all three match.
+local INK = { 0.08, 0.08, 0.12, 1 }
 
-  -- Letra identificando o power-up (placeholder do futuro sprite).
-  love.graphics.setColor(def.color)
-  love.graphics.printf(def.letter, x - 20, y - 7, 40, "center")
+function Pickup.drawIcon(def, x, y, s, alpha)
+  alpha = alpha or 1
+  UI.badge(def.color, x, y, s, alpha)
+  if def.id == "life" then
+    love.graphics.setColor(INK[1], INK[2], INK[3], alpha)
+    Assets.draw("iconPlus", x, y, 0, s * 0.55)
+  else
+    local font = Assets.font("titleSmall")
+    love.graphics.setFont(font)
+    love.graphics.setColor(INK[1], INK[2], INK[3], alpha)
+    -- Pixel font: snap to whole px so the glyphs stay crisp.
+    love.graphics.print(def.letter, math.floor(x - font:getWidth(def.letter) * 0.5 + 0.5),
+      math.floor(y - font:getHeight() * 0.5 + 1))
+    love.graphics.setFont(Assets.font("body"))
+  end
   love.graphics.setColor(1, 1, 1, 1)
 end
 
 function Pickup:draw()
-  -- Pisca nos últimos segundos avisando que vai sumir.
+  -- Blinks in its last seconds as a warning it is about to vanish.
   if self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0 then return end
-  -- Flutua de leve.
-  Pickup.drawIcon(self.def, self.x, self.y + math.sin(self.bob) * 2, PU.pickupSize)
+  local y = self.y + math.sin(self.bob) * 2   -- gentle float
+  local c = self.def.color
+  -- Pulsing glow so drops stand out from enemies and debris.
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.15 * math.sin(self.bob * 1.5))
+  love.graphics.circle("fill", self.x, y, Config.ART.size.pickup * 0.85)
+  love.graphics.setBlendMode("alpha")
+  Pickup.drawIcon(self.def, self.x, y, Config.ART.size.pickup)
 end
 
 return Pickup

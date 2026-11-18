@@ -12,6 +12,7 @@
 local Config = require("src.config")
 local Util   = require("src.util")
 local Audio  = require("src.audio")
+local Assets = require("src.assets")
 
 local Spawner = {}
 
@@ -39,7 +40,21 @@ function Spawner.load(arena)
                sx = arena.x + SPAWN_INSET, sy = arena.cy }
   doors[4] = { side = "right",  x = arena.x + arena.w - t, y = arena.cy,
                sx = arena.x + arena.w - SPAWN_INSET, sy = arena.cy }
-  for i = 1, 4 do doors[i].warn = 0 end
+  -- Drawing anchors: the hatch sprite sits centered on the wall line (half of
+  -- it is outside the arena, covered by the HUD or the screen edge) and
+  -- `inward` is the direction pointing into the arena.
+  local wall = {
+    top    = { arena.cx, arena.y, math.pi / 2 },
+    bottom = { arena.cx, arena.y + arena.h, -math.pi / 2 },
+    left   = { arena.x, arena.cy, 0 },
+    right  = { arena.x + arena.w, arena.cy, math.pi },
+  }
+  for i = 1, 4 do
+    local d = doors[i]
+    local w = wall[d.side]
+    d.warn = 0
+    d.wx, d.wy, d.inward = w[1], w[2], w[3]
+  end
 end
 
 -- Recalcula os pesos do mix para a wave atual.
@@ -198,32 +213,39 @@ function Spawner.isResting()
 end
 
 -- ---------------------------------------------------------------------------
--- Desenho das portas (e do telégrafo piscando).
+-- Door drawing: a Kenney hatch set into each wall, with a red light that
+-- flashes during the spawn telegraph (same timing as before).
 -- ---------------------------------------------------------------------------
 function Spawner.draw()
   local C = Config.COLORS
+  local D = Config.ART.door
+  local g = love.graphics
   for i = 1, 4 do
     local d = doors[i]
-    local horizontal = (d.side == "top" or d.side == "bottom")
-    local w = horizontal and DOOR_LEN or DOOR_THICK
-    local h = horizontal and DOOR_THICK or DOOR_LEN
+    local ix, iy = math.cos(d.inward), math.sin(d.inward)
 
-    if d.warn > 0 then
-      -- Pisca em vermelho e "respira" um pouco para chamar atenção.
-      local on = math.floor(d.warn * 16) % 2 == 0
-      love.graphics.setColor(on and C.doorWarn or C.door)
-      local grow = on and 2 or 0
-      love.graphics.rectangle("fill",
-        d.x - w * 0.5 - (horizontal and grow or 0),
-        d.y - h * 0.5 - (horizontal and 0 or grow),
-        w + (horizontal and grow * 2 or 0),
-        h + (horizontal and 0 or grow * 2))
+    -- Hatch body. Its long side runs along the wall; it is squashed so only
+    -- D.thick px poke into the arena.
+    local spr = Assets.sprite("door")
+    local depth = DOOR_LEN * spr.h / spr.w     -- full sprite depth at this length
+    g.setColor(1, 1, 1, 1)
+    Assets.draw("door", d.wx, d.wy, d.inward, DOOR_LEN, 1, (D.thick * 2) / depth)
+
+    local on = d.warn > 0 and math.floor(d.warn * 16) % 2 == 0
+    local lx, ly = d.wx + ix * (D.thick - 5), d.wy + iy * (D.thick - 5)
+    if on then
+      -- Glow, then the lit lamp.
+      g.setBlendMode("add")
+      g.setColor(C.doorWarn[1], C.doorWarn[2], C.doorWarn[3], 0.55)
+      g.circle("fill", lx, ly, D.light * 1.6)
+      g.setBlendMode("alpha")
+      g.setColor(1, 1, 1, 1)
     else
-      love.graphics.setColor(C.door)
-      love.graphics.rectangle("fill", d.x - w * 0.5, d.y - h * 0.5, w, h)
+      g.setColor(0.45, 0.45, 0.5, 1)
     end
+    Assets.draw("doorLight", lx, ly, 0, D.light)
   end
-  love.graphics.setColor(1, 1, 1, 1)
+  g.setColor(1, 1, 1, 1)
 end
 
 Spawner.doors = doors

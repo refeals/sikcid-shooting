@@ -109,7 +109,7 @@ Config.ART = {
     puff4        = { "ss2:spaceEffects_015" },
     starTiny     = { "simple:star_tiny" },
     starSmall    = { "simple:star_small" },
-    door         = { "ss2:spaceStation_003" },
+    door         = { "ss2:spaceStation_003", rot = math.pi / 2 },  -- long side = wall
     doorLight    = { "ss2:spaceBuilding_004" },
     iconPlus     = { "simple:icon_plusSmall" },
   },
@@ -131,6 +131,20 @@ Config.ART = {
     pickup = 14,
     hudLife = 9,
   },
+  -- Arena background (src/starfield.lua). Fixed seed: same sky every match.
+  stars = {
+    seed = 1337,
+    count = 70,
+    bigShare = 0.12,          -- fraction drawn with the bigger star sprite
+    tinyMin = 2, tinyMax = 4,
+    bigMin = 4, bigMax = 7,
+    alphaMin = 0.25, alphaMax = 0.7,
+    twinkleShare = 0.35,
+    twinkleSpeed = 2.2,
+    color = { 0.75, 0.80, 1.00 },
+  },
+  gridAlpha = 0.18,           -- the 40px arena grid, kept faint under the stars
+  door = { thick = 18, light = 7 },  -- hatch depth into the arena / light size
   enemyTurnRate = 10,     -- how fast enemy sprites ease toward their heading
   tankSpin = 0.8,         -- rad/s: the tank (a station) slowly rotates in place
   enemyShotSpin = 6,      -- rad/s: enemy star shots spin
@@ -149,6 +163,7 @@ Config.ART = {
   -- Kenney pixel fonts sit on an 8px grid: only multiples of 8 keep every
   -- stroke the same width. Sizes here must stay multiples of 8.
   fonts = {
+    titleSmall = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 8 },
     title = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 16 },
     big   = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 24 },
     body  = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 8 },
@@ -285,8 +300,7 @@ Config.COMBO = {
 Config.POWERUP = {
   duration = 12,
   dropChance = 0.08,
-  pickupRadius = 9,
-  pickupSize = 12,
+  pickupRadius = 9,           -- drawn size lives in Config.ART.size.pickup
   pickupLife = 10,
   blinkAt = 3,                -- começa a piscar nos últimos N segundos
 }
@@ -361,9 +375,26 @@ Config.JUICE = {
   shakeTankDeath = 3.0,
   shakeDecay = 12,
   hitStopTank = 0.05,
-  deathParticles = 8,
-  tankDeathParticles = 18,
-  playerDeathParticles = 24,
+  -- Explosions = smoke puffs + sparks, all from the same particle pool.
+  deathParticles = 5,
+  deathPuffs = 3,
+  tankDeathParticles = 10,
+  tankDeathPuffs = 7,
+  playerDeathParticles = 14,
+  playerDeathPuffs = 7,
+  puffSpeedMin = 10,
+  puffSpeedMax = 45,
+  puffLifeMin = 0.35,
+  puffLifeMax = 0.65,
+  puffGrow = 0.8,             -- extra size reached at the end of the life
+  puffAlpha = 0.85,
+  puffSpin = 2.0,             -- max rad/s
+  -- Missile smoke trail: only emitted while the pool is below trailPoolShare
+  -- of its size, so trails never starve explosions of particles.
+  trailInterval = 0.07,
+  trailLife = 0.3,
+  trailSize = 6,
+  trailPoolShare = 0.6,
   particleSpeedMin = 40,
   particleSpeedMax = 170,
   particleLifeMin = 0.25,

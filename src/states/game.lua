@@ -23,8 +23,10 @@ local Enemy    = require("src.entities.enemy")
 local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
+local Starfield = require("src.starfield")
 
 local Game = {}
+local starsBuilt = false
 
 local J = Config.JUICE
 
@@ -130,6 +132,13 @@ function world:burst(count, x, y, color, size)
   Particle.burst(self.particles, count, x, y, color, size)
 end
 
+-- Missile smoke: skipped while the pool is busy, so explosions keep priority.
+function world:trail(x, y, color)
+  local pool = self.particles
+  if pool.count >= Config.MAX_PARTICLES * J.trailPoolShare then return end
+  Particle.trail(pool, x, y, color)
+end
+
 function world:shake(mag)
   if mag > self.shakeMag then self.shakeMag = mag end
 end
@@ -139,8 +148,11 @@ function world:hitStop(t)
 end
 
 function world:onEnemyKilled(enemy, killerIndex)
-  local count = enemy.type == "tank" and J.tankDeathParticles or J.deathParticles
-  Particle.burst(self.particles, count, enemy.x, enemy.y, enemy.color, enemy.def.size * 0.35)
+  local tank = enemy.type == "tank"
+  local size = Config.ART.size[enemy.type] or enemy.def.size
+  Particle.explosion(self.particles, enemy.x, enemy.y, enemy.color,
+    tank and J.tankDeathPuffs or J.deathPuffs, size * 0.7,
+    tank and J.tankDeathParticles or J.deathParticles, enemy.def.size * 0.35)
 
   -- Combo sobe primeiro: a morte já conta com o multiplicador novo.
   if type(killerIndex) == "number" then
@@ -169,7 +181,8 @@ function world:onPlayerHit(player)
   player.alive = false
   player.lives = player.lives - 1
   Combo.breakOn(player)
-  Particle.burst(self.particles, J.playerDeathParticles, player.x, player.y, player.color, 5)
+  Particle.explosion(self.particles, player.x, player.y, player.color,
+    J.playerDeathPuffs, Config.ART.size.playerShip, J.playerDeathParticles, 5)
   self:shake(J.shakePlayerDeath)
   Audio.play("player_die")
 
@@ -237,6 +250,7 @@ function Game:enter(devices, count)
   pickups:clear()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
+  if not starsBuilt then Starfield.build(arena); starsBuilt = true end
 
   for i = 1, world.playerCount do
     local p = Player.new(i, devices[i])
@@ -382,8 +396,10 @@ function Game:draw()
   love.graphics.setColor(C.arenaBg)
   love.graphics.rectangle("fill", arena.x, arena.y, arena.w, arena.h)
 
-  -- Grade sutil: dá referência de escala e movimento sem custo de textura.
-  love.graphics.setColor(C.arenaLine[1], C.arenaLine[2], C.arenaLine[3], 0.45)
+  Starfield.draw()
+
+  -- Faint grid over the stars: keeps a sense of scale and motion.
+  love.graphics.setColor(C.arenaLine[1], C.arenaLine[2], C.arenaLine[3], Config.ART.gridAlpha)
   for gx = arena.x + 40, arena.x + arena.w - 1, 40 do
     love.graphics.line(gx + 0.5, arena.y, gx + 0.5, arena.y + arena.h)
   end

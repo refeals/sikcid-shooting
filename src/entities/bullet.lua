@@ -20,6 +20,7 @@ function Bullet.new()
     kind = "single",    -- "single" | "spread" | "missile" | "enemy"
     radius = Config.WEAPON.bulletRadius,
     angle = 0,
+    trailT = 0,         -- missile smoke trail countdown
     dead = false,       -- marcada em combat.lua, recolhida no sweep
     color = Config.COLORS.bullet,
   }, Bullet)
@@ -37,6 +38,7 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.angle = math.atan2(dirY, dirX)
   self.dead = false
   self.color = color or (owner == "enemy" and Config.COLORS.bulletEnemy or Config.COLORS.bullet)
+  self.trailT = 0
 end
 
 -- Devolve false quando a bala deve ser recolhida pelo pool.
@@ -53,6 +55,13 @@ function Bullet:update(dt, world)
       self.angle = Util.turnToward(self.angle, want, Config.WEAPON.missileTurn * dt)
       self.vx = math.cos(self.angle) * self.speed
       self.vy = math.sin(self.angle) * self.speed
+    end
+    -- Smoke trail from the missile's tail.
+    self.trailT = self.trailT - dt
+    if self.trailT <= 0 then
+      self.trailT = Config.JUICE.trailInterval
+      local back = SIZE.missile * 0.5
+      world:trail(self.x - math.cos(self.angle) * back, self.y - math.sin(self.angle) * back, self.color)
     end
   end
 
