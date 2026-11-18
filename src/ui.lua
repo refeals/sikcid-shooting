@@ -59,8 +59,8 @@ function UI.load()
   img.trackL = Assets.uiImage("Extra/bar_shadow_round_small_l")
   img.trackM = Assets.uiImage("Extra/bar_shadow_round_small_m")
   img.trackR = Assets.uiImage("Extra/bar_shadow_round_small_r")
-  img.badge = Assets.uiImage("Grey/bar_round_large_square")
-  img.crosshair = Assets.uiImage("Extra/crosshair_b")
+  img.badge = Assets.uiImage("Grey/bar_round_large_square", true)
+  img.crosshair = Assets.uiImage("Extra/crosshair_b", true)
 end
 
 -- 9-slice panel. `color` tints the whole panel ({r,g,b,a}); defaults to the

@@ -3,6 +3,9 @@
 
 local Config = require("src.config")
 local Util   = require("src.util")
+local Assets = require("src.assets")
+
+local SIZE = Config.ART.size
 
 local Bullet = {}
 Bullet.__index = Bullet
@@ -64,21 +67,30 @@ function Bullet:update(dt, world)
   return true
 end
 
--- Todo o desenho da bala mora aqui: trocar por sprite é mudança local.
+-- All bullet drawing lives here. Player bullets are Kenney missiles whose red
+-- becomes the owner's color: the CALLER turns the recolor shader on once per
+-- owner (see Game:draw) instead of switching it per bullet.
 function Bullet:draw()
-  local c = self.color
-  love.graphics.setColor(c)
-  local r = self.radius
-  if self.kind == "missile" then
-    -- Míssil é um retângulo alongado na direção do movimento.
-    love.graphics.push()
-    love.graphics.translate(self.x, self.y)
-    love.graphics.rotate(self.angle)
-    love.graphics.rectangle("fill", -r * 2, -r * 0.6, r * 4, r * 1.2)
-    love.graphics.pop()
+  if self.kind == "enemy" then
+    love.graphics.setColor(self.color)
+    Assets.draw("enemyShot", self.x, self.y, self.life * Config.ART.enemyShotSpin, SIZE.enemyShot)
+  elseif self.kind == "missile" then
+    love.graphics.setColor(1, 1, 1, 1)
+    Assets.draw("missile", self.x, self.y, self.angle, SIZE.missile)
   else
-    love.graphics.rectangle("fill", self.x - r, self.y - r, r * 2, r * 2)
+    love.graphics.setColor(1, 1, 1, 1)
+    Assets.draw("shot", self.x, self.y, self.angle, SIZE.shot)
   end
+end
+
+-- Soft glow in the owner's color under player shots, so they read against
+-- the dark arena. Drawn in its own pass with additive blending (Game:draw)
+-- so the blend mode is switched once, not per bullet.
+function Bullet:drawGlow()
+  local c = self.color
+  local r = self.kind == "missile" and SIZE.missile * 0.35 or SIZE.shot * 0.45
+  love.graphics.setColor(c[1], c[2], c[3], 0.45)
+  love.graphics.circle("fill", self.x, self.y, r)
 end
 
 return Bullet

@@ -7,6 +7,12 @@
 local Config = require("src.config")
 local Util   = require("src.util")
 local Audio  = require("src.audio")
+local Assets = require("src.assets")
+local UI     = require("src.ui")
+
+local SIZE = Config.ART.size
+local TURN_RATE = Config.ART.enemyTurnRate
+local TANK_SPIN = Config.ART.tankSpin
 
 local Enemy = {}
 Enemy.__index = Enemy
@@ -25,6 +31,7 @@ function Enemy.new()
     fireTimer = 0,
     wobble = 0,
     orbHit = 0,         -- cooldown de dano por orbe (power-up Shield)
+    angle = 0,          -- drawn facing (visual only)
   }, Enemy)
 end
 
@@ -43,6 +50,7 @@ function Enemy:reset(kind, x, y)
   self.orbHit = 0
   self.radius = def.radius
   self.color = Config.COLORS[def.color]
+  self.angle = math.random() * math.pi * 2
 end
 
 -- Escolhe (ou troca) o jogador perseguido.
@@ -134,6 +142,22 @@ function Enemy:update(dt, world)
   if self.y < a.y + r then self.y = a.y + r end
   if self.y > a.y + a.h - r then self.y = a.y + a.h - r end
 
+  -- Visual heading: the tank spins in place, the shooter faces its target
+  -- (it strafes, so its velocity would hide where it shoots), the rest face
+  -- where they move.
+  if self.type == "tank" then
+    self.angle = self.angle + TANK_SPIN * dt
+  else
+    local want
+    local t = self.target
+    if self.type == "shooter" and t then
+      want = math.atan2(t.y - self.y, t.x - self.x)
+    elseif self.vx ~= 0 or self.vy ~= 0 then
+      want = math.atan2(self.vy, self.vx)
+    end
+    if want then self.angle = Util.angleLerp(self.angle, want, math.min(1, TURN_RATE * dt)) end
+  end
+
   return true
 end
 
@@ -150,22 +174,21 @@ function Enemy:push(dx, dy)
   self.y = self.y + dy
 end
 
--- Todo o desenho do inimigo mora aqui.
+-- All enemy drawing lives here. The simpleSpace sprites are white, so the
+-- type color is just the draw tint; the hit flash draws them untinted.
 function Enemy:draw()
-  local s = self.def.size
-  local h = s * 0.5
+  local size = SIZE[self.type] or SIZE.grunt
   if self.flash > 0 then
     love.graphics.setColor(Config.COLORS.flash)
   else
     love.graphics.setColor(self.color)
   end
-  love.graphics.rectangle("fill", self.x - h, self.y - h, s, s)
+  Assets.draw(self.type, self.x, self.y, self.angle, size)
 
-  -- Tank tem miolo escuro para ler melhor o tamanho/HP.
-  if self.type == "tank" and self.flash <= 0 then
-    local hpFrac = self.hp / self.def.hp
-    love.graphics.setColor(0, 0, 0, 0.35)
-    love.graphics.rectangle("fill", self.x - h + 3, self.y - h + 3, s - 6, (s - 6) * (1 - hpFrac))
+  -- Tank HP bar, only once it has taken damage.
+  if self.type == "tank" and self.hp < self.def.hp then
+    local w = size * 0.7
+    UI.bar(self.color, self.x - w * 0.5, self.y + size * 0.5 + 1, w, self.hp / self.def.hp, 4)
   end
   love.graphics.setColor(1, 1, 1, 1)
 end

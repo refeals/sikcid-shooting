@@ -15,6 +15,7 @@ local Save   = require("src.save")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
 local State  = require("src.state")
+local Player = require("src.entities.player")
 
 local Lobby = {}
 
@@ -113,8 +114,8 @@ end
 local function drawSlot(index, x, y, w, h)
   local C = Config.COLORS
   local s = slots[index]
-  local color = index == 1 and C.p1 or C.p2
-  local dim   = index == 1 and C.p1Dim or C.p2Dim
+  local color = Config.PLAYER_COLORS[index]
+  local dim   = Config.PLAYER_COLORS_DIM[index]
 
   love.graphics.setColor(s and dim or C.hudBg)
   love.graphics.rectangle("fill", x, y, w, h)
@@ -124,10 +125,8 @@ local function drawSlot(index, x, y, w, h)
   love.graphics.setColor(C.text)
   love.graphics.printf("JOGADOR " .. index, x, y + 8, w, "center")
 
-  -- Preview do quadrado do jogador.
-  local px, py = x + w * 0.5 - 10, y + 34
-  love.graphics.setColor(s and color or C.textDim)
-  love.graphics.rectangle("fill", px, py, 20, 20)
+  -- Ship preview in the slot color, slowly turning; grey while the slot is free.
+  Player.drawShip(s and color or C.textDim, x + w * 0.5, y + 44, -math.pi / 2 + math.sin(blink * 1.5) * 0.5, 30)
 
   if s then
     if s.device.connected then

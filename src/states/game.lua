@@ -22,6 +22,7 @@ local Bullet   = require("src.entities.bullet")
 local Enemy    = require("src.entities.enemy")
 local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
+local Shaders  = require("src.shaders")
 
 local Game = {}
 
@@ -400,7 +401,29 @@ function Game:draw()
   for i = 1, particles.count do particles.items[i]:draw() end
   Profiler.stop("particles")
   for i = 1, enemies.count do enemies.items[i]:draw() end
-  for i = 1, bullets.count do bullets.items[i]:draw() end
+
+  -- Bullets grouped by pass: enemy shots plain, an additive glow under every
+  -- player shot, then each player's shots under the recolor shader in that
+  -- player's color (one state switch per pass instead of one per bullet).
+  for i = 1, bullets.count do
+    local b = bullets.items[i]
+    if b.owner == "enemy" then b:draw() end
+  end
+  love.graphics.setBlendMode("add")
+  for i = 1, bullets.count do
+    local b = bullets.items[i]
+    if b.owner ~= "enemy" then b:drawGlow() end
+  end
+  love.graphics.setBlendMode("alpha")
+  for p = 1, world.playerCount do
+    Shaders.recolor(world.players[p].color)
+    for i = 1, bullets.count do
+      local b = bullets.items[i]
+      if b.owner == p then b:draw() end
+    end
+  end
+  Shaders.reset()
+
   for i = 1, world.playerCount do world.players[i]:draw() end
 
   -- Banner "WAVE N" no começo da wave, sumindo aos poucos.

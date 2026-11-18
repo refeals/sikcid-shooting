@@ -1,12 +1,18 @@
 -- Jogador. Não é pooled: existem no máximo 2 instâncias, criadas no início
 -- da partida. Lê input SÓ do seu device (self.device).
 
-local Config = require("src.config")
-local Util   = require("src.util")
-local Audio  = require("src.audio")
+local Config  = require("src.config")
+local Util    = require("src.util")
+local Audio   = require("src.audio")
+local Assets  = require("src.assets")
+local Shaders = require("src.shaders")
+local UI      = require("src.ui")
 
 local P = Config.PLAYER
 local W = Config.WEAPON
+local SIZE = Config.ART.size
+
+local UP = -math.pi / 2
 
 local Player = {}
 Player.__index = Player
@@ -17,7 +23,7 @@ local WEAPONS = {}
 
 WEAPONS.single = function(self, world)
   world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
-    W.bulletSpeed, self.mods.damage, self.index, "single")
+    W.bulletSpeed, self.mods.damage, self.index, "single", nil, nil, self.color)
   Audio.play("shot")
 end
 
@@ -30,7 +36,7 @@ WEAPONS.spread = function(self, world)
   for i = 1, n do
     local a = start + step * (i - 1)
     world:spawnBullet(self.x, self.y, math.cos(a), math.sin(a),
-      W.bulletSpeed, self.mods.damage, self.index, "spread")
+      W.bulletSpeed, self.mods.damage, self.index, "spread", nil, nil, self.color)
   end
   Audio.play("shot_spread")
 end
@@ -39,7 +45,7 @@ end
 WEAPONS.missiles = function(self, world)
   world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
     W.missileSpeed, self.mods.damage, self.index, "missile",
-    W.bulletLife * 2, W.bulletRadius + 1)
+    W.bulletLife * 2, W.bulletRadius + 1, self.color)
   Audio.play("shot_missile")
 end
 
@@ -47,10 +53,12 @@ function Player.new(index, device)
   local self = setmetatable({
     index = index,
     device = device,
-    color = index == 1 and Config.COLORS.p1 or Config.COLORS.p2,
+    color = Config.PLAYER_COLORS[index],
     x = 0, y = 0,
     vx = 0, vy = 0,
     aimX = 0, aimY = -1,      -- mira inicial: para cima
+    angle = UP,               -- drawn facing; eases toward the aim
+    engineT = 0,              -- drives the engine flame flicker
     lives = P.lives,
     score = 0,
     alive = true,
@@ -86,6 +94,7 @@ function Player:spawn(x, y)
   self.respawnTimer = 0
   self.fireCooldown = 0
   self.aimX, self.aimY = 0, -1
+  self.angle = UP
   self.muzzle = 0
   self.spawnFx = P.spawnFxTime
   Audio.play("player_spawn")
@@ -159,6 +168,10 @@ function Player:update(dt, world)
   if self.y > a.y + a.h - r then self.y, self.vy = a.y + a.h - r, 0 end
 
   local aiming = self:updateAim(moveX, moveY)
+  -- Purely visual: the ship turns quickly but not instantly toward the aim.
+  self.angle = Util.angleLerp(self.angle, math.atan2(self.aimY, self.aimX),
+    math.min(1, P.turnRate * dt))
+  self.engineT = self.engineT + dt
 
   -- Tiro automático.
   if self.fireCooldown > 0 then self.fireCooldown = self.fireCooldown - dt end
@@ -174,49 +187,80 @@ function Player:update(dt, world)
 end
 
 -- ---------------------------------------------------------------------------
--- Desenho: tudo do jogador mora aqui (trocar por sprite é mudança local).
+-- Drawing: everything visual about the player lives here.
 -- ---------------------------------------------------------------------------
+
+-- The player ship in `color` (Kenney red swapped by the recolor shader).
+-- Shared by the arena, the lobby preview and the HUD lives.
+function Player.drawShip(color, x, y, angle, size, alpha)
+  Shaders.recolor(color)
+  love.graphics.setColor(1, 1, 1, alpha or 1)
+  Assets.draw("playerShip", x, y, angle, size)
+  Shaders.reset()
+end
+
 function Player:draw()
   if not self.alive then return end
+  local c = self.color
+  local g = love.graphics
 
-  -- Anel de respawn: quadrado que encolhe até o tamanho do jogador.
+  -- Respawn ring: a circle in the player's color closing in on the ship.
   if self.spawnFx > 0 then
     local t = self.spawnFx / P.spawnFxTime
-    local r = P.size * 0.5 + 18 * t
-    love.graphics.setColor(self.color[1], self.color[2], self.color[3], t)
-    love.graphics.rectangle("line", self.x - r, self.y - r, r * 2, r * 2)
+    g.setColor(c[1], c[2], c[3], t)
+    g.setLineWidth(2)
+    g.circle("line", self.x, self.y, SIZE.playerShip * 0.5 + 20 * t)
+    g.setLineWidth(1)
   end
 
-  -- Pisca durante a invulnerabilidade.
+  -- Shield bubble while invulnerable; stays solid while the ship blinks so
+  -- the player never loses track of where they are.
+  if self.invuln > 0 then
+    local pulse = 0.35 + 0.2 * math.sin(self.invuln * 14)
+    g.setColor(c[1], c[2], c[3], pulse * 0.35)
+    g.circle("fill", self.x, self.y, SIZE.playerShip * 0.62)
+    g.setColor(c[1], c[2], c[3], pulse + 0.25)
+    g.circle("line", self.x, self.y, SIZE.playerShip * 0.62)
+  end
+
+  -- Blink during invulnerability.
   if self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0 then
     return
   end
 
-  local s, h = P.size, P.size * 0.5
-  love.graphics.setColor(self.color)
-  love.graphics.rectangle("fill", self.x - h, self.y - h, s, s)
+  local fx, fy = math.cos(self.angle), math.sin(self.angle)
 
-  -- Orbes do Orbital Shield (a colisão deles fica em systems/combat.lua).
+  -- Engine flame behind the ship while moving (two frames flickering).
+  local speed2 = self.vx * self.vx + self.vy * self.vy
+  if speed2 > P.flameMinSpeed * P.flameMinSpeed then
+    local frame = math.floor(self.engineT * 20) % 2 == 0 and "engineFlame1" or "engineFlame2"
+    local back = SIZE.playerShip * 0.5
+    g.setBlendMode("add")
+    g.setColor(1, 1, 1, 1)
+    Assets.draw(frame, self.x - fx * back, self.y - fy * back, self.angle + math.pi, SIZE.engineFlame)
+    g.setBlendMode("alpha")
+  end
+
+  Player.drawShip(c, self.x, self.y, self.angle, SIZE.playerShip)
+
+  -- Orbital Shield orbs (their collision lives in systems/combat.lua).
   local orbs = self.mods.orbs
   if orbs > 0 then
-    love.graphics.setColor(Config.COLORS.orb)
+    g.setColor(Config.COLORS.orb)
     for i = 1, orbs do
       local a = self.orbAngle + (i - 1) * (math.pi * 2 / orbs)
-      love.graphics.circle("fill",
-        self.x + math.cos(a) * W.orbDistance,
-        self.y + math.sin(a) * W.orbDistance, W.orbRadius)
+      Assets.draw("orb", self.x + math.cos(a) * W.orbDistance, self.y + math.sin(a) * W.orbDistance,
+        a * 2, SIZE.orb)
     end
   end
 
-  -- Marcador de mira: retângulo curto saindo do centro na direção atual.
-  -- Cresce por um instante a cada tiro (clarão do cano).
+  -- Reticle ahead of the ship along the aim; pops a little on each shot.
   local flash = self.muzzle > 0
-  love.graphics.setColor(1, 1, 1, flash and 1 or 0.9)
-  local mx, my = self.x + self.aimX * (h + 4), self.y + self.aimY * (h + 4)
-  local ms = flash and 3 or 2
-  love.graphics.rectangle("fill", mx - ms, my - ms, ms * 2, ms * 2)
+  local dist = P.reticleDistance
+  UI.crosshair(c, self.x + self.aimX * dist, self.y + self.aimY * dist,
+    flash and P.reticleSize * 1.25 or P.reticleSize, 0.9)
 
-  love.graphics.setColor(1, 1, 1, 1)
+  g.setColor(1, 1, 1, 1)
 end
 
 function Player:drawDebug()

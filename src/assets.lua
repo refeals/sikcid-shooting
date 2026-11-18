@@ -168,14 +168,15 @@ end
 
 -- UIPack image by path relative to Config.ART.uiDir (e.g. "Extra/panel_glass").
 -- Loaded lazily but cached; callers must request them at load time (src/ui.lua
--- does) so nothing is created mid-game.
-function Assets.uiImage(path)
+-- does) so nothing is created mid-game. `mipmaps` for pieces drawn much
+-- smaller than their texture (reticle, badges); 9-slice pieces skip them.
+function Assets.uiImage(path, mipmaps)
   local img = Assets.ui[path]
   if img then return img end
   local ok, data = pcall(love.image.newImageData, Config.ART.uiDir .. path .. ".png")
   if ok then
     alphaBleed(data)
-    img = newSmoothImage(data, false)
+    img = newSmoothImage(data, mipmaps)
   else
     print(string.format("[assets] UI image '%s' not found", path))
     img = placeholder

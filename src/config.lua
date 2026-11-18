@@ -119,7 +119,7 @@ Config.ART = {
   -- collision circle for readability, never the other way around.
   size = {
     playerShip = 24,
-    engineFlame = 9,
+    engineFlame = 12,
     orb = 10,
     shot = 8,
     missile = 15,
@@ -131,6 +131,9 @@ Config.ART = {
     pickup = 14,
     hudLife = 9,
   },
+  enemyTurnRate = 10,     -- how fast enemy sprites ease toward their heading
+  tankSpin = 0.8,         -- rad/s: the tank (a station) slowly rotates in place
+  enemyShotSpin = 6,      -- rad/s: enemy star shots spin
 
   -- UIPack art is authored large (a panel is 64px); 1 texel = this many
   -- logical px. 0.5 makes it exactly 1:1 on a 1280x720 render.
@@ -182,6 +185,11 @@ Config.PLAYER = {
   blinkRate = 12,             -- piscadas por segundo durante invulnerabilidade
   muzzleTime = 0.05,          -- clarão do cano ao atirar
   spawnFxTime = 0.4,          -- anel de respawn
+  -- Visual only (no gameplay effect):
+  turnRate = 18,              -- how fast the drawn ship eases toward the aim
+  flameMinSpeed = 20,         -- px/s above which the engine flame shows
+  reticleDistance = 20,       -- px from the ship center to the aim reticle
+  reticleSize = 9,            -- reticle width (px)
 }
 
 -- Arma base (modificada pelos power-ups via tabela de mods).
