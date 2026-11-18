@@ -10,7 +10,7 @@
 # Uso:  ./build.sh                  gera o dist/
 #       ./build.sh --run            gera e abre o .love no LÖVE local para testar
 #       ./build.sh --deploy [host]  gera e copia para o Batocera (padrão:
-#                                   root@batocera, ou $BATOCERA_HOST)
+#                                   root@batocera.local, ou $BATOCERA_HOST)
 set -e
 cd "$(dirname "$(readlink -f "$0")")"
 
@@ -24,13 +24,13 @@ usage() {
 Uso:  ./build.sh                  gera o dist/
       ./build.sh --run            gera e abre o .love no LOVE local para testar
       ./build.sh --deploy [host]  gera e copia para o Batocera
-                                  (padrao: root@batocera, ou $BATOCERA_HOST)
+                                  (padrao: root@batocera.local, ou $BATOCERA_HOST)
 EOF
 }
 
 RUN=0
 DEPLOY=0
-HOST="${BATOCERA_HOST:-root@batocera}"
+HOST="${BATOCERA_HOST:-root@batocera.local}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --run) RUN=1 ;;
