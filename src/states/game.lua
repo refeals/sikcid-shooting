@@ -239,7 +239,24 @@ end
 
 -- ---------------------------------------------------------------------------
 local showHitboxes = false
-local hudInfo = { title = "", subtitle = "" }   -- reaproveitado todo frame
+-- HUD center text, reused every frame: a label plus its number (the number is
+-- drawn in the digits font, see UI.textNumber).
+local hudInfo = { titleLabel = "WAVE ", titleNum = "", subLabel = "", subNum = "" }
+
+-- Number strings drawn every frame, re-formatted only when the value changes
+-- (no new string per frame). One slot per on-screen number.
+local numCache = {
+  wave = { v = nil, s = "" }, enemies = { v = nil, s = "" },
+  rest = { v = nil, s = "" }, bonus = { v = nil, s = "" },
+}
+local function numStr(slot, value, fmt)
+  local c = numCache[slot]
+  if c.v ~= value then
+    c.v = value
+    c.s = string.format(fmt, value)
+  end
+  return c.s
+end
 
 function Game:enter(devices, count)
   world.playerCount = count or 1
@@ -444,21 +461,31 @@ function Game:draw()
 
   for i = 1, world.playerCount do world.players[i]:draw() end
 
+  local waveNum = numStr("wave", math.max(1, Spawner.wave), "%d")
+  -- Breather countdown, keyed by tenths of a second so its string changes
+  -- 10x/s, not every frame. Shared by the HUD and the wave cleared notice.
+  local restNum = numStr("rest", math.floor(math.max(0, Spawner.timer) * 10 + 0.5) / 10, "%.1f")
+
   -- "WAVE N" banner when a wave starts, rising and fading out.
   if Spawner.banner > 0 then
     local t = Spawner.banner / Config.WAVE.bannerTime
-    UI.text("big", string.format("WAVE %d", Spawner.wave),
+    UI.textNumber("big", "digitsBig", "WAVE ", waveNum, nil,
       arena.cx - 160, arena.cy - 70 - (1 - t) * 10,
       { C.text[1], C.text[2], C.text[3], math.min(1, t * 2) }, 320, "center")
   end
 
   -- Wave cleared notice during the breather.
   if Spawner.isResting() and Spawner.wave >= 1 then
-    UI.text("title", string.format("WAVE %d COMPLETA", Spawner.wave),
+    UI.textNumber("title", "digits", "WAVE ", waveNum, " COMPLETA",
       arena.cx - 160, arena.cy - 58, C.textWarn, 320, "center")
-    UI.text("body", string.format("BÔNUS %d   -   PRÓXIMA EM %.1f",
-      Spawner.wave * Config.WAVE.clearBonus, math.max(0, Spawner.timer)),
-      arena.cx - 160, arena.cy - 36, C.textDim, 320, "center")
+    -- Two numbers on one centered line: measured first, then drawn in two
+    -- label+number blocks.
+    local bonusNum = numStr("bonus", Spawner.wave * Config.WAVE.clearBonus, "%d")
+    local w1 = UI.textNumberWidth("body", "digitsSmall", "BÔNUS ", bonusNum, "   -   ")
+    local w2 = UI.textNumberWidth("body", "digitsSmall", "PRÓXIMA EM ", restNum)
+    local lx = arena.cx - (w1 + w2) * 0.5
+    UI.textNumber("body", "digitsSmall", "BÔNUS ", bonusNum, "   -   ", lx, arena.cy - 36, C.textDim)
+    UI.textNumber("body", "digitsSmall", "PRÓXIMA EM ", restNum, nil, lx + w1, arena.cy - 36, C.textDim)
   end
 
   -- Respawn countdown.
@@ -483,10 +510,14 @@ function Game:draw()
     for i = 1, world.playerCount do world.players[i]:drawDebug() end
   end
 
-  hudInfo.title = string.format("WAVE %d", math.max(1, Spawner.wave))
-  hudInfo.subtitle = Spawner.isResting()
-    and string.format("PRÓXIMA EM %.1f", math.max(0, Spawner.timer))
-    or string.format("INIMIGOS %d", Spawner.remaining(world))
+  hudInfo.titleNum = waveNum
+  if Spawner.isResting() then
+    hudInfo.subLabel = "PRÓXIMA EM "
+    hudInfo.subNum = restNum
+  else
+    hudInfo.subLabel = "INIMIGOS "
+    hudInfo.subNum = numStr("enemies", Spawner.remaining(world), "%d")
+  end
   Hud.draw(world.players, world.playerCount, hudInfo)
 
   if Config.DEBUG then

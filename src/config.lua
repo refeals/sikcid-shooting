@@ -211,10 +211,13 @@ Config.ART = {
     big   = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 24 },
     body  = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 8 },
     large = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 16 },
-    -- Scores and records. Kenney Mini (not the Square cut): its chamfered "0"
-    -- reads as a zero, where the Square fonts draw a plain box. It is not
-    -- monospaced, so it is drawn with UI.digits (fixed cell per character).
-    digits = { file = "assets/art/Fonts/Kenney Mini.ttf", size = 16 },
+    -- Numbers. Kenney Mini (not the Square cut): its chamfered "0" reads as a
+    -- zero, where the Square fonts draw a plain box. It is not monospaced, so
+    -- it is drawn with UI.digits (fixed cell per digit). One size per text
+    -- size it sits next to: body 8, title 16, big 24 (see UI.textNumber).
+    digitsSmall = { file = "assets/art/Fonts/Kenney Mini.ttf", size = 8 },
+    digits      = { file = "assets/art/Fonts/Kenney Mini.ttf", size = 16 },
+    digitsBig   = { file = "assets/art/Fonts/Kenney Mini.ttf", size = 24 },
   },
 
   -- Palette-swap shader (src/shaders.lua): which texels count as "Kenney red"

@@ -215,30 +215,69 @@ function UI.text(fontRole, str, x, y, color, w, align)
   love.graphics.setFont(Assets.font("body"))
 end
 
--- Width UI.digits would take for `str` in a font role.
-function UI.digitsWidth(fontRole, str)
-  return digitCell[fontRole] * #str
+-- Cell of one character in UI.digits: digits share a fixed cell (the widest
+-- digit), anything else ("." in "3.0") keeps its natural width.
+local function charCell(font, cell, b)
+  if b >= 48 and b <= 57 then return cell end
+  return font:getWidth(CHARS[b] or CHARS[63])
 end
 
--- Numbers in a proportional font without jitter: every character is centered
--- in a fixed cell (the widest digit), so a score never shifts as it changes.
+-- Width UI.digits would take for `str` in a font role.
+function UI.digitsWidth(fontRole, str)
+  local font, cell = Assets.font(fontRole), digitCell[fontRole]
+  local total = 0
+  for i = 1, #str do total = total + charCell(font, cell, str:byte(i)) end
+  return total
+end
+
+-- Numbers in a proportional font without jitter: every digit is centered in
+-- a fixed cell (the widest digit), so a score never shifts as it changes.
 -- Same alignment rules as UI.text; returns the drawn width.
 function UI.digits(fontRole, str, x, y, color, w, align)
   local font = Assets.font(fontRole)
   local cell = digitCell[fontRole]
-  local n = #str
-  local total = cell * n
-  if w then
+  if w and align ~= "left" and align then
+    local total = UI.digitsWidth(fontRole, str)
     if align == "center" then x = x + (w - total) * 0.5
     elseif align == "right" then x = x + w - total end
   end
   love.graphics.setFont(font)
   love.graphics.setColor(color or Config.COLORS.text)
-  for i = 1, n do
-    local ch = CHARS[str:byte(i)] or CHARS[63]   -- "?" for anything unprintable
-    love.graphics.print(ch, math.floor(x + (i - 1) * cell + (cell - font:getWidth(ch)) * 0.5), math.floor(y))
+  local cx = x
+  for i = 1, #str do
+    local b = str:byte(i)
+    local ch = CHARS[b] or CHARS[63]   -- "?" for anything unprintable
+    local cw = charCell(font, cell, b)
+    love.graphics.print(ch, math.floor(cx + (cw - font:getWidth(ch)) * 0.5), math.floor(y))
+    cx = cx + cw
   end
   love.graphics.setFont(Assets.font("body"))
+  return cx - x
+end
+
+-- Text with a number inside: `label` and `suffix` in `fontRole`, `num` (a
+-- string) in `digitRole` through UI.digits, all on the same baseline and
+-- aligned as one block (same rules as UI.text). Keeps the Square fonts' box
+-- "0" out of numbers in titles and banners. `suffix` may be nil. Returns the
+-- block width (UI.textNumberWidth measures it without drawing).
+function UI.textNumberWidth(fontRole, digitRole, label, num, suffix)
+  local font = Assets.font(fontRole)
+  return font:getWidth(label) + UI.digitsWidth(digitRole, num) + (suffix and font:getWidth(suffix) or 0)
+end
+
+function UI.textNumber(fontRole, digitRole, label, num, suffix, x, y, color, w, align)
+  local font = Assets.font(fontRole)
+  local lw = font:getWidth(label)
+  local nw = UI.digitsWidth(digitRole, num)
+  local total = lw + nw + (suffix and font:getWidth(suffix) or 0)
+  if w and align and align ~= "left" then
+    if align == "center" then x = x + (w - total) * 0.5
+    elseif align == "right" then x = x + w - total end
+  end
+  x = math.floor(x)
+  UI.text(fontRole, label, x, y, color)
+  UI.digits(digitRole, num, x + lw, y + font:getAscent() - Assets.font(digitRole):getAscent(), color)
+  if suffix then UI.text(fontRole, suffix, x + lw + nw, y, color) end
   return total
 end
 

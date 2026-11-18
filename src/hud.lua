@@ -91,9 +91,13 @@ function Hud.draw(players, playerCount, info)
   -- Center: wave and enemies left.
   local cx = PANEL_W + 6
   local cw = W - 2 * cx
-  UI.text("title", info and info.title or "ARENA", cx, 3, C.text, cw, "center")
-  if info and info.subtitle then
-    UI.text("body", info.subtitle, cx, 22, C.textDim, cw, "center")
+  -- Label in the text font, number in the digits font (the Square fonts draw
+  -- "0" as a box).
+  if info then
+    UI.textNumber("title", "digits", info.titleLabel, info.titleNum, nil, cx, 3, C.text, cw, "center")
+    UI.textNumber("body", "digitsSmall", info.subLabel, info.subNum, nil, cx, 22, C.textDim, cw, "center")
+  else
+    UI.text("title", "ARENA", cx, 3, C.text, cw, "center")
   end
 
   UI.exitBar(W * 0.5, Config.HUD_H - 7, 80)

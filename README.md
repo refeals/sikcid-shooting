@@ -282,12 +282,16 @@ A arte vem dos pacotes da [Kenney](https://kenney.nl) (CC0) em `assets/art/`:
   na faixa de 40px. Títulos de aba ficam **sem acento**: til e cedilha caem em
   cima da borda chanfrada.
 - **Fontes:** Kenney Rocket Square (títulos), Mini Square (texto) e Kenney
-  Mini (placar e recordes, papel `digits`), em `Config.ART.fonts`. As fontes
-  "Square" desenham o zero como um quadrado; a Mini tem o zero chanfrado. Como
-  ela não é monoespaçada, os números passam por `UI.digits`, que centraliza
-  cada caractere numa célula fixa, e o placar não treme quando muda. São fontes
-  pixel com grade de 8px: use só tamanhos múltiplos de 8, senão os traços saem
-  com larguras diferentes.
+  Mini (números), em `Config.ART.fonts`. As fontes "Square" desenham o zero
+  como um quadrado; a Mini tem o zero chanfrado. Por isso os números usam a
+  Mini, nos papéis `digitsSmall` (8), `digits` (16) e `digitsBig` (24), um para
+  cada tamanho de texto ao lado. Como ela não é monoespaçada, os números passam
+  por `UI.digits`, que centraliza cada dígito numa célula fixa, e eles não
+  tremem quando mudam. Texto com número dentro ("WAVE 10", "INIMIGOS 40") usa
+  `UI.textNumber`: rótulo na fonte do texto, número na Mini, na mesma linha de
+  base. Ao escrever um texto novo com número, use esse helper. São fontes pixel
+  com grade de 8px: use só tamanhos múltiplos de 8, senão os traços saem com
+  larguras diferentes.
 - **Contorno dos jogadores:** na arena, cada nave tem uma borda na cor do
   jogador clareada, pulsando de leve, para achar a própria nave no meio do
   caos. É o papel `playerOutline` em `Config.ART.sprites`: a mesma nave com o

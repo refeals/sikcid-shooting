@@ -69,8 +69,13 @@ function GameOver:draw()
   Starfield.draw()
 
   UI.text("big", "FIM DE JOGO", 0, 22, C.doorWarn, W, "center")
-  UI.text("body", string.format("WAVE ALCANÇADA: %d   -   WAVES COMPLETAS: %d",
-    s.wave, s.wavesCleared), 0, 54, C.textDim, W, "center")
+  -- Two numbers on one centered line, in the digits font (box "0" otherwise).
+  local reached, cleared = tostring(s.wave), tostring(s.wavesCleared)
+  local w1 = UI.textNumberWidth("body", "digitsSmall", "WAVE ALCANÇADA: ", reached, "   -   ")
+  local w2 = UI.textNumberWidth("body", "digitsSmall", "WAVES COMPLETAS: ", cleared)
+  local lx = (W - w1 - w2) * 0.5
+  UI.textNumber("body", "digitsSmall", "WAVE ALCANÇADA: ", reached, "   -   ", lx, 54, C.textDim)
+  UI.textNumber("body", "digitsSmall", "WAVES COMPLETAS: ", cleared, nil, lx + w1, 54, C.textDim)
 
   if s.playerCount >= 2 then
     drawPlayerColumn(s, 1, W * 0.5 - 212, 74, 200)
