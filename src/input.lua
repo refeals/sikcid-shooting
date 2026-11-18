@@ -6,7 +6,8 @@
 --   "keyboard" -- fallback de desenvolvimento no PC (jogador 1)
 --   "scripted" -- input sintético do modo --smoke
 --
--- Ações lógicas: "start", "back", "fire".
+-- Ações lógicas: "start", "back", "fire" e, no lobby, "left", "right" e
+-- "random" (seletor de cor).
 
 local Config = require("src.config")
 local Util   = require("src.util")
@@ -38,6 +39,11 @@ local KEY_MAP = {
   start = { "return", "kpenter" },
   back  = { "escape" },
   fire  = { "space" },
+  -- Lobby color picker: both WASD and arrow halves, since either hand may be
+  -- the one on the keyboard.
+  left   = { "a", "left" },
+  right  = { "d", "right" },
+  random = { "r" },
 }
 
 -- ---------------------------------------------------------------------------
@@ -95,6 +101,13 @@ function Device:poll(dt)
     down.start = j:isGamepadDown("start")
     down.back  = j:isGamepadDown("back") or j:isGamepadDown("guide")
     down.fire  = j:isGamepadDown("a") or (j:getGamepadAxis("triggerright") or 0) > 0.5
+    -- Lobby picker: d-pad or the left stick pushed past the threshold, so a
+    -- stick flick counts as one press (edge detect does the rest).
+    local lx = j:getGamepadAxis("leftx") or 0
+    local th = Config.LOBBY.stickThreshold
+    down.left   = j:isGamepadDown("dpleft") or lx < -th
+    down.right  = j:isGamepadDown("dpright") or lx > th
+    down.random = j:isGamepadDown("y")
     for i = 1, #ANY_BUTTONS do
       if j:isGamepadDown(ANY_BUTTONS[i]) then any = true; break end
     end
@@ -117,6 +130,7 @@ function Device:poll(dt)
     any = down.start or down.fire
   else
     down.start, down.back, down.fire = false, false, false
+    down.left, down.right, down.random = false, false, false
   end
   self.anyDown = any
 

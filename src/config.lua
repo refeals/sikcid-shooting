@@ -43,12 +43,7 @@ Config.COLORS = {
   textDim     = { 0.45, 0.47, 0.55, 1 },
   textWarn    = { 1.00, 0.78, 0.25, 1 },
 
-  p1          = { 0.30, 0.62, 1.00, 1 },
-  p2          = { 0.35, 0.90, 0.45, 1 },
-  p1Dim       = { 0.15, 0.31, 0.50, 1 },
-  p2Dim       = { 0.18, 0.45, 0.22, 1 },
-
-  bullet      = { 1.00, 0.95, 0.55, 1 },
+  bullet     = { 1.00, 0.95, 0.55, 1 },
   bulletEnemy = { 1.00, 0.45, 0.75, 1 },
 
   grunt       = { 0.90, 0.30, 0.30, 1 },
@@ -63,11 +58,35 @@ Config.COLORS = {
   orb         = { 0.60, 0.95, 1.00, 1 },
 }
 
--- Per-slot player colors. Every player-owned visual (ship, shots, HUD lives,
--- lobby slot) reads its color from here, so a future color picker only has to
--- write into this list.
-Config.PLAYER_COLORS = { Config.COLORS.p1, Config.COLORS.p2 }
-Config.PLAYER_COLORS_DIM = { Config.COLORS.p1Dim, Config.COLORS.p2Dim }
+-- Colors a player can pick in the lobby (left/right cycles, Y picks one at
+-- random). Kept clear of the enemy-shot pink. `name` is shown in the lobby.
+Config.PLAYER_PALETTE = {
+  { name = "AZUL",    color = { 0.30, 0.62, 1.00, 1 } },
+  { name = "VERDE",   color = { 0.35, 0.90, 0.45, 1 } },
+  { name = "CIANO",   color = { 0.25, 0.90, 0.95, 1 } },
+  { name = "LIMA",    color = { 0.75, 0.95, 0.25, 1 } },
+  { name = "BRANCO",  color = { 0.92, 0.94, 1.00, 1 } },
+  { name = "LARANJA", color = { 1.00, 0.60, 0.20, 1 } },
+  { name = "LILÁS",   color = { 0.72, 0.55, 1.00, 1 } },
+  { name = "DOURADO", color = { 1.00, 0.84, 0.30, 1 } },
+}
+-- Palette index each slot starts with when the save has no choice yet.
+Config.PLAYER_DEFAULT_COLOR = { 1, 2 }
+
+-- Runtime per-slot player colors. Every player-owned visual (ship, shots, HUD
+-- lives, lobby slot, pause, game over) reads its color from here; the lobby
+-- writes the picked palette colors into this list.
+Config.PLAYER_COLORS = {
+  Config.PLAYER_PALETTE[Config.PLAYER_DEFAULT_COLOR[1]].color,
+  Config.PLAYER_PALETTE[Config.PLAYER_DEFAULT_COLOR[2]].color,
+}
+
+-- Lobby color picker.
+Config.LOBBY = {
+  stickThreshold = 0.5,   -- left stick x past this counts as a left/right press
+  arrowSize = 6,          -- picker arrow height (px)
+  arrowGap = 30,          -- arrow distance from the ship preview center (px)
+}
 
 -- ---------------------------------------------------------------------------
 -- Art (Kenney packs, CC0)

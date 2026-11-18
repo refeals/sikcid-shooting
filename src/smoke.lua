@@ -26,8 +26,17 @@ local EVENTS = {
     end },
   { 0.40, 1, "start", true  },   -- vincula o Jogador 1
   { 0.50, 1, "start", false },
+  -- Seletor de cor: o P1 avança uma cor (depois do debounce do vínculo)...
+  { 0.68, 1, "right", true  },
+  { 0.72, 1, "right", false },
   { 0.80, 2, "fire",  true  },   -- qualquer botão do device 2 vincula o Jogador 2
   { 0.90, 2, "fire",  false },
+  -- ...o P2 recua (passando pela cor do P1, que tem que ser pulada) e o P1
+  -- sorteia. O lobby falha o smoke se as duas cores terminarem iguais.
+  { 1.07, 2, "left",  true  },
+  { 1.10, 2, "left",  false },
+  { 1.12, 1, "random", true  },
+  { 1.15, 1, "random", false },
   { 1.20, 1, "start", true  },   -- sai do lobby (debounce já passou)
   { 1.30, 1, "start", false },
   -- Abre e fecha a tela de teste de input (F5) por cima do briefing,
@@ -100,9 +109,12 @@ end
 
 -- Roteia os comandos do roteiro: device 1 vira o pad falso quando --fakepad
 -- está ligado; o resto continua no device sintético.
+-- Logical action -> fake gamepad button (anything else keeps its own name).
+local PAD_BUTTONS = { fire = "a", left = "dpleft", right = "dpright", random = "y" }
+
 local function press(which, action, value)
   if which == 1 and pad then
-    pad.st.buttons[action == "fire" and "a" or action] = value or nil
+    pad.st.buttons[PAD_BUTTONS[action] or action] = value or nil
   else
     Input.scriptPress(which, action, value)
   end
@@ -150,11 +162,17 @@ local function finish(code)
   s.devices = Input.count
   print(string.format(
     "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
-    "combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d deniedFx=%d",
+    "combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d deniedFx=%d " ..
+    "cores=%s",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
     s.waves or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
-    s.denied or 0, s.deniedFx or 0))
+    s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
+  -- Both players ending on the same color means the picker's skip rule broke.
+  if (s.colorClash or 0) > 0 then
+    print("[smoke] FALHA: os dois jogadores terminaram com a mesma cor")
+    code = 1
+  end
   if Config.SMOKE_SHOTS then
     print("[smoke] screenshots in " .. love.filesystem.getSaveDirectory())
   end

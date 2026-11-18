@@ -174,6 +174,7 @@ SELECT não sai: no lobby ele desvincula, no jogo abre a pausa.
 | Atirar | automático | automático |
 | Pausar | START ou BACK | Enter ou ESC |
 | Desvincular no lobby | BACK (SELECT) | ESC |
+| Trocar / sortear a cor no lobby | d-pad ←/→ (ou analógico esquerdo) / Y | A/D ou ←/→ / R |
 | Abandonar a partida | BACK na pausa, com confirmação | ESC na pausa |
 | Sair do jogo | segurar SELECT (1s) ou SELECT + START (0,5s) | segurar ESC (0,5s) |
 | Teste de input | — | F5 |
@@ -192,7 +193,12 @@ a pausa, e dá para carregar tudo para a wave seguinte.
 2. O **mesmo** controle apertando START de novo começa a partida em 1 jogador.
 3. **Qualquer botão** de um segundo controle vincula o Jogador 2; daí em diante
    START de qualquer um dos dois começa a partida em 2 jogadores.
-4. **BACK** desvincula. Se o Jogador 1 sair, o Jogador 2 assume o slot 1.
+4. **BACK** desvincula. Se o Jogador 1 sair, o Jogador 2 assume o slot 1
+   (levando a cor que escolheu).
+5. **D-pad** (ou analógico esquerdo) para os lados troca a cor da nave; **Y**
+   sorteia uma. No teclado: A/D ou ←/→ trocam, R sorteia. A cor do outro
+   jogador é sempre pulada, e a escolha de cada slot fica salva para a próxima
+   partida.
 
 Ao sair do lobby, a arena aparece congelada com uma janela apresentando os
 power-ups. A partida só começa quando qualquer um dos jogadores aperta
@@ -247,8 +253,15 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | HUD | [src/hud.lua](src/hud.lua) |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
 
-Cores de jogo em `Config.COLORS`; cores por jogador em `Config.PLAYER_COLORS`;
-sprites, tamanhos, fontes e ajustes visuais em `Config.ART`.
+Cores de jogo em `Config.COLORS`; sprites, tamanhos, fontes e ajustes visuais
+em `Config.ART`.
+
+As cores dos jogadores vêm da paleta `Config.PLAYER_PALETTE` (8 cores com nome
+em PT-BR, sem o rosa dos tiros inimigos). O lobby escreve a cor escolhida de
+cada slot em `Config.PLAYER_COLORS`, que é a lista que todo visual de jogador
+lê (nave, tiros, HUD, pausa, game over). A cor inicial de cada slot fica em
+`Config.PLAYER_DEFAULT_COLOR`, e a escolha é salva como `color1`/`color2` no
+`highscores.dat`. Para adicionar uma cor, basta uma entrada nova na paleta.
 
 ### Arte (Kenney)
 
@@ -271,8 +284,7 @@ sprites ficam lisos. `Config.ART.maxRenderScale` limita esse múltiplo, se o
 hardware sofrer.
 
 O vermelho das naves e mísseis da Kenney vira a cor do jogador no shader de
-[src/shaders.lua](src/shaders.lua). As cores por slot ficam em
-`Config.PLAYER_COLORS`.
+[src/shaders.lua](src/shaders.lua), que aceita qualquer cor da paleta.
 
 ### Som
 
@@ -439,7 +451,9 @@ Ao terminar, imprime um resumo: FPS mínimo, waves, kills, mortes, pickups,
 combo máximo, pausas, e os **picos de cada pool**. `denied=` conta balas e
 inimigos recusados por bater no teto (afeta o jogo: deve ser 0); `deniedFx=`
 conta partículas descartadas (só efeito visual a menos, aceitável em explosões
-grandes).
+grandes). `cores=` mostra os índices de paleta com que os jogadores começaram:
+o roteiro troca e sorteia cores no lobby, e o smoke falha (código 1) se os dois
+terminarem com a mesma cor. O smoke nunca grava as cores no save.
 
 `--fakepad` injeta um gamepad falso que implementa a Gamepad API do LÖVE, para
 exercitar o mesmo caminho de código dos controles reais em máquinas que não

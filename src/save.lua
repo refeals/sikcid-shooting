@@ -6,10 +6,15 @@
 --   solo -- melhor score individual numa partida de 1 jogador
 --   duo  -- melhor score individual numa partida de 2 jogadores
 --   coop -- melhor soma dos dois jogadores numa partida de 2 jogadores
+--
+-- E a cor escolhida no lobby por slot (color1/color2), como índice em
+-- Config.PLAYER_PALETTE.
+
+local Config = require("src.config")
 
 local Save = {
   FILE = "highscores.dat",
-  data = { solo = 0, duo = 0, coop = 0 },
+  data = { solo = 0, duo = 0, coop = 0, color1 = 0, color2 = 0 },
 }
 
 local KEYS = { "solo", "duo", "coop" }
@@ -20,8 +25,17 @@ local function sanitize(v)
   return math.floor(v)
 end
 
+-- Palette index for slot `i`: anything out of range falls back to the default.
+local function sanitizeColor(i, v)
+  v = sanitize(v)
+  if v < 1 or v > #Config.PLAYER_PALETTE then return Config.PLAYER_DEFAULT_COLOR[i] end
+  return v
+end
+
 function Save.load()
   for i = 1, #KEYS do Save.data[KEYS[i]] = 0 end
+  Save.data.color1 = Config.PLAYER_DEFAULT_COLOR[1]
+  Save.data.color2 = Config.PLAYER_DEFAULT_COLOR[2]
 
   local info = love.filesystem.getInfo(Save.FILE)
   if not info then return Save.data end
@@ -31,7 +45,9 @@ function Save.load()
 
   for line in contents:gmatch("[^\r\n]+") do
     local key, value = line:match("^(%w+)=(.+)$")
-    if key and Save.data[key] ~= nil then
+    if key == "color1" or key == "color2" then
+      Save.data[key] = sanitizeColor(key == "color1" and 1 or 2, value)
+    elseif key and Save.data[key] ~= nil then
       Save.data[key] = sanitize(value)
     end
   end
@@ -39,8 +55,9 @@ function Save.load()
 end
 
 function Save.write()
-  local out = string.format("solo=%d\nduo=%d\ncoop=%d\n",
-    Save.data.solo, Save.data.duo, Save.data.coop)
+  local d = Save.data
+  local out = string.format("solo=%d\nduo=%d\ncoop=%d\ncolor1=%d\ncolor2=%d\n",
+    d.solo, d.duo, d.coop, d.color1, d.color2)
   local ok, err = pcall(love.filesystem.write, Save.FILE, out)
   if not ok then print("[save] falha ao gravar: " .. tostring(err)) end
   return ok
@@ -48,6 +65,18 @@ end
 
 function Save.get(key)
   return Save.data[key] or 0
+end
+
+-- Stores the lobby color picks (palette indexes; c2 may be nil in 1 player).
+-- Writes the file only when something changed. Smoke runs cycle colors on
+-- purpose, so they never overwrite the real picks.
+function Save.setColors(c1, c2)
+  if Config.SMOKE then return end
+  local d = Save.data
+  local changed = false
+  if c1 and c1 ~= d.color1 then d.color1 = c1; changed = true end
+  if c2 and c2 ~= d.color2 then d.color2 = c2; changed = true end
+  if changed then Save.write() end
 end
 
 -- Registra o resultado de uma partida. Devolve uma tabela dizendo quais
