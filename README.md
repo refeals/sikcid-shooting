@@ -221,7 +221,7 @@ espalhado em outro arquivo.
 | Duração, chance de drop e peso de cada power-up | `Config.POWERUP` e `DEFS` em [src/systems/powerups.lua](src/systems/powerups.lua) |
 | Janela do combo, degrau e teto do multiplicador | `Config.COMBO` |
 | Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
-| Screen shake, hit-stop, partículas de morte | `Config.JUICE` |
+| Screen shake, hit-stop, explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
 | Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 120 partículas) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
 | Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
 
@@ -229,23 +229,26 @@ As fórmulas de wave são funções, não tabela: a curva é infinita. Para deix
 jogo mais fácil, o mais direto é reduzir o coeficiente quadrático de
 `waveQuota` (`0.35 * w * w`) e subir `waveSpawnInterval`.
 
-## Onde trocar quadrados por sprites
+## Onde mexer no visual
 
-Cada entidade concentra **todo** o seu desenho num único método `:draw()`. Trocar
-retângulo por sprite é uma mudança local, sem tocar em lógica:
+Cada entidade concentra **todo** o seu desenho num único método `:draw()`;
+mudar o visual é uma mudança local, sem tocar em lógica:
 
-| Entidade | Arquivo |
-|----------|---------|
-| Jogador (quadrado, mira, orbes, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` |
-| Inimigos (os 4 tipos, flash de dano, HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
-| Balas e mísseis | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` |
-| Power-up no chão | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup:draw` |
-| Partículas | [src/entities/particle.lua](src/entities/particle.lua) → `Particle:draw` |
+| O que | Arquivo |
+|-------|---------|
+| Jogador (nave recolorida, chama, crosshair, orbes, escudo, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
+| Inimigos (os 4 tipos, flash de dano, barra de HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
+| Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
+| Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
+| Explosões (fumaça + faíscas) e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua) |
 | Portas e telégrafo | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw` |
-| Arena, grade, banners | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
+| Fundo de estrelas (arena, lobby, game over) | [src/starfield.lua](src/starfield.lua) |
+| Arena, grade, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
 | HUD | [src/hud.lua](src/hud.lua) |
+| Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
 
-Todas as cores vêm de `Config.COLORS` — trocar a paleta é mexer em um lugar só.
+Cores de jogo em `Config.COLORS`; cores por jogador em `Config.PLAYER_COLORS`;
+sprites, tamanhos, fontes e ajustes visuais em `Config.ART`.
 
 ### Arte (Kenney)
 
@@ -349,7 +352,8 @@ src/music.lua         -- música de fundo: crossfade, pausa abafada
 src/hud.lua           -- faixa de HUD
 src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
 src/shaders.lua       -- recolor: vermelho da Kenney -> cor do jogador
-src/ui.lua            -- painel, aba, barra, badge e crosshair do UIPack
+src/ui.lua            -- janela, aba, barra, badge, crosshair e texto (UIPack)
+src/starfield.lua     -- fundo de estrelas fixo (seed), com cintilação
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest

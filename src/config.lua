@@ -134,7 +134,7 @@ Config.ART = {
   -- Arena background (src/starfield.lua). Fixed seed: same sky every match.
   stars = {
     seed = 1337,
-    count = 70,
+    count = 80,
     bigShare = 0.12,          -- fraction drawn with the bigger star sprite
     tinyMin = 2, tinyMax = 4,
     bigMin = 4, bigMax = 7,
@@ -158,6 +158,8 @@ Config.ART = {
   ui = {
     panel = { 0.16, 0.18, 0.25, 0.90 },
     panelLight = { 0.28, 0.30, 0.40, 0.95 },
+    neutral = { 0.55, 0.57, 0.66, 1 },   -- tab color for screens owned by no one
+    tabH = 12,
   },
 
   -- Kenney pixel fonts sit on an 8px grid: only multiples of 8 keep every
@@ -169,6 +171,7 @@ Config.ART = {
     body  = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 8 },
     large = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 16 },
     mono  = { file = "assets/art/Fonts/Kenney Mini Square Mono.ttf", size = 8 },
+    monoLarge = { file = "assets/art/Fonts/Kenney Mini Square Mono.ttf", size = 16 },
   },
 
   -- Palette-swap shader (src/shaders.lua): which texels count as "Kenney red"

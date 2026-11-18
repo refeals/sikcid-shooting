@@ -24,9 +24,9 @@ local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
 local Starfield = require("src.starfield")
+local UI        = require("src.ui")
 
 local Game = {}
-local starsBuilt = false
 
 local J = Config.JUICE
 
@@ -219,6 +219,9 @@ function world:onGameOver()
   local beat = Save.submitMatch(self.playerCount, summary.scores)
   summary.beat.solo, summary.beat.duo, summary.beat.coop = beat.solo, beat.duo, beat.coop
 
+  -- Shake is only updated by the arena: clear it or the next screen inherits
+  -- the last frame's offset.
+  Screen.setShake(0, 0)
   State.switch(require("src.states.gameover"), summary)
 end
 
@@ -250,7 +253,6 @@ function Game:enter(devices, count)
   pickups:clear()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
-  if not starsBuilt then Starfield.build(arena); starsBuilt = true end
 
   for i = 1, world.playerCount do
     local p = Player.new(i, devices[i])
@@ -442,32 +444,29 @@ function Game:draw()
 
   for i = 1, world.playerCount do world.players[i]:draw() end
 
-  -- Banner "WAVE N" no começo da wave, sumindo aos poucos.
+  -- "WAVE N" banner when a wave starts, rising and fading out.
   if Spawner.banner > 0 then
     local t = Spawner.banner / Config.WAVE.bannerTime
-    love.graphics.setColor(C.text[1], C.text[2], C.text[3], math.min(1, t * 2))
-    love.graphics.printf(string.format("WAVE %d", Spawner.wave),
-      arena.cx - 120, arena.cy - 60 - (1 - t) * 10, 240, "center")
+    UI.text("big", string.format("WAVE %d", Spawner.wave),
+      arena.cx - 160, arena.cy - 70 - (1 - t) * 10,
+      { C.text[1], C.text[2], C.text[3], math.min(1, t * 2) }, 320, "center")
   end
 
-  -- Aviso de wave completa durante o respiro.
+  -- Wave cleared notice during the breather.
   if Spawner.isResting() and Spawner.wave >= 1 then
-    love.graphics.setColor(C.textWarn)
-    love.graphics.printf(string.format("WAVE %d COMPLETA", Spawner.wave),
-      arena.cx - 120, arena.cy - 50, 240, "center")
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf(string.format("BONUS %d   -   PROXIMA EM %.1f",
+    UI.text("title", string.format("WAVE %d COMPLETA", Spawner.wave),
+      arena.cx - 160, arena.cy - 58, C.textWarn, 320, "center")
+    UI.text("body", string.format("BÔNUS %d   -   PRÓXIMA EM %.1f",
       Spawner.wave * Config.WAVE.clearBonus, math.max(0, Spawner.timer)),
-      arena.cx - 120, arena.cy - 34, 240, "center")
+      arena.cx - 160, arena.cy - 36, C.textDim, 320, "center")
   end
 
-  -- Contagem regressiva do respawn.
+  -- Respawn countdown.
   for i = 1, world.playerCount do
     local p = world.players[i]
     if not p.alive and not p.out then
-      love.graphics.setColor(p.color)
-      love.graphics.printf(string.format("P%d VOLTA EM %.1f", p.index, math.max(0, p.respawnTimer)),
-        arena.cx - 80, arena.cy - 30 + (i - 1) * 16, 160, "center")
+      UI.text("body", string.format("P%d VOLTA EM %.1f", p.index, math.max(0, p.respawnTimer)),
+        arena.cx - 80, arena.cy - 22 + (i - 1) * 12, p.color, 160, "center")
     end
   end
 
@@ -486,7 +485,7 @@ function Game:draw()
 
   hudInfo.title = string.format("WAVE %d", math.max(1, Spawner.wave))
   hudInfo.subtitle = Spawner.isResting()
-    and string.format("PROXIMA EM %.1f", math.max(0, Spawner.timer))
+    and string.format("PRÓXIMA EM %.1f", math.max(0, Spawner.timer))
     or string.format("INIMIGOS %d", Spawner.remaining(world))
   Hud.draw(world.players, world.playerCount, hudInfo)
 

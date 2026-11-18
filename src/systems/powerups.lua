@@ -31,14 +31,14 @@ Powerups.DEFS = {
   },
   {
     id = "rapid", name = "RAPID FIRE", letter = "R",
-    desc = "cadencia de tiro em dobro",
+    desc = "cadência de tiro em dobro",
     weapon = true, duration = PU.duration, weight = 20,
     color = { 1.00, 0.85, 0.30, 1 },
     apply = function(m) m.fireRateMul = m.fireRateMul * 2 end,
   },
   {
     id = "missiles", name = "MISSILES", letter = "M",
-    desc = "misseis teleguiados, dano 3",
+    desc = "mísseis teleguiados, dano 3",
     weapon = true, duration = PU.duration, weight = 15,
     color = { 1.00, 0.55, 0.35, 1 },
     apply = function(m)
@@ -62,7 +62,7 @@ Powerups.DEFS = {
   },
   {
     id = "life", name = "EXTRA LIFE", letter = "+",
-    desc = "+1 vida na hora (max. 5)",
+    desc = "+1 vida na hora (máx. 5)",
     sound = "pickup_life",    -- som próprio (os outros usam "pickup")
     permanent = true, duration = 1, weight = 6,
     color = { 1.00, 0.45, 0.55, 1 },

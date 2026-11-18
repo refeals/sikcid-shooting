@@ -11,6 +11,7 @@
 local Config = require("src.config")
 local Input  = require("src.input")
 local State  = require("src.state")
+local UI     = require("src.ui")
 
 local InputTest = {}
 
@@ -32,7 +33,7 @@ local function drawStick(cx, cy, r, x, y, color, label)
   love.graphics.printf(label, cx - 30, cy + r + 2, 60, "center")
 end
 
-local BTN_W = 44   -- largura que comporta "START" na fonte padrão
+local BTN_W = 44   -- fits "START" in the body font (Kenney Mini Square 8)
 
 local function drawButton(x, y, label, active)
   local C = Config.COLORS
@@ -53,8 +54,7 @@ local function drawDevice(d, y)
   love.graphics.rectangle("line", 6.5, y + 0.5, W - 13, ROW_H - 7)
 
   -- Cor do jogador se o device estiver vinculado.
-  local color = C.text
-  if d.boundTo == 1 then color = C.p1 elseif d.boundTo == 2 then color = C.p2 end
+  local color = Config.PLAYER_COLORS[d.boundTo] or C.text
 
   love.graphics.setColor(color)
   love.graphics.print(d:displayName(), 14, y + 6)
@@ -114,8 +114,7 @@ function InputTest:draw()
   love.graphics.setColor(0, 0, 0, self.standalone and 1 or 0.85)
   love.graphics.rectangle("fill", 0, 0, W, H)
 
-  love.graphics.setColor(C.text)
-  love.graphics.printf("TESTE DE INPUT", 0, 6, W, "center")
+  UI.text("title", "TESTE DE INPUT", 0, 2, C.text, W, "center")
   love.graphics.setColor(C.textDim)
   love.graphics.printf(string.format("%d device(s)  -  %d joystick(s) no SDL  -  deadzone %.2f radial",
     Input.count, love.joystick.getJoystickCount(), Config.DEADZONE), 0, 22, W, "center")
@@ -142,12 +141,12 @@ function InputTest:draw()
     love.graphics.setColor(C.textDim)
     for i = 1, Input.unmappedCount do
       local u = Input.unmapped[i]
-      love.graphics.printf(string.format("%s  -  %d eixos, %d botoes  -  guid %s",
+      love.graphics.printf(string.format("%s  -  %d eixos, %d botões  -  guid %s",
         u.name, u.axes, u.buttons, u.guid:sub(1, 16)), 0, y + 16 + (i - 1) * 12, W, "center")
     end
   elseif love.joystick.getJoystickCount() == 0 then
     love.graphics.setColor(C.textDim)
-    love.graphics.printf("nenhum joystick visivel para o SDL", 0, y + 4, W, "center")
+    love.graphics.printf("nenhum joystick visível para o SDL", 0, y + 4, W, "center")
   end
 
   love.graphics.setColor(C.textDim)

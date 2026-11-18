@@ -12,6 +12,8 @@ local Input  = require("src.input")
 local State  = require("src.state")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
+local UI     = require("src.ui")
+local Screen = require("src.screen")
 
 local Pause = {}
 
@@ -23,6 +25,7 @@ function Pause:enter(world, mode, playerIndex)
   self.playerIndex = playerIndex
   self.timer = 0
   self.confirmQuit = false   -- BACK pede confirmação antes de abandonar
+  Screen.setShake(0, 0)      -- the frozen arena must not stay offset
   Music.duck(true)           -- música abaixa, não para
   Audio.play("menu_confirm")
   if Config.SMOKE then
@@ -106,37 +109,37 @@ function Pause:draw()
   love.graphics.setColor(0, 0, 0, 0.72)
   love.graphics.rectangle("fill", 0, 0, W, H)
 
+  -- One window, three modes: tab color says whose problem it is.
+  local title, tab, headline, headColor, line1, line2
   if self.mode == "waiting" then
     local idx = self.playerIndex or 1
-    love.graphics.setColor(idx == 1 and C.p1 or C.p2)
-    love.graphics.printf(string.format("AGUARDANDO CONTROLE DO JOGADOR %d", idx),
-      0, H * 0.5 - 24, W, "center")
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf("RECONECTE O CONTROLE PARA CONTINUAR", 0, H * 0.5 - 4, W, "center")
-    love.graphics.printf("BACK ABANDONA A PARTIDA", 0, H * 0.5 + 14, W, "center")
+    title, tab = "CONTROLE DESCONECTADO", Config.PLAYER_COLORS[idx]
+    headline, headColor = string.format("AGUARDANDO O JOGADOR %d", idx), Config.PLAYER_COLORS[idx]
+    line1 = "RECONECTE O CONTROLE PARA CONTINUAR"
+    line2 = "BACK ABANDONA A PARTIDA"
   elseif self.confirmQuit then
-    love.graphics.setColor(C.doorWarn)
-    love.graphics.printf("ABANDONAR A PARTIDA?", 0, H * 0.5 - 24, W, "center")
-    love.graphics.setColor(C.text)
-    love.graphics.printf("BACK CONFIRMA   -   START CONTINUA JOGANDO", 0, H * 0.5 - 2, W, "center")
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf("o progresso desta partida e perdido", 0, H * 0.5 + 16, W, "center")
+    title, tab = "CONFIRMAÇÃO", C.doorWarn
+    headline, headColor = "ABANDONAR A PARTIDA?", C.doorWarn
+    line1 = "BACK CONFIRMA   -   START CONTINUA JOGANDO"
+    line2 = "O PROGRESSO DESTA PARTIDA É PERDIDO"
   else
-    love.graphics.setColor(C.text)
-    love.graphics.printf("PAUSA", 0, H * 0.5 - 24, W, "center")
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf("START CONTINUA   -   BACK ABANDONA A PARTIDA", 0, H * 0.5 - 2, W, "center")
-    love.graphics.printf("SEGURE SELECT PARA SAIR DO JOGO", 0, H * 0.5 + 16, W, "center")
+    -- No tab: it would just repeat the big headline.
+    title, tab = nil, nil
+    headline, headColor = "PAUSA", C.text
+    line1 = "START CONTINUA   -   BACK ABANDONA A PARTIDA"
+    line2 = "SEGURE SELECT PARA SAIR DO JOGO"
   end
 
-  -- Barra do combo de saída também visível aqui.
-  local ex = Input.exitProgress()
-  if ex > 0 then
-    love.graphics.setColor(C.doorWarn)
-    love.graphics.rectangle("fill", W * 0.5 - 60, H * 0.5 + 40, 120 * ex, 4)
-    love.graphics.setColor(C.hudLine)
-    love.graphics.rectangle("line", W * 0.5 - 60.5, H * 0.5 + 39.5, 121, 5)
-  end
+  local pw, ph = 340, 92
+  local px, py = math.floor((W - pw) * 0.5), math.floor((H - ph) * 0.5)
+  local top = UI.window(px, py, pw, ph, title, tab)
+  -- Rocket Square is wide: only the short "PAUSA" fits the big size.
+  local big = self.mode ~= "waiting" and not self.confirmQuit
+  UI.text(big and "big" or "title", headline, px, top + (big and 8 or 14), headColor, pw, "center")
+  UI.text("body", line1, px, top + 44, C.text, pw, "center")
+  UI.text("body", line2, px, top + 60, C.textDim, pw, "center")
+
+  UI.exitBar(W * 0.5, py + ph + 10)
   love.graphics.setColor(1, 1, 1, 1)
 end
 

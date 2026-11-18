@@ -1,6 +1,8 @@
--- Static starfield behind the arena.
+-- Static starfield behind the arena and the menus.
 --
--- Positions come from a fixed seed, so the sky is the same every match.
+-- Covers the whole 640x360 screen (the HUD strip hides its top in-game) and
+-- builds itself on first draw. Positions come from a fixed seed, so the sky
+-- is the same on every screen and every match.
 -- Stars are drawn live (no extra canvas to rebuild on resize), grouped by
 -- sprite so LÖVE's autobatching turns them into two draw calls. A fraction
 -- of them twinkle.
@@ -13,7 +15,8 @@ local Starfield = {}
 local S = Config.ART.stars
 local stars = {}   -- { x, y, size, alpha, sprite, twinkle, phase }
 
-function Starfield.build(area)
+local function build()
+  local area = { x = 0, y = 0, w = Config.VIRTUAL_W, h = Config.VIRTUAL_H }
   local rng = love.math.newRandomGenerator(S.seed)
   for i = 1, S.count do
     local big = rng:random() < S.bigShare
@@ -45,6 +48,7 @@ local function drawGroup(sprite, time)
 end
 
 function Starfield.draw()
+  if #stars == 0 then build() end
   local time = love.timer.getTime()
   drawGroup("starTiny", time)
   drawGroup("starSmall", time)

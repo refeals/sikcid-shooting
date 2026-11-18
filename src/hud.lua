@@ -1,102 +1,74 @@
--- Faixa de HUD no topo (40px).
+-- HUD strip at the top (40px).
 --
--- Esquerda = P1, direita = P2: vidas, score, combo + multiplicador + barra de
--- tempo, e ícones dos power-ups ativos com barra de duração.
--- Centro: número da wave e inimigos restantes na cota.
+-- One glass panel per player (P1 left, P2 right, same inner layout):
+--   row 1: colored "Pn" tab, score, lives as mini ships;
+--   row 2: combo count + multiplier with its timer bar, active power-ups.
+-- Center: wave number and enemies left (or the countdown between waves).
 
 local Config = require("src.config")
-local Input  = require("src.input")
 local Combo  = require("src.systems.combo")
+local Assets = require("src.assets")
+local UI     = require("src.ui")
+local Player = require("src.entities.player")
+local Pickup = require("src.entities.pickup")
 
 local Hud = {}
 
-local LIFE_SIZE = 5
-local LIFE_GAP = 3
-local COMBO_BAR_W = 64
-local ICON = 9
+local PANEL_W, PANEL_H = 200, 36
+local PAD = 4
+local LIFE_GAP = 10           -- center-to-center spacing of the life ships
+local COMBO_BAR_W = 92
+local ICON = 11               -- power-up badge size
+local ICON_GAP = 3
 
--- Desenha um retângulo "ancorado": em `align == "right"` cresce para a
--- esquerda a partir de x. Evita duplicar toda a matemática de layout.
-local function rect(mode, align, x, y, w, h)
-  love.graphics.rectangle(mode, align == "right" and (x - w) or x, y, w, h)
-end
-
-local function drawLives(align, x, y, count, color)
-  love.graphics.setColor(color)
-  for i = 1, count do
-    local off = (i - 1) * (LIFE_SIZE + LIFE_GAP)
-    rect("fill", align, align == "right" and (x - off) or (x + off), y, LIFE_SIZE, LIFE_SIZE)
-  end
-end
-
-local function drawPowerups(p, align, x, y)
+local function drawPowerups(p, x, y)
   local list = p.powerups
   if not list then return end
   for i = 1, #list do
     local pu = list[i]
-    local off = (i - 1) * (ICON + 3)
-    local ix = align == "right" and (x - off) or (x + off)
-
-    love.graphics.setColor(pu.def.color or Config.COLORS.text)
-    rect("fill", align, ix, y, ICON, ICON)
-
-    -- Barra de tempo restante embaixo do ícone.
+    local cx = x + (i - 1) * (ICON + ICON_GAP) + ICON * 0.5
+    Pickup.drawIcon(pu.def, cx, y + ICON * 0.5, ICON)
+    -- Time left as a thin bar under the badge.
     local frac = pu.timeLeft / pu.def.duration
     love.graphics.setColor(Config.COLORS.hudLine)
-    rect("fill", align, ix, y + ICON + 1, ICON, 2)
-    love.graphics.setColor(Config.COLORS.text)
-    rect("fill", align, ix, y + ICON + 1, ICON * frac, 2)
+    love.graphics.rectangle("fill", cx - ICON * 0.5, y + ICON + 1, ICON, 2)
+    love.graphics.setColor(pu.def.color)
+    love.graphics.rectangle("fill", cx - ICON * 0.5, y + ICON + 1, ICON * frac, 2)
   end
 end
 
--- `align` = "left" (P1) ou "right" (P2); `x` é a borda de ancoragem.
-local function drawPlayerPanel(p, align, x)
+local function drawPlayerPanel(p, x, y)
   local C = Config.COLORS
-  local textX = align == "right" and (x - 160) or x
+  UI.panel(x, y, PANEL_W, PANEL_H)
 
-  love.graphics.setColor(p.color)
-  love.graphics.printf(string.format("P%d", p.index), textX, 2, 160, align)
+  -- Row 1: tab, score, lives.
+  UI.tab(p.color, "P" .. p.index, x + PAD, y + PAD, 22, 11)
+  local mono = Assets.font("monoLarge")
+  local score = string.format("%07d", p.score)
+  UI.text("monoLarge", score, x + PAD + 28, y + PAD + 11 - mono:getAscent(), p.out and C.textDim or C.text)
 
-  love.graphics.setColor(p.out and C.textDim or C.text)
-  love.graphics.printf(string.format("%07d", p.score),
-    align == "right" and (textX - 22) or (textX + 22), 2, 160, align)
-
+  local lx = x + PAD + 28 + mono:getWidth(score) + 10
   if p.out then
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf("FORA", textX, 14, 160, align)
+    UI.text("body", "FORA", lx, y + PAD + 2, C.textDim)
   else
-    drawLives(align, x, 15, p.lives, p.color)
+    for i = 1, p.lives do
+      Player.drawShip(p.color, lx + (i - 1) * LIFE_GAP, y + PAD + 5, -math.pi / 2, Config.ART.size.hudLife)
+    end
   end
 
-  -- Combo: contagem, multiplicador e barra encolhendo (linha própria, abaixo
-  -- do texto, para não parecer um sublinhado).
+  -- Row 2: combo text + bar on the left, power-ups on the right.
+  local ry = y + 18
   if p.comboLost and p.comboLost > 0 and p.combo == 0 then
-    -- Aviso piscando ao perder o combo.
     if math.floor(p.comboLost * 10) % 2 == 0 then
-      love.graphics.setColor(C.doorWarn)
-      love.graphics.printf("COMBO PERDIDO", textX, 23, 160, align)
+      UI.text("body", "COMBO PERDIDO", x + PAD + 2, ry, C.doorWarn)
     end
   elseif p.combo and p.combo > 0 then
     local mult = Combo.mult(p)
-    -- Pisca em branco por um instante quando o multiplicador sobe.
-    if (p.comboPulse or 0) > 0 then
-      love.graphics.setColor(C.flash)
-    else
-      love.graphics.setColor(mult > 1 and C.textWarn or C.textDim)
-    end
-    love.graphics.printf(string.format("COMBO %d  x%d", p.combo, mult),
-      textX, 23, 160, align)
-
-    local frac = Combo.fraction(p)
-    love.graphics.setColor(C.hudLine)
-    rect("fill", align, x, 36, COMBO_BAR_W, 3)
-    love.graphics.setColor(p.color)
-    rect("fill", align, x, 36, COMBO_BAR_W * frac, 3)
+    local color = (p.comboPulse or 0) > 0 and C.flash or (mult > 1 and C.textWarn or C.textDim)
+    UI.text("body", string.format("COMBO %d  x%d", p.combo, mult), x + PAD + 2, ry, color)
+    UI.bar(mult > 1 and C.textWarn or p.color, x + PAD, ry + 10, COMBO_BAR_W, Combo.fraction(p), 4)
   end
-
-  -- Coluna de ícones depois do texto do combo ("COMBO 99  x8" cabe em ~100px).
-  local iconX = align == "right" and (x - 104) or (x + 104)
-  drawPowerups(p, align, iconX, 21)
+  drawPowerups(p, x + PAD + COMBO_BAR_W + 10, ry - 1)
 end
 
 function Hud.draw(players, playerCount, info)
@@ -108,26 +80,18 @@ function Hud.draw(players, playerCount, info)
   love.graphics.setColor(C.hudLine)
   love.graphics.line(0, Config.HUD_H + 0.5, W, Config.HUD_H + 0.5)
 
-  if players[1] then drawPlayerPanel(players[1], "left", 6) end
-  if playerCount >= 2 and players[2] then drawPlayerPanel(players[2], "right", W - 6) end
+  if players[1] then drawPlayerPanel(players[1], 2, 2) end
+  if playerCount >= 2 and players[2] then drawPlayerPanel(players[2], W - PANEL_W - 2, 2) end
 
-  -- Centro: wave e inimigos restantes.
-  love.graphics.setColor(C.text)
-  love.graphics.printf(info and info.title or "ARENA", W * 0.5 - 90, 4, 180, "center")
+  -- Center: wave and enemies left.
+  local cx = PANEL_W + 6
+  local cw = W - 2 * cx
+  UI.text("title", info and info.title or "ARENA", cx, 3, C.text, cw, "center")
   if info and info.subtitle then
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf(info.subtitle, W * 0.5 - 90, 18, 180, "center")
+    UI.text("body", info.subtitle, cx, 22, C.textDim, cw, "center")
   end
 
-  -- Aviso discreto do combo de saída (select+start).
-  local ex = Input.exitProgress()
-  if ex > 0 then
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf("SAINDO", W * 0.5 - 60, Config.HUD_H - 14, 120, "center")
-    love.graphics.setColor(C.doorWarn)
-    love.graphics.rectangle("fill", W * 0.5 - 30, Config.HUD_H - 4, 60 * ex, 2)
-  end
-
+  UI.exitBar(W * 0.5, Config.HUD_H - 7, 80)
   love.graphics.setColor(1, 1, 1, 1)
 end
 

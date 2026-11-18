@@ -4,11 +4,12 @@
 -- alcançada) e o retorno de Save.submitMatch dizendo quais recordes caíram.
 
 local Config = require("src.config")
-local Input  = require("src.input")
 local State  = require("src.state")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
+local UI     = require("src.ui")
+local Starfield = require("src.starfield")
 
 local GameOver = {}
 
@@ -48,17 +49,13 @@ function GameOver:update(dt)
   end
 end
 
--- Uma coluna de resultado por jogador.
-local function drawPlayerColumn(s, i, x, w)
+-- One result window per player.
+local function drawPlayerColumn(s, i, x, y, w)
   local C = Config.COLORS
-  local color = i == 1 and C.p1 or C.p2
-
-  love.graphics.setColor(color)
-  love.graphics.printf(string.format("JOGADOR %d", i), x, 96, w, "center")
-  love.graphics.setColor(C.text)
-  love.graphics.printf(string.format("%07d", s.scores[i] or 0), x, 114, w, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf(string.format("COMBO MAX  %d", s.combos[i] or 0), x, 132, w, "center")
+  local color = Config.PLAYER_COLORS[i]
+  local top = UI.window(x, y, w, 64, string.format("JOGADOR %d", i), color)
+  UI.text("monoLarge", string.format("%07d", s.scores[i] or 0), x, top + 6, C.text, w, "center")
+  UI.text("body", string.format("COMBO MÁX  %d", s.combos[i] or 0), x, top + 32, C.textDim, w, "center")
 end
 
 function GameOver:draw()
@@ -68,62 +65,49 @@ function GameOver:draw()
 
   love.graphics.setColor(C.arenaBg)
   love.graphics.rectangle("fill", 0, 0, W, H)
+  Starfield.draw()
 
-  love.graphics.setColor(C.doorWarn)
-  love.graphics.printf("FIM DE JOGO", 0, 40, W, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf(string.format("WAVE ALCANCADA: %d   -   WAVES COMPLETAS: %d",
-    s.wave, s.wavesCleared), 0, 60, W, "center")
+  UI.text("big", "FIM DE JOGO", 0, 22, C.doorWarn, W, "center")
+  UI.text("body", string.format("WAVE ALCANÇADA: %d   -   WAVES COMPLETAS: %d",
+    s.wave, s.wavesCleared), 0, 54, C.textDim, W, "center")
 
   if s.playerCount >= 2 then
-    drawPlayerColumn(s, 1, W * 0.5 - 220, 200)
-    drawPlayerColumn(s, 2, W * 0.5 + 20, 200)
-    love.graphics.setColor(C.text)
-    love.graphics.printf(string.format("TOTAL DA DUPLA  %d", (s.scores[1] or 0) + (s.scores[2] or 0)),
-      W * 0.5 - 150, 156, 300, "center")
+    drawPlayerColumn(s, 1, W * 0.5 - 212, 74, 200)
+    drawPlayerColumn(s, 2, W * 0.5 + 12, 74, 200)
+    UI.text("title", string.format("TOTAL DA DUPLA  %d", (s.scores[1] or 0) + (s.scores[2] or 0)),
+      0, 150, C.text, W, "center")
   else
-    drawPlayerColumn(s, 1, W * 0.5 - 150, 300)
+    drawPlayerColumn(s, 1, W * 0.5 - 100, 74, 200)
   end
 
-  -- Recordes, com destaque para o que acabou de cair.
+  -- Records, with the ones just beaten blinking.
   local beat = s.beat
-  local y = 196
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf("RECORDES", 0, y, W, "center")
-
+  local rw = 424
+  local rx = W * 0.5 - rw * 0.5
+  local top = UI.window(rx, 176, rw, 66, "RECORDES", C.textWarn)
   local labels = {
-    { key = "solo", text = "SOLO",  value = Save.get("solo") },
-    { key = "duo",  text = "DUPLA", value = Save.get("duo") },
-    { key = "coop", text = "COOP",  value = Save.get("coop") },
+    { key = "solo", text = "MELHOR SOLO",     value = Save.get("solo") },
+    { key = "duo",  text = "MELHOR EM DUPLA", value = Save.get("duo") },
+    { key = "coop", text = "SOMA DA DUPLA",   value = Save.get("coop") },
   }
+  local cw = rw / 3
   for i = 1, #labels do
     local L = labels[i]
-    local x = W * 0.5 - 300 + (i - 1) * 205
-    if beat[L.key] then
-      -- Pisca o recorde recém-batido.
-      if math.floor(self.blink * 6) % 2 == 0 then
-        love.graphics.setColor(C.textWarn)
-      else
-        love.graphics.setColor(C.text)
-      end
-      love.graphics.printf(string.format("%s %d", L.text, L.value), x, y + 18, 190, "center")
-      love.graphics.printf("NOVO RECORDE!", x, y + 32, 190, "center")
-    else
-      love.graphics.setColor(C.textDim)
-      love.graphics.printf(string.format("%s %d", L.text, L.value), x, y + 18, 190, "center")
+    local x = rx + (i - 1) * cw
+    local isNew = beat[L.key]
+    local on = isNew and math.floor(self.blink * 6) % 2 == 0
+    UI.text("body", L.text, x, top + 8, C.textDim, cw, "center")
+    UI.text("monoLarge", tostring(L.value), x, top + 14, on and C.textWarn or (isNew and C.text or C.textDim),
+      cw, "center")
+    if isNew then
+      UI.text("body", "NOVO RECORDE!", x, top + 40, on and C.textWarn or C.text, cw, "center")
     end
   end
 
-  love.graphics.setColor(self.timer >= ACCEPT_DELAY and C.text or C.textDim)
-  love.graphics.printf("START VOLTA AO LOBBY", 0, 288, W, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf("SEGURE SELECT PARA SAIR DO JOGO", 0, 304, W, "center")
-
-  local ex = Input.exitProgress()
-  if ex > 0 then
-    love.graphics.setColor(C.doorWarn)
-    love.graphics.rectangle("fill", W * 0.5 - 60, 324, 120 * ex, 4)
-  end
+  UI.text("title", "START VOLTA AO LOBBY", 0, 270,
+    self.timer >= ACCEPT_DELAY and C.text or C.textDim, W, "center")
+  UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 294, C.textDim, W, "center")
+  UI.exitBar(W * 0.5, 312)
   love.graphics.setColor(1, 1, 1, 1)
 end
 

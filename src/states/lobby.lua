@@ -16,6 +16,8 @@ local Audio  = require("src.audio")
 local Music  = require("src.music")
 local State  = require("src.state")
 local Player = require("src.entities.player")
+local UI     = require("src.ui")
+local Starfield = require("src.starfield")
 
 local Lobby = {}
 
@@ -115,36 +117,33 @@ local function drawSlot(index, x, y, w, h)
   local C = Config.COLORS
   local s = slots[index]
   local color = Config.PLAYER_COLORS[index]
-  local dim   = Config.PLAYER_COLORS_DIM[index]
 
-  love.graphics.setColor(s and dim or C.hudBg)
-  love.graphics.rectangle("fill", x, y, w, h)
-  love.graphics.setColor(s and color or C.hudLine)
-  love.graphics.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1)
+  local top = UI.window(x, y, w, h, "JOGADOR " .. index, s and color or Config.ART.ui.neutral)
 
-  love.graphics.setColor(C.text)
-  love.graphics.printf("JOGADOR " .. index, x, y + 8, w, "center")
-
-  -- Ship preview in the slot color, slowly turning; grey while the slot is free.
-  Player.drawShip(s and color or C.textDim, x + w * 0.5, y + 44, -math.pi / 2 + math.sin(blink * 1.5) * 0.5, 30)
+  -- Ship preview in the slot color, gently swaying; grey while the slot is free.
+  Player.drawShip(s and color or C.textDim, x + w * 0.5, top + 28,
+    -math.pi / 2 + math.sin(blink * 1.5) * 0.4, 36, s and 1 or 0.6)
 
   if s then
     if s.device.connected then
-      love.graphics.setColor(color)
-      love.graphics.printf("PRONTO", x, y + 64, w, "center")
+      UI.text("title", "PRONTO", x, top + 54, color, w, "center")
     else
-      love.graphics.setColor(C.doorWarn)
-      love.graphics.printf("DESCONECTADO", x, y + 64, w, "center")
+      UI.text("title", "DESCONECTADO", x, top + 54, C.doorWarn, w, "center")
     end
-    love.graphics.setColor(C.textDim)
-    love.graphics.printf(s.device:displayName(), x + 4, y + 82, w - 8, "center")
+    UI.text("body", s.device:displayName(), x + 6, top + 78, C.textDim, w - 12, "center")
   else
-    -- Pisca o convite para dar vida à tela.
+    -- Pulsing invitation to bring the screen to life.
     local a = 0.55 + 0.45 * math.sin(blink * 4)
-    love.graphics.setColor(C.textDim[1], C.textDim[2], C.textDim[3], a)
-    love.graphics.printf(index == 1 and "PRESSIONE START" or "PRESSIONE QUALQUER BOTAO",
-      x + 6, y + 64, w - 12, "center")
+    UI.text("body", index == 1 and "PRESSIONE START" or "PRESSIONE QUALQUER BOTÃO",
+      x + 6, top + 60, { C.textDim[1], C.textDim[2], C.textDim[3], a }, w - 12, "center")
   end
+end
+
+-- One record column: label over its value.
+local function drawRecord(label, value, x, y, w)
+  local C = Config.COLORS
+  UI.text("body", label, x, y, C.textDim, w, "center")
+  UI.text("monoLarge", tostring(value), x, y + 6, C.textWarn, w, "center")
 end
 
 function Lobby:draw()
@@ -153,47 +152,33 @@ function Lobby:draw()
 
   love.graphics.setColor(C.arenaBg)
   love.graphics.rectangle("fill", 0, 0, W, H)
+  Starfield.draw()
 
-  love.graphics.setColor(C.text)
-  love.graphics.printf("SikCid Shootin'", 0, 26, W, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf("ARENA COOPERATIVA PARA 1-2 JOGADORES", 0, 46, W, "center")
+  UI.text("big", "SIKCID SHOOTIN'", 0, 14, C.text, W, "center")
+  UI.text("body", "ARENA COOPERATIVA PARA 1-2 JOGADORES", 0, 44, C.textDim, W, "center")
 
-  local sw, sh = 200, 110
-  drawSlot(1, W * 0.5 - sw - 12, 90, sw, sh)
-  drawSlot(2, W * 0.5 + 12, 90, sw, sh)
+  local sw, sh = 200, 120
+  drawSlot(1, W * 0.5 - sw - 12, 64, sw, sh)
+  drawSlot(2, W * 0.5 + 12, 64, sw, sh)
 
-  -- Recordes: individual em 1P, individual em 2P e soma do coop.
-  love.graphics.setColor(C.textWarn)
-  love.graphics.printf(string.format("SOLO %d", Save.get("solo")),
-    W * 0.5 - 300, 218, 190, "center")
-  love.graphics.printf(string.format("DUPLA %d", Save.get("duo")),
-    W * 0.5 - 95, 218, 190, "center")
-  love.graphics.printf(string.format("COOP %d", Save.get("coop")),
-    W * 0.5 + 110, 218, 190, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf("RECORDES: MELHOR SOLO  -  MELHOR EM DUPLA  -  MELHOR SOMA DA DUPLA",
-    0, 234, W, "center")
+  -- Records: best solo, best single score in a duo, best duo total.
+  local rw = 2 * sw + 24
+  local rx = W * 0.5 - rw * 0.5
+  local top = UI.window(rx, 196, rw, 52, "RECORDES", C.textWarn)
+  local cw = rw / 3
+  drawRecord("MELHOR SOLO", Save.get("solo"), rx, top + 8, cw)
+  drawRecord("MELHOR EM DUPLA", Save.get("duo"), rx + cw, top + 8, cw)
+  drawRecord("SOMA DA DUPLA", Save.get("coop"), rx + cw * 2, top + 8, cw)
 
-  love.graphics.setColor(C.textDim)
   local hint = boundCount() == 0
     and "START PARA ENTRAR   -   TECLADO: ENTER"
-    or  "START PARA COMECAR   -   BACK PARA SAIR DO SLOT"
-  love.graphics.printf(hint, 0, 252, W, "center")
-  love.graphics.printf("SEGURE SELECT PARA SAIR DO JOGO", 0, 272, W, "center")
-
-  -- Barra do combo de saída.
-  local p = Input.exitProgress()
-  if p > 0 then
-    love.graphics.setColor(C.doorWarn)
-    love.graphics.rectangle("fill", W * 0.5 - 60, 292, 120 * p, 4)
-    love.graphics.setColor(C.hudLine)
-    love.graphics.rectangle("line", W * 0.5 - 60.5, 291.5, 121, 5)
-  end
+    or  "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT"
+  UI.text("body", hint, 0, 266, C.text, W, "center")
+  UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 282, C.textDim, W, "center")
+  UI.exitBar(W * 0.5, 300)
 
   if Config.DEBUG then
-    love.graphics.setColor(C.textDim)
-    love.graphics.print(string.format("FPS %d  devices %d", love.timer.getFPS(), Input.count), 4, H - 16)
+    UI.text("body", string.format("FPS %d  devices %d", love.timer.getFPS(), Input.count), 4, H - 12, C.textDim)
   end
   love.graphics.setColor(1, 1, 1, 1)
 end

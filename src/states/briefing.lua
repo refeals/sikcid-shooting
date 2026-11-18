@@ -12,6 +12,7 @@ local Audio    = require("src.audio")
 local Music    = require("src.music")
 local Powerups = require("src.systems.powerups")
 local Pickup   = require("src.entities.pickup")
+local UI       = require("src.ui")
 
 local Briefing = {}
 
@@ -77,48 +78,37 @@ function Briefing:draw()
   love.graphics.setColor(0, 0, 0, 0.72)
   love.graphics.rectangle("fill", 0, 0, W, H)
 
-  -- Painel.
+  -- Window: tab + subtitle + one row per power-up + the stacking rule.
   local pw = 440
-  -- 48px de cabeçalho + linhas + 24px da regra de acúmulo.
-  local ph = 72 + #defs * ROW_H
+  local ph = Config.ART.ui.tabH + 52 + #defs * ROW_H
   local px = math.floor((W - pw) * 0.5)
-  local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5)
-  love.graphics.setColor(C.hudBg)
-  love.graphics.rectangle("fill", px, py, pw, ph)
-  love.graphics.setColor(C.hudLine)
-  love.graphics.rectangle("line", px + 0.5, py + 0.5, pw - 1, ph - 1)
+  local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5) - 12
+  local top = UI.window(px, py, pw, ph, "POWER-UPS")
 
-  love.graphics.setColor(C.text)
-  love.graphics.printf("POWER-UPS", px, py + 8, pw, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf(string.format("passe por cima para pegar  -  duram %ds",
-    Config.POWERUP.duration), px, py + 24, pw, "center")
+  UI.text("body", string.format("PASSE POR CIMA PARA PEGAR  -  DURAM %dS", Config.POWERUP.duration),
+    px, top + 8, C.textDim, pw, "center")
 
-  -- Uma linha por power-up: ícone, nome, descrição.
-  local y = py + 48
+  -- One row per power-up: icon, name, description.
+  local y = top + 24
   for i = 1, #defs do
     local d = defs[i]
     local cy = y + ICON * 0.5
     Pickup.drawIcon(d, px + 30, cy, ICON)
-    love.graphics.setColor(d.color)
-    love.graphics.print(d.name, px + 48, cy - 7)
-    love.graphics.setColor(C.textDim)
-    love.graphics.print(d.desc or "", px + 184, cy - 7)
+    UI.text("body", d.name, px + 48, cy - 5, d.color)
+    UI.text("body", d.desc or "", px + 184, cy - 5, C.text)
     y = y + ROW_H
   end
 
-  -- Regra de acúmulo.
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf(string.format("%s sao armas: pegar uma troca a outra.   %s acumulam.",
-    WEAPON_LETTERS, STACK_LETTERS), px, y + 4, pw, "center")
+  -- Stacking rule.
+  UI.text("body", string.format("%s SÃO ARMAS: PEGAR UMA TROCA A OUTRA.   %s ACUMULAM.",
+    WEAPON_LETTERS, STACK_LETTERS), px, y + 4, C.textDim, pw, "center")
 
-  -- Convite para começar, pulsando para chamar atenção.
+  -- Pulsing call to start.
   local ready = self.timer >= ACCEPT_DELAY
   local a = ready and (0.6 + 0.4 * math.sin(self.timer * 5)) or 0.3
-  love.graphics.setColor(C.textWarn[1], C.textWarn[2], C.textWarn[3], a)
-  love.graphics.printf("START COMECA A PARTIDA", 0, py + ph + 10, W, "center")
-  love.graphics.setColor(C.textDim)
-  love.graphics.printf("BACK VOLTA PARA A SELECAO", 0, py + ph + 26, W, "center")
+  UI.text("title", "START COMEÇA A PARTIDA", 0, py + ph + 8,
+    { C.textWarn[1], C.textWarn[2], C.textWarn[3], a }, W, "center")
+  UI.text("body", "BACK VOLTA PARA A SELEÇÃO", 0, py + ph + 30, C.textDim, W, "center")
 
   love.graphics.setColor(1, 1, 1, 1)
 end

@@ -102,19 +102,56 @@ local function strip(l, m, r, x, y, w, h)
   love.graphics.draw(r, x + capL + mid, y, 0, k, k)
 end
 
+local INK = { 0.08, 0.08, 0.12, 1 }
+
+-- Dark ink on light colors (yellow, light grey), light text on dark ones.
+local function inkFor(c)
+  local lum = 0.299 * c[1] + 0.587 * c[2] + 0.114 * c[3]
+  return lum > 0.62 and INK or Config.COLORS.text
+end
+UI.inkFor = inkFor
+
+-- Prints `text` vertically centered in a box of height `h` at (x, y), using
+-- the font's cap height so pixel fonts sit visually centered.
+local function printCentered(font, text, x, y, w, h)
+  local asc = font:getAscent()
+  local cap = font:getHeight() * 0.5   -- Kenney fonts: caps fill ~half the line
+  local ty = y + (h - cap) * 0.5 - (asc - cap)
+  love.graphics.printf(text, math.floor(x), math.floor(ty + 0.5), math.floor(w), "center")
+end
+
 -- Colored header tab with centered text (font role from Config.ART.fonts).
 function UI.tab(color, text, x, y, w, h, fontRole, textColor)
   h = h or 12
   tint(color)
   strip(img.tabL, img.tabM, img.tabR, x, y, w, h)
   if text then
-    local font = Assets.font(fontRole or "body")
+    local font = Assets.font(fontRole or "titleSmall")
     love.graphics.setFont(font)
-    love.graphics.setColor(textColor or Config.COLORS.text)
-    love.graphics.printf(text, math.floor(x), math.floor(y + (h - font:getHeight()) * 0.5 + 1),
-      math.floor(w), "center")
+    love.graphics.setColor(textColor or inkFor(color))
+    printCentered(font, text, x, y, w, h)
     love.graphics.setFont(Assets.font("body"))
   end
+end
+
+-- Panel with a title tab across its top edge. Returns the y where the
+-- content area starts.
+function UI.window(x, y, w, h, title, tabColor, panelColor)
+  UI.panel(x, y, w, h, panelColor)
+  local th = Config.ART.ui.tabH
+  if title then
+    UI.tab(tabColor or Config.ART.ui.neutral, title, x, y, w, th)
+  end
+  -- Same content origin with or without a tab, so layouts don't shift.
+  return y + th
+end
+
+-- "Hold to quit" progress bar, centered on `cx`. Drawn only while held.
+function UI.exitBar(cx, y, w)
+  local p = require("src.input").exitProgress()
+  if p <= 0 then return end
+  w = w or 120
+  UI.bar(Config.COLORS.doorWarn, cx - w * 0.5, y, w, p, 6)
 end
 
 -- Progress bar: dark rounded track plus a fill of `frac` (0..1) in `color`.
