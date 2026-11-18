@@ -9,6 +9,9 @@ local Music  = require("src.music")
 local Input  = require("src.input")
 local Smoke  = require("src.smoke")
 local Profiler = require("src.profiler")
+local Assets  = require("src.assets")
+local Shaders = require("src.shaders")
+local UI      = require("src.ui")
 
 local Lobby     = require("src.states.lobby")
 local InputTest = require("src.states.inputtest")
@@ -41,6 +44,8 @@ local function parseArgs(args)
       Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
     elseif a == "--mute" then
       Config.AUDIO.master = 0
+    elseif a == "--shots" then
+      Config.SMOKE_SHOTS = true  -- smoke saves screenshots of each screen
     elseif a == "--smokesound" then
       Config.SMOKE_SOUND = true  -- smoke com som (por padrão ele roda mudo)
     end
@@ -53,7 +58,8 @@ end
 
 function love.load(args)
   parseArgs(args)
-  love.graphics.setDefaultFilter("nearest", "nearest")
+  -- No global texture filter: each asset sets its own (smooth sprites and UI,
+  -- nearest for the pixel fonts). See src/assets.lua.
   love.graphics.setLineStyle("rough")
   math.randomseed(os.time())
 
@@ -64,6 +70,10 @@ function love.load(args)
   end
 
   Screen.load()
+  Assets.load()
+  Shaders.load()
+  UI.load()
+  love.graphics.setFont(Assets.font("body"))
   Save.load()
   Audio.load()
   Music.load()
@@ -103,8 +113,12 @@ function love.draw()
   Profiler.endFrame()
 end
 
-function love.resize(w, h)
-  Screen.resize(w, h)
+function love.resize()
+  -- Read the real size instead of trusting the event's arguments: leaving
+  -- fullscreen (smoke / --windowed) can deliver a stale resize with the old
+  -- desktop size after setMode, which would scale the canvas for the wrong
+  -- window and show only its top-left corner.
+  Screen.resize(love.graphics.getDimensions())
 end
 
 function love.keypressed(key, scancode, isrepeat)

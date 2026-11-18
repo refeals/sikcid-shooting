@@ -50,9 +50,13 @@ done
 # para o pacote. main.lua fica na raiz do zip, como o LÖVE exige.
 # O arquivo anterior é apagado antes: zip sobre um arquivo existente só
 # adiciona entradas, nunca remove as que sumiram do projeto.
+# Excluded from assets/: the Kenney preview images (*sample*.png), Windows
+# desktop.ini files, and the Kenney sound pack in assets/sfx/Audio/, which the
+# game does not use yet.
 mkdir -p "${DATA_DIR}"
 rm -f "${LOVE_FILE}"
-zip -9 -q -r "${LOVE_FILE}" main.lua conf.lua src assets -x '*/.gitkeep'
+zip -9 -q -r "${LOVE_FILE}" main.lua conf.lua src assets \
+  -x '*/.gitkeep' '*sample*.png' '*/desktop.ini' 'assets/sfx/Audio/*'
 
 # 2. Launcher ------------------------------------------------------------------
 # Só o .love e o .sh são substituídos: o dist/ NÃO é apagado, senão o love/

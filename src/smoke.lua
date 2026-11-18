@@ -61,6 +61,11 @@ local EVENTS = {
   { 9.60, 1, "start", false },
 }
 
+-- With --shots: screenshots at these script times, chosen to land on each
+-- screen of the timeline (lobby with both slots, briefing, arena, pause,
+-- arena again). Files go to the LÖVE save directory (path printed at the end).
+local SHOT_TIMES = { 1.00, 1.62, 3.50, 4.35, 7.00, 12.00 }
+
 -- O consumo do roteiro é sequencial, então a lista tem que estar em ordem de
 -- tempo (evita que um evento novo fora de lugar engula os seguintes).
 table.sort(EVENTS, function(a, b) return a[1] < b[1] end)
@@ -118,6 +123,7 @@ function Smoke.reset()
   Smoke.nextEvent = 1
   Smoke.stats = {}
   Smoke.goTimer, Smoke.goPressed = 0, false
+  Smoke.nextShot = 1
   pad = nil
   if Config.SMOKE_PAD then
     pad = makeFakePad()
@@ -149,6 +155,9 @@ local function finish(code)
     s.waves or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0, s.deniedFx or 0))
+  if Config.SMOKE_SHOTS then
+    print("[smoke] screenshots in " .. love.filesystem.getSaveDirectory())
+  end
   io.stdout:flush()
   love.event.quit(code or 0)
 end
@@ -166,6 +175,12 @@ function Smoke.update(dt)
     local e = EVENTS[Smoke.nextEvent]
     if e[3] == "fn" then e[4]() else press(e[2], e[3], e[4]) end
     Smoke.nextEvent = Smoke.nextEvent + 1
+  end
+
+  local shotAt = SHOT_TIMES[Smoke.nextShot]
+  if Config.SMOKE_SHOTS and shotAt and Smoke.t >= shotAt then
+    love.graphics.captureScreenshot(string.format("smoke_%05.2f.png", shotAt))
+    Smoke.nextShot = Smoke.nextShot + 1
   end
 
   -- Movimento e mira em círculos de períodos diferentes: cobre todas as

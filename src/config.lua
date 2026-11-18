@@ -63,6 +63,101 @@ Config.COLORS = {
   orb         = { 0.60, 0.95, 1.00, 1 },
 }
 
+-- Per-slot player colors. Every player-owned visual (ship, shots, HUD lives,
+-- lobby slot) reads its color from here, so a future color picker only has to
+-- write into this list.
+Config.PLAYER_COLORS = { Config.COLORS.p1, Config.COLORS.p2 }
+Config.PLAYER_COLORS_DIM = { Config.COLORS.p1Dim, Config.COLORS.p2Dim }
+
+-- ---------------------------------------------------------------------------
+-- Art (Kenney packs, CC0)
+-- ---------------------------------------------------------------------------
+-- All gameplay still runs in 640x360 logical coordinates. The screen canvas is
+-- rendered at an integer multiple of that (see src/screen.lua), so sprites stay
+-- smooth on 720p/1080p while the logic is untouched.
+Config.ART = {
+  -- Caps the render multiplier (nil = as large as the window allows). Lower it
+  -- to 2 if fill rate becomes a problem on weak hardware: the final blit then
+  -- upscales with linear filtering.
+  maxRenderScale = nil,
+
+  -- Sprite sheets: Kenney XML atlases. Sprite names drop the ".png".
+  sheets = {
+    ss2    = { image = "assets/art/spaceShooter2_spritesheet.png", atlas = "assets/art/spaceShooter2_spritesheet.xml" },
+    simple = { image = "assets/art/simpleSpace_sheet.png",         atlas = "assets/art/simpleSpace_sheet.xml" },
+  },
+  uiDir = "assets/art/UIPack/",
+
+  -- Role -> "sheet:sprite". Every role is extracted once at boot (nothing is
+  -- created during gameplay). `rot` is the sprite's own facing in radians
+  -- (Kenney ships point down = pi/2), subtracted when aiming it.
+  sprites = {
+    playerShip   = { "ss2:spaceShips_002", rot = math.pi / 2 },
+    engineFlame1 = { "ss2:spaceEffects_001", rot = -math.pi / 2 },
+    engineFlame2 = { "ss2:spaceEffects_002", rot = -math.pi / 2 },
+    orb          = { "ss2:spaceParts_080" },
+    shot         = { "ss2:spaceMissiles_012", rot = -math.pi / 2 },
+    missile      = { "ss2:spaceMissiles_003", rot = -math.pi / 2 },
+    enemyShot    = { "simple:star_small" },
+    grunt        = { "simple:enemy_A", rot = -math.pi / 2 },
+    runner       = { "simple:ship_B", rot = -math.pi / 2 },
+    shooter      = { "simple:enemy_D", rot = -math.pi / 2 },
+    tank         = { "simple:station_C" },
+    puff1        = { "ss2:spaceEffects_009" },
+    puff2        = { "ss2:spaceEffects_011" },
+    puff3        = { "ss2:spaceEffects_013" },
+    puff4        = { "ss2:spaceEffects_015" },
+    starTiny     = { "simple:star_tiny" },
+    starSmall    = { "simple:star_small" },
+    door         = { "ss2:spaceStation_003" },
+    doorLight    = { "ss2:spaceBuilding_004" },
+    iconPlus     = { "simple:icon_plusSmall" },
+  },
+
+  -- On-screen size (logical px, longest side) of each sprite. Hitboxes stay in
+  -- Config.PLAYER / ENEMIES / WEAPON: sprites are drawn larger than the
+  -- collision circle for readability, never the other way around.
+  size = {
+    playerShip = 24,
+    engineFlame = 9,
+    orb = 10,
+    shot = 8,
+    missile = 15,
+    enemyShot = 10,
+    grunt = 20,
+    runner = 17,
+    shooter = 22,
+    tank = 38,
+    pickup = 14,
+    hudLife = 9,
+  },
+
+  -- UIPack art is authored large (a panel is 64px); 1 texel = this many
+  -- logical px. 0.5 makes it exactly 1:1 on a 1280x720 render.
+  uiScale = 0.5,
+
+  -- UIPack panels are light grey; they are tinted down to dark glass so the
+  -- HUD and menus sit on the dark arena without glare.
+  ui = {
+    panel = { 0.16, 0.18, 0.25, 0.90 },
+    panelLight = { 0.28, 0.30, 0.40, 0.95 },
+  },
+
+  -- Kenney pixel fonts sit on an 8px grid: only multiples of 8 keep every
+  -- stroke the same width. Sizes here must stay multiples of 8.
+  fonts = {
+    title = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 16 },
+    big   = { file = "assets/art/Fonts/Kenney Rocket Square.ttf", size = 24 },
+    body  = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 8 },
+    large = { file = "assets/art/Fonts/Kenney Mini Square.ttf", size = 16 },
+    mono  = { file = "assets/art/Fonts/Kenney Mini Square Mono.ttf", size = 8 },
+  },
+
+  -- Palette-swap shader (src/shaders.lua): which texels count as "Kenney red"
+  -- and the red channel value of its base tone (172/255).
+  recolor = { redMin = 0.10, redMax = 0.25, baseRed = 0.675 },
+}
+
 -- ---------------------------------------------------------------------------
 -- Input
 -- ---------------------------------------------------------------------------

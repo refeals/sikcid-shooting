@@ -39,7 +39,9 @@ dist/
 ```
 
 O `.love` leva só `main.lua`, `conf.lua`, `src/` e `assets/` (com `main.lua` na
-raiz do zip, como o LÖVE exige). O build **não apaga** o `dist/`: só troca o
+raiz do zip, como o LÖVE exige). De `assets/` ficam de fora as imagens de
+amostra da Kenney (`*sample*.png`), os `desktop.ini` e o pacote de sons
+`assets/sfx/Audio/`, que o jogo ainda não usa. O build **não apaga** o `dist/`: só troca o
 `.love` e o `.sh`, então o `love/` extraído continua lá entre builds. Se o
 `love/` estiver faltando, o script avisa no final com os passos de extração.
 
@@ -244,8 +246,30 @@ retângulo por sprite é uma mudança local, sem tocar em lógica:
 | HUD | [src/hud.lua](src/hud.lua) |
 
 Todas as cores vêm de `Config.COLORS` — trocar a paleta é mexer em um lugar só.
-O jogo já roda com `love.graphics.setDefaultFilter("nearest")`, então sprites
-pixel art escalam sem borrar.
+
+### Arte (Kenney)
+
+A arte vem dos pacotes da [Kenney](https://kenney.nl) (CC0) em `assets/art/`:
+
+- **Sprites:** recortados das folhas `spaceShooter2_spritesheet` e
+  `simpleSpace_sheet` pelos atlas XML. Cada papel (nave do jogador, inimigo,
+  tiro...) aponta para um sprite em `Config.ART.sprites`, e o tamanho na tela
+  fica em `Config.ART.size`. Trocar um sprite é mudar o nome ali.
+- **UI:** peças do `UIPack`, desenhadas por [src/ui.lua](src/ui.lua)
+  (painel 9-slice, aba, barra, badge, crosshair), tingidas com qualquer cor.
+- **Fontes:** Kenney Rocket Square (títulos), Mini Square (texto) e Mini Square
+  Mono (números), em `Config.ART.fonts`. São fontes pixel com grade de 8px:
+  use só tamanhos múltiplos de 8, senão os traços saem com larguras
+  diferentes.
+
+A lógica continua em 640x360, mas o canvas é desenhado no maior múltiplo
+inteiro que cabe na janela: 1280x720 em 720p, 1920x1080 em 1080p. Assim os
+sprites ficam lisos. `Config.ART.maxRenderScale` limita esse múltiplo, se o
+hardware sofrer.
+
+O vermelho das naves e mísseis da Kenney vira a cor do jogador no shader de
+[src/shaders.lua](src/shaders.lua). As cores por slot ficam em
+`Config.PLAYER_COLORS`.
 
 ### Som
 
@@ -301,6 +325,8 @@ ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome
 
 - Música: **"Danse Contemporaine"**, de **Clement Panchout**
   ([itch.io](https://clement-panchout.itch.io)).
+- Arte e fontes: **[Kenney](https://kenney.nl)** (CC0): Space Shooter Extension,
+  Simple Space, UI Pack (Sci-Fi) e Kenney Fonts.
 - Efeitos sonoros: gerados com o sintetizador do [sfxr](https://sfxr.me)
   (jsfxr), via [tools/gen_sfx.py](tools/gen_sfx.py).
 
@@ -321,6 +347,9 @@ src/save.lua          -- recordes em love.filesystem
 src/audio.lua         -- efeitos sonoros com pool de vozes
 src/music.lua         -- música de fundo: crossfade, pausa abafada
 src/hud.lua           -- faixa de HUD
+src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
+src/shaders.lua       -- recolor: vermelho da Kenney -> cor do jogador
+src/ui.lua            -- painel, aba, barra, badge e crosshair do UIPack
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest
@@ -328,6 +357,7 @@ src/entities/         -- player, enemy, bullet, pickup, particle
 src/systems/          -- spawner, combat, powerups, combo
 assets/sfx/           -- efeitos sonoros (.wav)
 assets/music/         -- música de fundo (.ogg)
+assets/art/           -- arte da Kenney: folhas + XML, UIPack, fontes
 tools/                -- gerador dos sons (fora do .love)
 build.sh              -- gera o port em dist/
 ```
@@ -342,7 +372,10 @@ Decisões que sustentam os 60 FPS em hardware modesto:
   pares seria ~5k testes por frame.
 - Colisão por **círculo com distância ao quadrado** — nenhum `sqrt` no caminho
   quente.
-- Sem shaders; o screen shake é só um `love.graphics.translate` no canvas.
+- O screen shake é só um `love.graphics.translate` no canvas. O único shader
+  é o de recolor das peças dos jogadores.
+- Sprites, fontes e peças de UI são criados no boot (~30 ms); nada de imagem é
+  alocado durante a partida.
 - Power-ups **recalculam** os modificadores do zero em vez de "desfazer" efeito:
   base + `apply()` de cada ativo. Adicionar power-up é uma entrada em `DEFS`.
 
@@ -394,6 +427,7 @@ love . --smoke 20 --smoke2p    # 2 jogadores
 love . --smoke 20 --fakepad    # jogador 1 entra por um gamepad falso
 love . --smoke 20 --smokegod   # bots invencíveis (mede FPS sem game over)
 love . --smoke 20 --wave 30    # começa numa wave alta
+love . --smoke 13 --smoke2p --shots   # salva screenshots de cada tela
 echo $?                        # 0 = rodou sem erro
 ```
 
