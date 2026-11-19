@@ -10,7 +10,7 @@ local Audio  = require("src.audio")
 local Music  = require("src.music")
 local UI     = require("src.ui")
 local Assets = require("src.assets")
-local Starfield = require("src.starfield")
+local Background = require("src.background")
 
 local GameOver = {}
 
@@ -60,13 +60,11 @@ local function drawPlayerColumn(s, i, x, y, w)
 end
 
 function GameOver:draw()
-  local W, H = Config.VIRTUAL_W, Config.VIRTUAL_H
+  local W = Config.VIRTUAL_W
   local C = Config.COLORS
   local s = self.summary
 
-  love.graphics.setColor(C.arenaBg)
-  love.graphics.rectangle("fill", 0, 0, W, H)
-  Starfield.draw()
+  Background.draw()   -- keeps the palette of the wave the match ended on
 
   UI.text("big", "FIM DE JOGO", 0, 22, C.doorWarn, W, "center")
   -- Two numbers on one centered line, in the digits font (box "0" otherwise).

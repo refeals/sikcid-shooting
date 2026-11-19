@@ -34,7 +34,6 @@ Config.PROFILE_WARN_INTERVAL = 1.0   -- segundos entre avisos
 -- ---------------------------------------------------------------------------
 Config.COLORS = {
   bg          = { 0.07, 0.07, 0.10, 1 },
-  arenaBg     = { 0.11, 0.11, 0.15, 1 },
   arenaLine   = { 0.20, 0.20, 0.28, 1 },
   letterbox   = { 0.00, 0.00, 0.00, 1 },
 
@@ -136,6 +135,20 @@ Config.ART = {
     puff4        = { "ss2:spaceEffects_015" },
     starTiny     = { "simple:star_tiny" },
     starSmall    = { "simple:star_small" },
+    -- Background (src/background.lua). Never reuse enemy or player sprites
+    -- here: the sky must not be mistaken for something that can hurt you.
+    starGlint    = { "simple:star_large" },                           -- 4-point sparkle
+    streak       = { "simple:effect_yellow", rot = -math.pi / 2, grey = true },  -- shooting star, head up
+    -- Distant objects: `grey` so all of them take the theme's object color
+    -- the same way (a colored sprite darkened reads as a hole in the sky).
+    bgMeteor     = { "ss2:spaceMeteors_004", grey = true },
+    bgRock       = { "simple:meteor_detailedLarge" },
+    bgRockSquare = { "simple:meteor_squareDetailedLarge" },
+    bgSatellite  = { "simple:satellite_A" },
+    bgSatellite2 = { "simple:satellite_C" },
+    bgPanels     = { "ss2:spaceBuilding_015", grey = true },
+    bgStation    = { "ss2:spaceStation_021", grey = true },
+    bgShip       = { "ss2:spaceShips_008", rot = math.pi / 2, grey = true },
     door         = { "ss2:spaceStation_003", rot = math.pi / 2 },  -- long side = wall
     doorLight    = { "ss2:spaceBuilding_004" },
     iconPlus     = { "simple:icon_plusSmall" },
@@ -159,20 +172,93 @@ Config.ART = {
     pickup = 14,
     hudLife = 9,
   },
-  -- Arena background (src/starfield.lua). Fixed seed: same sky every match.
-  stars = {
+  -- Sky behind the arena and the menus (src/background.lua). Every ambient
+  -- motion is a function of the clock and a fixed seed: no per-frame state,
+  -- same sky every match. Speeds in logical px/s.
+  background = {
     seed = 1337,
-    count = 80,
-    bigShare = 0.12,          -- fraction drawn with the bigger star sprite
-    tinyMin = 2, tinyMax = 4,
-    bigMin = 4, bigMax = 7,
-    alphaMin = 0.25, alphaMax = 0.7,
+    drift = { -0.8, 0.6 },    -- shared drift direction (normalized at load)
+    parallaxEase = 2.5,       -- how fast the parallax follows the players (1/s)
+    -- Star layers, back to front. `parallax` = fraction of the players'
+    -- offset from the arena center the layer moves against (depth cue).
+    layers = {
+      { count = 70, bigShare = 0,    tinyMin = 1.5, tinyMax = 3,   bigMin = 0, bigMax = 0,
+        alphaMin = 0.15, alphaMax = 0.45, speed = 2.5, parallax = 0.006 },
+      { count = 26, bigShare = 0.25, tinyMin = 2.5, tinyMax = 4,   bigMin = 3.5, bigMax = 5,
+        alphaMin = 0.30, alphaMax = 0.65, speed = 6,   parallax = 0.015 },
+      { count = 10, bigShare = 1,    tinyMin = 0,   tinyMax = 0,   bigMin = 5, bigMax = 7,
+        alphaMin = 0.55, alphaMax = 0.85, speed = 11,  parallax = 0.025 },
+    },
     twinkleShare = 0.35,
     twinkleSpeed = 2.2,
-    color = { 0.75, 0.80, 1.00 },
+    -- Nebula: two cloud textures baked from noise at load, tinted with the
+    -- theme's two nebula colors, drawn additive and breathing slowly. The
+    -- bake keeps the arena center darker than the edges.
+    nebula = {
+      texW = 160, texH = 90,  -- baked texture size (stretched to the screen)
+      alpha = 0.16,
+      sway = 18,              -- px the clouds wander around
+      swayRate = 0.05,        -- rad/s of that wander
+      breathe = 0.05,         -- scale amplitude
+    },
+    -- Sparkles: a few 4-point glints, each lighting up a random mid/near star.
+    -- Kept smaller and slower-spinning than the enemy star shots, and every
+    -- theme's star color stays near white (never the enemy-shot pink).
+    sparkle = { slots = 3, periodMin = 2.2, periodMax = 4.5, life = 0.7,
+                sizeMin = 7, sizeMax = 11, alpha = 0.85, spin = 0.5 },
+    -- Shooting stars: time is cut into slots; some slots get one.
+    shootingStar = { slot = 6, chance = 0.7, life = 0.6, travelMin = 140, travelMax = 230,
+                     length = 46, width = 2.5, alpha = 0.55, spread = 1.0 },
+    -- Distant objects crossing the sky, dark silhouettes (theme `obj` color).
+    -- Time is cut into slots; some slots launch one, from a random edge.
+    objects = {
+      slot = 40, chance = 0.85, parallax = 0.01,
+      kinds = {
+        { role = "bgMeteor",     sizeMin = 30, sizeMax = 46, spin = 0.12, lifeMin = 45, lifeMax = 70 },
+        { role = "bgRock",       sizeMin = 18, sizeMax = 28, spin = 0.25, lifeMin = 35, lifeMax = 55 },
+        { role = "bgRockSquare", sizeMin = 18, sizeMax = 26, spin = 0.25, lifeMin = 35, lifeMax = 55 },
+        { role = "bgSatellite",  sizeMin = 20, sizeMax = 26, spin = 0.10, lifeMin = 45, lifeMax = 70 },
+        { role = "bgSatellite2", sizeMin = 20, sizeMax = 26, spin = 0.10, lifeMin = 45, lifeMax = 70 },
+        { role = "bgPanels",     sizeMin = 38, sizeMax = 48, spin = 0.06, lifeMin = 50, lifeMax = 70 },
+        { role = "bgStation",    sizeMin = 52, sizeMax = 64, spin = 0.04, lifeMin = 55, lifeMax = 70 },
+        -- A ship far away: small, straight line, fast, faces where it goes.
+        { role = "bgShip",       sizeMin = 14, sizeMax = 17, ship = true, lifeMin = 9, lifeMax = 14 },
+      },
+    },
+    -- Arena grid, with ripples on big moments (wave start/clear, tank death).
+    grid = {
+      cell = 40, alpha = 0.18,
+      pulseSpeed = 300,       -- px/s the ring grows
+      pulseLife = 1.4,        -- s until a ring is gone
+      pulseWidth = 16,        -- ring thickness (px)
+      pulseFill = 0.06,       -- faint glow between the lines under the ring
+      waveStart = 0.50, waveClear = 0.35, tankDeath = 0.70,  -- ring strengths
+    },
+    -- Sky palette, switched every `themeEvery` waves (cycling), fading over
+    -- `themeFade` seconds. bg = base fill; nebulaA/B = cloud tints; star =
+    -- stars, glints and shooting stars; obj = distant object silhouettes;
+    -- grid = grid lines.
+    themeEvery = 10,
+    themeFade = 2.5,
+    themes = {
+      { -- deep violet
+        bg = { 0.11, 0.11, 0.15 }, nebulaA = { 0.35, 0.30, 0.85 }, nebulaB = { 0.75, 0.30, 0.70 },
+        star = { 0.75, 0.80, 1.00 }, obj = { 0.20, 0.21, 0.30 }, grid = { 0.20, 0.20, 0.28 } },
+      { -- teal / emerald
+        bg = { 0.07, 0.12, 0.13 }, nebulaA = { 0.15, 0.75, 0.62 }, nebulaB = { 0.25, 0.50, 0.95 },
+        star = { 0.75, 1.00, 0.92 }, obj = { 0.14, 0.24, 0.25 }, grid = { 0.16, 0.28, 0.30 } },
+      { -- crimson / magenta
+        bg = { 0.13, 0.08, 0.11 }, nebulaA = { 0.90, 0.25, 0.38 }, nebulaB = { 0.55, 0.20, 0.85 },
+        star = { 0.95, 0.90, 0.88 }, obj = { 0.27, 0.16, 0.22 }, grid = { 0.32, 0.18, 0.26 } },
+      { -- amber / rust
+        bg = { 0.12, 0.10, 0.07 }, nebulaA = { 0.95, 0.55, 0.20 }, nebulaB = { 0.80, 0.28, 0.18 },
+        star = { 1.00, 0.92, 0.78 }, obj = { 0.27, 0.21, 0.15 }, grid = { 0.30, 0.25, 0.18 } },
+      { -- ice
+        bg = { 0.08, 0.11, 0.16 }, nebulaA = { 0.40, 0.80, 1.00 }, nebulaB = { 0.75, 0.85, 1.00 },
+        star = { 0.85, 0.95, 1.00 }, obj = { 0.18, 0.24, 0.32 }, grid = { 0.20, 0.28, 0.38 } },
+    },
   },
-  gridAlpha = 0.18,           -- the 40px arena grid, kept faint under the stars
-  door = { thick = 18, light = 7 },  -- hatch depth into the arena / light size
+  door ={ thick = 18, light = 7 },  -- hatch depth into the arena / light size
   -- Player outline in the arena (not in the lobby or HUD): the player's color
   -- mixed toward white by `lighten`, alpha pulsing gently around `alpha` so
   -- the ship stands out in the chaos without blinking.

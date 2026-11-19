@@ -22,7 +22,7 @@ local Music  = require("src.music")
 local State  = require("src.state")
 local Player = require("src.entities.player")
 local UI     = require("src.ui")
-local Starfield = require("src.starfield")
+local Background = require("src.background")
 
 local Lobby = {}
 
@@ -147,6 +147,8 @@ function Lobby:enter()
     if slots[i] then slots[i].bindTimer = Config.BIND_DEBOUNCE end
   end
   blink = 0
+  -- Back from a match: the sky fades home to the first palette.
+  Background.setTheme(1)
   Music.play("menu")
   if Config.SMOKE then require("src.smoke").note("state", "lobby") end
 end
@@ -247,9 +249,7 @@ function Lobby:draw()
   local W, H = Config.VIRTUAL_W, Config.VIRTUAL_H
   local C = Config.COLORS
 
-  love.graphics.setColor(C.arenaBg)
-  love.graphics.rectangle("fill", 0, 0, W, H)
-  Starfield.draw()
+  Background.draw()
 
   UI.text("big", "SIKCID SHOOTIN'", 0, 14, C.text, W, "center")
   UI.text("body", "ARENA COOPERATIVA PARA 1-2 JOGADORES", 0, 44, C.textDim, W, "center")

@@ -320,8 +320,8 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
 | Explosões (fumaça + faíscas) e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua) |
 | Portas e telégrafo | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw` |
-| Fundo de estrelas (arena, lobby, game over) | [src/starfield.lua](src/starfield.lua) |
-| Arena, grade, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
+| Fundo: nebulosa, estrelas em camadas, objetos distantes, brilhos, estrelas cadentes, paleta por bloco de 10 waves e grade com ondas | [src/background.lua](src/background.lua) (tuning em `Config.ART.background`) |
+| Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
 | HUD | [src/hud.lua](src/hud.lua) |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
 
@@ -498,7 +498,7 @@ src/hud.lua           -- faixa de HUD
 src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
 src/shaders.lua       -- recolor: vermelho da Kenney -> cor do jogador
 src/ui.lua            -- janela, aba, barra, badge, crosshair e texto (UIPack)
-src/starfield.lua     -- fundo de estrelas fixo (seed), com cintilação
+src/background.lua    -- céu animado (seed + relógio), paleta por wave, grade com ondas
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest

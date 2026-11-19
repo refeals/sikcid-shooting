@@ -23,7 +23,7 @@ local Enemy    = require("src.entities.enemy")
 local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
-local Starfield = require("src.starfield")
+local Background = require("src.background")
 local UI        = require("src.ui")
 
 local Game = {}
@@ -189,6 +189,7 @@ function world:onEnemyKilled(enemy, killerIndex)
 
   if enemy.type == "tank" then
     self:shake(J.shakeTankDeath)
+    Background.pulse(enemy.x, enemy.y, Config.ART.background.grid.tankDeath)
     self:hitStop(J.hitStopTank)
     Audio.play("tank_die")
   else
@@ -261,6 +262,10 @@ end
 
 -- ---------------------------------------------------------------------------
 local showHitboxes = false
+-- Last wave / rest phase the sky reacted to, and the parallax focus (kept
+-- while every player is dead, so the sky doesn't snap back to the center).
+local bgWave, bgResting = 0, true
+local bgFocusX, bgFocusY = arena.cx, arena.cy
 -- HUD center text, reused every frame: a label plus its number (the number is
 -- drawn in the digits font, see UI.textNumber).
 local hudInfo = { titleLabel = "WAVE ", titleNum = "", subLabel = "", subNum = "" }
@@ -292,6 +297,10 @@ function Game:enter(devices, count)
   pickups:clear()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
+  -- Sky set straight to the starting wave's palette (--wave 25 starts there).
+  Background.reset(Background.themeForWave(Spawner.wave + 1))
+  bgWave, bgResting = Spawner.wave, true
+  bgFocusX, bgFocusY = arena.cx, arena.cy
 
   for i = 1, world.playerCount do
     local p = Player.new(i, devices[i])
@@ -304,6 +313,32 @@ function Game:enter(devices, count)
   -- A arena já está montada; o briefing fica por cima (tudo congelado) até
   -- alguém apertar START.
   State.push(require("src.states.briefing"), world)
+end
+
+-- Sky reactions: palette per block of waves, grid ripples on wave start and
+-- clear, parallax following the players' center.
+local function updateBackground(dt)
+  local BG = Config.ART.background
+  if Spawner.wave ~= bgWave then
+    bgWave = Spawner.wave
+    Background.setTheme(Background.themeForWave(bgWave))
+    Background.pulse(arena.cx, arena.cy, BG.grid.waveStart)
+  end
+  local resting = Spawner.isResting()
+  if resting and not bgResting and Spawner.wave >= 1 then
+    Background.pulse(arena.cx, arena.cy, BG.grid.waveClear)
+  end
+  bgResting = resting
+
+  local fx, fy, n = 0, 0, 0
+  for i = 1, world.playerCount do
+    local p = world.players[i]
+    if p.alive then fx, fy, n = fx + p.x, fy + p.y, n + 1 end
+  end
+  if n > 0 then
+    bgFocusX, bgFocusY = fx / n, fy / n
+  end
+  Background.update(dt, bgFocusX, bgFocusY, arena.cx, arena.cy)
 end
 
 local function allPlayersOut()
@@ -337,6 +372,7 @@ function Game:update(dt)
   end
 
   Spawner.update(dt, world)
+  updateBackground(dt)
 
   -- Grid montado antes das entidades: os mísseis consultam o inimigo mais
   -- próximo por ele (Combat.update remonta depois do movimento).
@@ -434,19 +470,9 @@ end
 function Game:draw()
   local C = Config.COLORS
 
-  love.graphics.setColor(C.arenaBg)
-  love.graphics.rectangle("fill", arena.x, arena.y, arena.w, arena.h)
-
-  Starfield.draw()
-
-  -- Faint grid over the stars: keeps a sense of scale and motion.
-  love.graphics.setColor(C.arenaLine[1], C.arenaLine[2], C.arenaLine[3], Config.ART.gridAlpha)
-  for gx = arena.x + 40, arena.x + arena.w - 1, 40 do
-    love.graphics.line(gx + 0.5, arena.y, gx + 0.5, arena.y + arena.h)
-  end
-  for gy = arena.y + 40, arena.y + arena.h - 1, 40 do
-    love.graphics.line(arena.x, gy + 0.5, arena.x + arena.w, gy + 0.5)
-  end
+  Background.draw()
+  -- Faint grid over the sky: keeps a sense of scale, ripples on big moments.
+  Background.drawGrid(arena)
 
   love.graphics.setColor(C.arenaLine)
   love.graphics.rectangle("line", arena.x + 0.5, arena.y + 0.5, arena.w - 1, arena.h - 1)
