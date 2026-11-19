@@ -129,7 +129,8 @@ function Pause:draw()
     title, tab = nil, nil
     headline, headColor = "PAUSA", C.text
     line1 = "START CONTINUA   -   BACK ABANDONA A PARTIDA"
-    line2 = "SEGURE SELECT PARA SAIR DO JOGO"
+    -- The browser build has no quit (see Input).
+    line2 = not Config.WEB and "SEGURE SELECT PARA SAIR DO JOGO" or nil
   end
 
   local pw, ph = 360, 102
@@ -139,7 +140,7 @@ function Pause:draw()
   local big = self.mode ~= "waiting" and not self.confirmQuit
   UI.text(big and "big" or "title", headline, px, top + (big and 8 or 14), headColor, pw, "center")
   UI.text("body", line1, px, top + 44, C.text, pw, "center")
-  UI.text("body", line2, px, top + 60, C.textDim, pw, "center")
+  if line2 then UI.text("body", line2, px, top + 60, C.textDim, pw, "center") end
 
   UI.exitBar(W * 0.5, py + ph + 10)
   love.graphics.setColor(1, 1, 1, 1)

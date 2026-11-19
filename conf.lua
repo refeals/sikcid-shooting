@@ -2,6 +2,9 @@
 -- Lido pelo LÖVE antes de main.lua, por isso não pode depender de src/.
 
 function love.conf(t)
+  -- love._os is set before love.conf runs; love.js reports "Web".
+  local web = love._os == "Web"
+
   t.identity = "sikcid-shootin"        -- pasta de save (love.filesystem)
   t.version = "11.4"
   t.console = false
@@ -10,7 +13,9 @@ function love.conf(t)
   t.window.width = 1280               -- 640x360 * 2, janela de desenvolvimento
   t.window.height = 720
   t.window.resizable = true
-  t.window.fullscreen = true
+  -- Browsers refuse fullscreen without a user gesture; the web page scales
+  -- the canvas itself (web/index.html).
+  t.window.fullscreen = not web
   t.window.fullscreentype = "desktop" -- borderless, sem trocar modo de vídeo
   t.window.vsync = 1
   t.window.minwidth = 640

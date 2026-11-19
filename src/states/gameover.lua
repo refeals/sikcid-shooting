@@ -119,8 +119,10 @@ function GameOver:draw()
 
   UI.text("title", "START VOLTA AO LOBBY", 0, 270,
     self.timer >= ACCEPT_DELAY and C.text or C.textDim, W, "center")
-  UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 294, C.textDim, W, "center")
-  UI.exitBar(W * 0.5, 312)
+  if not Config.WEB then   -- the browser build has no quit (see Input)
+    UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 294, C.textDim, W, "center")
+    UI.exitBar(W * 0.5, 312)
+  end
   love.graphics.setColor(1, 1, 1, 1)
 end
 

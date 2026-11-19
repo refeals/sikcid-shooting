@@ -4,7 +4,8 @@ Twin-stick shooter de arena para 1–2 jogadores locais, em LÖVE 11.x. Inimigos
 entram por quatro portas em waves infinitas; você atira sozinho, desvia e
 segura o combo. Só API nativa do LÖVE: **zero dependências externas**.
 
-Alvo de execução: PC (Linux/Windows) e **Batocera x86_64** (sistema Ports).
+Alvo de execução: PC (Linux/Windows), **Batocera x86_64** (sistema Ports) e
+**navegador** (itch.io, via love.js).
 
 ---
 
@@ -45,6 +46,73 @@ sons `assets/sfx/Audio/` (~6 MB). Os sons que o jogo usa ficam copiados em
 `assets/sfx/kenney/` e entram normalmente. O build **não apaga** o `dist/`: só troca o
 `.love` e o `.sh`, então o `love/` extraído continua lá entre builds. Se o
 `love/` estiver faltando, o script avisa no final com os passos de extração.
+
+## Build web (itch.io)
+
+```sh
+./build.sh --web              # gera dist/web/ e dist/SikCidShootin-web.zip
+./build.sh --web --run        # gera e serve em http://localhost:8000/
+./build.sh --web --compat     # versão sem threads (fallback, ver abaixo)
+```
+
+Precisa de Node.js (`npx`). O mesmo `.love` vira página web com o
+[love.js](https://github.com/Davidobot/love.js) **11.4.1, pinado** — o build
+roda LÖVE 11.4 em WebAssembly, sem LuaJIT. No lugar dos passos do Batocera, o
+`--web`:
+
+1. gera a página com `npx love.js@11.4.1`;
+2. aplica um patch no `love.js` gerado que expõe `Module.FS` (o build **falha**
+   se o patch não aplicar). O love.js só grava o save no IndexedDB ao fechar a
+   aba, o que o navegador costuma cortar; com o patch, a página grava a cada 3s
+   e quando a aba fica escondida;
+3. troca o `index.html` gerado pelo [web/index.html](web/index.html): página
+   preta, sem título/rodapé, canvas 1280x720 escalado para caber (botão de tela
+   cheia do itch);
+4. zipa tudo com o `index.html` na raiz, como o itch.io pede.
+
+**Teste local** sempre por `--run` (ou `python3 tools/serve_web.py dist/web`):
+o build normal usa threads (SharedArrayBuffer), e o navegador só libera isso
+com os headers COOP/COEP, que o `python -m http.server` não manda. Argumentos
+do jogo vão na URL, separados por `&`:
+
+```
+http://localhost:8000/?--debug
+http://localhost:8000/?--smoke&60&--smoke2p&--smokegod&--wave&10&--debug
+```
+
+O segundo é o teste de desempenho: FPS no canto e aviso `[perf]` no console
+(F12). Rode no Chrome e no Firefox; abaixo de ~55 FPS sustentados não publique.
+
+### Página no itch.io
+
+Primeiro upload (depois é só trocar o zip):
+
+- **Kind of project:** HTML. Suba o `dist/SikCidShootin-web.zip` e marque
+  *This file will be played in the browser*.
+- **Embed options:** viewport **1280 x 720**; **SharedArrayBuffer support**
+  ligado (sem isso o build normal não abre); *Fullscreen button* ligado;
+  *Mobile friendly* desligado.
+- **Visibilidade:** Draft ou Restricted enquanto for playtest.
+- **Créditos** na descrição: LÖVE, love.js (MIT), Kenney (CC0), música de
+  Clement Panchout.
+
+Se o build normal não abrir em algum navegador (a opção SharedArrayBuffer do
+itch é experimental), suba o zip de `--web --compat`: roda sem threads e sem
+headers, com áudio pior (estalos/latência).
+
+### Diferenças da versão web
+
+- **Não existe "sair do jogo"**: o combo de saída é desligado e as dicas dele
+  somem (`Config.WEB`). Fechar a aba é a saída.
+- Abre em janela, não em tela cheia (o navegador só deixa com clique do
+  jogador). ESC em tela cheia é do navegador: pause com **Enter**.
+- Sprites sem mipmaps (WebGL 1 não faz mipmap de textura fora de potência de
+  2): podem serrilhar um pouco quando desenhados bem menores.
+- O áudio só começa depois da primeira tecla/clique (regra de autoplay).
+- Gamepad: testado com um controle no Chrome. O navegador só mostra o controle
+  depois do primeiro botão (o START pode precisar de dois toques). Dois
+  controles idênticos podem ser confundidos ao reconectar.
+- Safari/iOS não são suportados.
 
 ## Deploy no Batocera
 
@@ -177,7 +245,7 @@ SELECT não sai: no lobby ele desvincula, no jogo abre a pausa.
 | Desvincular no lobby | BACK (SELECT) | ESC |
 | Trocar / sortear a cor no lobby | d-pad ←/→ (ou analógico esquerdo) / Y | A/D ou ←/→ / R |
 | Abandonar a partida | BACK na pausa, com confirmação | ESC na pausa |
-| Sair do jogo | segurar SELECT (1s) ou SELECT + START (0,5s) | segurar ESC (0,5s) |
+| Sair do jogo (não existe na web) | segurar SELECT (1s) ou SELECT + START (0,5s) | segurar ESC (0,5s) |
 | Teste de input | — | F5 |
 
 O tiro é automático (`Config.AUTO_AIM` em `src/config.lua`): sem mira manual,
@@ -408,6 +476,7 @@ ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome
   Sounds.
 - Demais efeitos sonoros: gerados com o sintetizador do [sfxr](https://sfxr.me)
   (jsfxr), via [tools/gen_sfx.py](tools/gen_sfx.py).
+- Versão web: [love.js](https://github.com/Davidobot/love.js) (MIT).
 
 ---
 
@@ -439,8 +508,10 @@ assets/sfx/           -- efeitos sfxr (.wav); kenney/ = sons Kenney usados;
                          Audio/ = pacote Kenney completo (fora do .love)
 assets/music/         -- música de fundo (.ogg)
 assets/art/           -- arte da Kenney: folhas + XML, UIPack, fontes
-tools/                -- gerador dos sons (fora do .love)
-build.sh              -- gera o port em dist/
+tools/                -- gerador dos sons, servidor local da versão web
+                         (fora do .love)
+web/index.html        -- página da versão web (love.js)
+build.sh              -- gera o port em dist/ (ou a versão web, com --web)
 ```
 
 Decisões que sustentam os 60 FPS em hardware modesto:
