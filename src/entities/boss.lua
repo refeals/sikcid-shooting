@@ -50,6 +50,8 @@ function Boss.new()
     targetTurn = 0,       -- round-robin over the players
     lookAt = nil,         -- player the sprite turns toward
     blastTimer = 0,
+    thrust = 0,           -- engine flame length factor, eased (see B.engine)
+    engineT = 0,          -- drives the flame flicker
     damageBy = { 0, 0 },
     -- Values for boss n, resolved once in begin().
     s = {},
@@ -134,6 +136,7 @@ function Boss:begin(world, n, wave)
   self.flash, self.orbHit = 0, 0
   self.damageBy[1], self.damageBy[2] = 0, 0
   self.volleysLeft = 0
+  self.thrust = B.engine.enter
   self.burstTimer = s.burstInterval * 0.5
   self.missileTimer = s.missileInterval * 0.6
   self.lookAt = nil
@@ -325,6 +328,18 @@ function Boss:update(dt, world)
   if not self.active then return end
   if self.flash > 0 then self.flash = self.flash - dt end
   if self.orbHit > 0 then self.orbHit = self.orbHit - dt end
+  self.engineT = self.engineT + dt
+
+  -- Engine flame length: long while sliding in, idle while stopped, cruise
+  -- while roaming; eased so it swells and settles instead of popping.
+  local E = B.engine
+  local thrustWant = E.idle
+  if self.state == "enter" or self.state == "warn" then
+    thrustWant = E.enter
+  elseif self.state == "fight" and self.pause <= 0 then
+    thrustWant = E.cruise
+  end
+  self.thrust = self.thrust + (thrustWant - self.thrust) * math.min(1, E.ease * dt)
 
   local st = self.state
   if st == "warn" then
@@ -389,6 +404,59 @@ end
 -- ---------------------------------------------------------------------------
 -- Drawing
 -- ---------------------------------------------------------------------------
+
+-- Engine flames behind each nozzle of the variant (drawn under the hull):
+-- the player's two flickering flame frames, additive, an outer flame in the
+-- variant color (redder while raging) and a white core. While dying they
+-- sputter and shrink toward the final blast.
+local function drawEngines(self, x, y)
+  local list = self.variant.engines
+  if not list then return end
+  local E = B.engine
+  local g = love.graphics
+  local spr = Assets.sprite(self.variant.sprite)
+  local k = self.size / math.max(spr.w, spr.h)        -- texels -> px, as Assets.draw
+  local a = self.angle
+  local fx, fy = math.cos(a), math.sin(a)             -- forward (the sprite's +v)
+  local rx, ry = math.sin(a), -math.cos(a)            -- the sprite's +u
+
+  local stretch = self.thrust
+  local alpha = 1
+  local c, l = self.variant.color, E.lighten
+  local cr, cg, cb = c[1] + (1 - c[1]) * l, c[2] + (1 - c[2]) * l, c[3] + (1 - c[3]) * l
+  if self:isRaging() then
+    stretch = stretch * E.rageMul
+    local t = E.rageTint
+    cr, cg, cb = cr + (1 - cr) * t, cg * (1 - t), cb * (1 - t)
+  end
+  if self.state == "dying" then
+    local left = self.timer / B.death.time            -- 1 -> 0
+    stretch = stretch * (0.3 + 0.7 * left)
+    if math.random() < 0.35 then alpha = 0.25 end     -- sputters
+  end
+
+  local frame = floor(self.engineT * Config.ART.engine.flickerRate) % 2 == 0
+    and "engineFlame1" or "engineFlame2"
+  g.setBlendMode("add")
+  for i = 1, #list do
+    local n = list[i]
+    -- Nozzle in world space: offset from the sprite center, rotated.
+    local lx = (n[1] - 0.5) * spr.w * k
+    local ly = (n[2] - 0.5) * spr.h * k
+    local nx, ny = x + rx * lx + fx * ly, y + ry * lx + fy * ly
+    local size = self.size * n[3]
+    -- Flame center behind the nozzle, so it grows backward as it stretches.
+    local back = size * 0.5 * stretch * 0.85
+    g.setColor(cr, cg, cb, alpha)
+    Assets.draw(frame, nx - fx * back, ny - fy * back, a + math.pi, size, 1, stretch)
+    local core = size * E.coreScale
+    back = core * 0.5 * stretch * 0.85
+    g.setColor(1, 1, 1, E.coreAlpha * alpha)
+    Assets.draw(frame, nx - fx * back, ny - fy * back, a + math.pi, core, 1, stretch)
+  end
+  g.setBlendMode("alpha")
+end
+
 function Boss:draw()
   if not self.active or self.state == "done" or self.state == "warn" then return end
   local g = love.graphics
@@ -401,6 +469,8 @@ function Boss:draw()
     local j = 1 + 3 * k
     x, y = x + Util.randRange(-j, j), y + Util.randRange(-j, j)
   end
+
+  drawEngines(self, x, y)
 
   Shaders.recolor(self.variant.color)
   g.setColor(1, 1, 1, 1)
