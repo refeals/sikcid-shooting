@@ -3,6 +3,8 @@
 #
 #   dist/
 #     SikCidShootin.sh
+#     gamelist.xml         <- entrada do jogo no menu (nome, descrição, imagens)
+#     images/              <- capa, logo e fanart (de media/, ver tools/media.lua)
 #     .data/sikcid-shootin/
 #         SikCidShootin.love
 #         love/            <- AppImage do LÖVE extraído (colocado à mão)
@@ -208,10 +210,50 @@ LOG="${LOG_DIR}/sikcid-shootin.log"
 EOF
 chmod +x "${LAUNCHER}"
 
+# 2b. Frontend art + gamelist entry ---------------------------------------------
+# Without them Batocera shows its "no image" placeholder. The PNGs are made by
+# `love . --media` (tools/media.lua) and versioned in media/; they are copied
+# under the names Batocera's own scraper uses. dist/gamelist.xml holds ONLY
+# this game: --deploy merges it into the ports gamelist on the Batocera
+# (tools/merge_gamelist.py), never overwriting the other ports.
+IMAGES_DIR="dist/images"
+HAS_MEDIA=1
+for f in cover logo fanart; do
+  [ -f "media/${f}.png" ] || HAS_MEDIA=0
+done
+if [ "$HAS_MEDIA" = 1 ]; then
+  mkdir -p "${IMAGES_DIR}"
+  cp media/cover.png  "${IMAGES_DIR}/${NAME}-image.png"
+  cp media/logo.png   "${IMAGES_DIR}/${NAME}-marquee.png"
+  cp media/fanart.png "${IMAGES_DIR}/${NAME}-fanart.png"
+fi
+cat > dist/gamelist.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<gameList>
+	<game>
+		<path>./${NAME}.sh</path>
+		<name>SikCid Shootin'</name>
+		<desc>Twin-stick shooter de arena para 1 ou 2 jogadores locais. Inimigos entram por quatro portas em waves infinitas: atire, desvie, pegue power-ups e segure o combo. A cada 10 waves, um boss.</desc>
+		<image>./images/${NAME}-image.png</image>
+		<thumbnail>./images/${NAME}-image.png</thumbnail>
+		<marquee>./images/${NAME}-marquee.png</marquee>
+		<fanart>./images/${NAME}-fanart.png</fanart>
+		<genre>Shooter</genre>
+		<players>1-2</players>
+	</game>
+</gameList>
+EOF
+
 # 3. Resumo --------------------------------------------------------------------
 echo "Build pronto:"
 echo "  ${LAUNCHER}"
 echo "  ${LOVE_FILE}  ($(du -h "${LOVE_FILE}" | cut -f1))"
+if [ "$HAS_MEDIA" = 1 ]; then
+  echo "  ${IMAGES_DIR}/  (capa, logo, fanart) + dist/gamelist.xml"
+else
+  echo "  AVISO: faltam imagens em media/ (gere com: love . --media)."
+  echo "         Sem elas o Batocera mostra a imagem padrao."
+fi
 
 # 4. LÖVE extraído presente? --------------------------------------------------
 if [ ! -x "${DATA_DIR}/love/AppRun" ]; then
@@ -249,7 +291,7 @@ if [ "$DEPLOY" = 1 ]; then
 
   # mkdir -p ANTES de qualquer cópia: sem isso o scp -r renomearia a pasta.
   if ! REMOTE_HAS_LOVE=$("$SSH" "${SSH_OPTS[@]}" "$HOST" \
-      "mkdir -p '${REMOTE_GAME}' && if [ -f '${REMOTE_GAME}/love/AppRun' ]; then echo sim; else echo nao; fi"); then
+      "mkdir -p '${REMOTE_GAME}' '${REMOTE_PORTS}/images' && if [ -f '${REMOTE_GAME}/love/AppRun' ]; then echo sim; else echo nao; fi"); then
     echo "ERRO: nao consegui conectar em ${HOST}."
     echo "      O Batocera esta ligado e na mesma rede? Teste com: ssh ${HOST}"
     echo "      Outro endereco: ./build.sh --deploy root@192.168.x.x"
@@ -276,9 +318,25 @@ if [ "$DEPLOY" = 1 ]; then
 
   "$SSH" "${SSH_OPTS[@]}" "$HOST" \
     "mv -f '${REMOTE_GAME}/${NAME}.love.tmp' '${REMOTE_GAME}/${NAME}.love' && chmod +x '${REMOTE_PORTS}/${NAME}.sh'"
+
+  # Menu art: images go next to the other ports' media, and this game's entry
+  # is merged into ports/gamelist.xml by the Batocera's own python3 (script
+  # sent on stdin). The entry file stays in .data for a manual re-merge.
+  if [ "$HAS_MEDIA" = 1 ]; then
+    echo "  images -> ${REMOTE_PORTS}/images/"
+    "$SCP" "${SSH_OPTS[@]}" -q "${IMAGES_DIR}"/*.png "${HOST}:${REMOTE_PORTS}/images/"
+  fi
+  echo "  gamelist.xml (entrada do jogo) -> ${REMOTE_PORTS}/gamelist.xml"
+  "$SCP" "${SSH_OPTS[@]}" -q dist/gamelist.xml "${HOST}:${REMOTE_GAME}/gamelist-entry.xml"
+  if ! "$SSH" "${SSH_OPTS[@]}" "$HOST" \
+      "python3 - '${REMOTE_PORTS}/gamelist.xml' '${REMOTE_GAME}/gamelist-entry.xml'" \
+      < tools/merge_gamelist.py; then
+    echo "  AVISO: nao consegui atualizar o gamelist.xml (o jogo roda, so sem imagens)."
+  fi
   "$SSH" "${SSH_OPTS[@]}" -O exit "$HOST" 2>/dev/null || true
 
   echo "Deploy concluido. Se o jogo estiver aberto no Batocera, feche e abra de novo."
+  echo "Imagens/descricao novas: Menu -> Configuracoes do Jogo -> Atualizar lista de jogos."
 fi
 
 # 6. Teste local opcional (--run) -------------------------------------------------

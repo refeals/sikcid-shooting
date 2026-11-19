@@ -49,6 +49,8 @@ local function parseArgs(args)
       Config.SMOKE_SHOTS = true  -- smoke saves screenshots of each screen
     elseif a == "--smokesound" then
       Config.SMOKE_SOUND = true  -- smoke com som (por padrão ele roda mudo)
+    elseif a == "--media" then
+      Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
     end
     i = i + 1
   end
@@ -59,6 +61,19 @@ end
 
 function love.load(args)
   parseArgs(args)
+  -- Art generator: tools/ is not packed into the .love, so this only works
+  -- from the project folder (`love . --media`).
+  if Config.MEDIA then
+    local ok, Media = pcall(require, "tools.media")
+    if not ok then
+      print("[media] tools/media.lua unavailable (run from the project folder): " .. tostring(Media))
+      love.event.quit(1)
+      return
+    end
+    Media.run()
+    love.event.quit(0)
+    return
+  end
   -- No global texture filter: each asset sets its own (smooth sprites and UI,
   -- nearest for the pixel fonts). See src/assets.lua.
   love.graphics.setLineStyle("rough")

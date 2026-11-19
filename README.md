@@ -34,6 +34,8 @@ Resultado, pronto para copiar para o Batocera:
 ```
 dist/
   SikCidShootin.sh                  <- launcher do port
+  gamelist.xml                      <- entrada do jogo no menu (só este jogo)
+  images/                           <- capa, logo e fanart (ver "Imagens do jogo")
   .data/sikcid-shootin/
       SikCidShootin.love            <- o jogo
       love/                         <- LÖVE 11.5 extraído (você coloca; ver abaixo)
@@ -48,6 +50,35 @@ ficam copiados em `assets/sfx/kenney/` e `assets/art/planets/` e entram
 normalmente. O build **não apaga** o `dist/`: só troca o
 `.love` e o `.sh`, então o `love/` extraído continua lá entre builds. Se o
 `love/` estiver faltando, o script avisa no final com os passos de extração.
+
+### Imagens do jogo (capa, logo, fanart)
+
+As imagens do menu do Batocera e da página do itch.io ficam versionadas em
+`media/` e são **geradas pelo próprio jogo**, com os sprites, o céu, os shaders
+e as fontes de verdade:
+
+```sh
+love . --media        # regrava media/cover.png, logo.png e fanart.png
+```
+
+| Arquivo | Tamanho | Batocera | itch.io |
+|---------|---------|----------|---------|
+| `media/cover.png` | 1260x1000 | `image` e `thumbnail` (capa na lista) | *Cover image* (proporção 630x500) |
+| `media/logo.png` | 1200 de largura, fundo transparente | `marquee` (logo) | banner/título da página |
+| `media/fanart.png` | 1920x1080, sem logo | `fanart` (fundo, nos temas que usam) | fundo da página ou imagem de divulgação |
+
+A cena (posição do boss, dos jogadores, inimigos, tiros e explosões), o tema do
+céu, as cores dos jogadores e o texto do logo ficam em
+[tools/media.lua](tools/media.lua) (`SCENE`, `LOGO_LINES`, `SUBTITLE`). O
+gerador fica em `tools/`, então **não entra no `.love`**: `--media` só
+funciona rodando da pasta do projeto. Depois de mexer na arte do jogo, rode de
+novo e faça commit dos PNGs.
+
+O `./build.sh` copia as imagens para `dist/images/` com os nomes que o
+scraper do Batocera usa (`SikCidShootin-image.png`, `-marquee.png`,
+`-fanart.png`) e escreve o `dist/gamelist.xml` com nome, descrição, gênero,
+jogadores e os caminhos das imagens. Para mudar a descrição do menu, edite o
+`gamelist.xml` dentro do [build.sh](build.sh).
 
 ## Build web (itch.io)
 
@@ -94,6 +125,9 @@ Primeiro upload (depois é só trocar o zip):
 - **Embed options:** viewport **1280 x 720**; **SharedArrayBuffer support**
   ligado (sem isso o build normal não abre); *Fullscreen button* ligado;
   *Mobile friendly* desligado.
+- **Cover image:** `media/cover.png`. O `media/logo.png` (transparente)
+  serve de banner no *Edit theme*, e o `media/fanart.png` de fundo. Ver
+  "Imagens do jogo".
 - **Visibilidade:** Draft ou Restricted enquanto for playtest.
 - **Créditos** na descrição: LÖVE, love.js (MIT), Kenney (CC0), música de
   Clement Panchout.
@@ -140,9 +174,15 @@ roda em Raspberry Pi/ARM.
    ./build.sh --deploy
    ```
    Pede a senha do Batocera uma vez (padrão: `linux`), cria as pastas, envia
-   o `.sh`, o `.love` e — só no primeiro deploy, se faltar lá — o `love/`.
+   o `.sh`, o `.love`, as imagens do menu e — só no primeiro deploy, se faltar
+   lá — o `love/`. A entrada do jogo (nome, descrição, imagens) é **mesclada**
+   no `ports/gamelist.xml` pelo Python do próprio Batocera
+   ([tools/merge_gamelist.py](tools/merge_gamelist.py)): os outros ports e o
+   histórico do jogo (vezes jogado, favorito) ficam intactos, e o arquivo
+   original é guardado uma vez em `gamelist.xml.bak`.
 5. No Batocera: **Menu → Configurações do Jogo → Atualizar lista de jogos**
-   (só da primeira vez). O jogo aparece em **Ports**.
+   (da primeira vez e quando as imagens/descrição mudarem). O jogo aparece em
+   **Ports** com capa, logo e descrição.
 
 ### Atualizar o jogo no Batocera
 
@@ -167,10 +207,18 @@ Crie o `.data` **antes**: se ele não existir, o `scp -r` copia a pasta *com o
 nome* `.data` (sem a subpasta `sikcid-shootin`) e o jogo não acha os arquivos.
 
 ```sh
-ssh root@batocera "mkdir -p /userdata/roms/ports/.data"
+ssh root@batocera "mkdir -p /userdata/roms/ports/.data /userdata/roms/ports/images"
 scp dist/SikCidShootin.sh root@batocera:/userdata/roms/ports/
 scp -r dist/.data/sikcid-shootin root@batocera:/userdata/roms/ports/.data/
+scp dist/images/*.png root@batocera:/userdata/roms/ports/images/
 ```
+
+Para as imagens aparecerem, a entrada do `dist/gamelist.xml` precisa estar no
+`ports/gamelist.xml`. **Não copie o arquivo por cima** se já existir um lá
+(ele tem os outros ports): mescle com
+`ssh root@batocera "python3 - /userdata/roms/ports/gamelist.xml /userdata/roms/ports/.data/sikcid-shootin/gamelist-entry.xml" < tools/merge_gamelist.py`,
+depois de copiar o `dist/gamelist.xml` para esse `gamelist-entry.xml`. Se não
+existir nenhum `gamelist.xml` em `ports/`, copiar o do `dist/` direto funciona.
 
 Pela rede do Windows (`\\BATOCERA\share\roms\ports`) também funciona, desde que
 a estrutura final seja exatamente `ports\.data\sikcid-shootin\` — o launcher
@@ -592,8 +640,10 @@ assets/music/         -- música de fundo (.ogg)
 assets/art/           -- arte da Kenney: folhas + XML, UIPack, fontes;
                          planets/ = peças de planeta usadas;
                          PlanetParts/ = pacote Planets completo (fora do .love)
-tools/                -- gerador dos sons, servidor local da versão web
-                         (fora do .love)
+tools/                -- gerador dos sons, gerador das imagens (media.lua),
+                         merge do gamelist do Batocera, servidor local da
+                         versão web (fora do .love)
+media/                -- capa, logo e fanart geradas por `love . --media`
 web/index.html        -- página da versão web (love.js)
 build.sh              -- gera o port em dist/ (ou a versão web, com --web)
 ```
