@@ -636,7 +636,11 @@ Config.POWERUPS = {
   -- shots in it are erased.
   nova     = { weight = 5, radius = 130, damage = 5 },
   -- Orbiting drone that auto-aims at the nearest visible enemy.
-  drone    = { duration = 12, weight = 12, fireRate = 3, damage = 1, distance = 22, spin = math.rad(160) },
+  -- Its shots are energy pellets (white core `shotCore`, glow `shotGlow` in
+  -- the player color) so they don't read as the ship's; a `barrel` px stub
+  -- points at the target and flashes for `flashTime` on each shot.
+  drone    = { duration = 12, weight = 12, fireRate = 10, damage = 1, distance = 22, spin = math.rad(160),
+               shotCore = 1.6, shotGlow = 4.5, barrel = 5, flashTime = 0.06 },
   -- While active, shots are drawn `shotScale` bigger with a `glowMul` stronger
   -- glow in `color` (the badge color), hits spark in it, and the ship's
   -- outline pulses in it at `auraRate` Hz.
@@ -653,6 +657,7 @@ Config.POWERUPS = {
 -- The comeback at wave end (after running out of lives) uses the safest
 -- spot instead: of `samples` random spots, the farthest from any threat.
 Config.RESPAWN = {
+  lastLifeBubble = true,      -- coming back on the last life grants the BOLHA
   markerDelay = 1.0,          -- s after the death before the marker shows (and moves)
   markerSpeed = 260,          -- px/s when the player steers it
   samples = 16,

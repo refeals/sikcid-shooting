@@ -312,13 +312,21 @@ function world:areaDamage(x, y, radius, dmg, owner)
 end
 
 -- Erases enemy shots (and boss missiles) within `radius`.
+-- Enemy shots inside the circle die with a spark; boss missiles go off.
+-- No radius = the whole arena (wave end, boss death).
 function world:clearEnemyShots(x, y, radius)
-  local shots, r2 = self.bullets, radius * radius
+  local shots = self.bullets
+  local r2 = radius and radius * radius
   for i = 1, shots.count do
     local b = shots.items[i]
-    if b.owner == "enemy" and not b.dead and Util.dist2(x, y, b.x, b.y) <= r2 then
+    if b.owner == "enemy" and not b.dead
+      and (not r2 or Util.dist2(x, y, b.x, b.y) <= r2) then
       b.dead = true
-      Particle.burst(self.particles, 2, b.x, b.y, b.color, 3)
+      if b.kind == "bossMissile" then
+        b:blast(self)
+      else
+        Particle.burst(self.particles, 2, b.x, b.y, b.color, 3)
+      end
     end
   end
 end
@@ -440,14 +448,7 @@ function world:clearHostiles()
     e.dead = true
     pool:release(i)
   end
-  local shots = self.bullets
-  for i = 1, shots.count do
-    local b = shots.items[i]
-    if b.owner == "enemy" and not b.dead then
-      b.dead = true
-      Particle.burst(self.particles, 2, b.x, b.y, b.color, 3)
-    end
-  end
+  self:clearEnemyShots()
 end
 
 -- Missile smoke: skipped while the pool is busy, so explosions keep priority.
@@ -731,8 +732,10 @@ function Game:update(dt)
 
   -- No respiro entre waves, todos os relógios de recompensa ficam parados:
   -- power-ups ativos, power-ups no chão e combo. Não há inimigos, então
-  -- correr o relógio só desperdiçaria o que o jogador conquistou.
-  local resting = Spawner.isResting()
+  -- correr o relógio só desperdiçaria o que o jogador conquistou. On a boss
+  -- wave the same holds while the boss can't be hit (alert, entry, death).
+  local frozen = Spawner.isResting()
+    or (Spawner.bossWave and not world.boss:isFighting())
 
   -- Pickups: expiram sozinhos e são coletados por contato (poucos vivos,
   -- então o teste direto contra os jogadores é mais barato que usar o grid).
@@ -740,7 +743,7 @@ function Game:update(dt)
   while i <= pickups.count do
     local pk = pickups.items[i]
     local taken = false
-    if pk:update(dt, resting) then
+    if pk:update(dt, frozen) then
       local r = Config.POWERUP.pickupRadius + Config.PLAYER.radius
       for pi = 1, world.playerCount do
         local p = world.players[pi]
@@ -758,12 +761,12 @@ function Game:update(dt)
     if taken then pickups:release(i) else i = i + 1 end
   end
 
-  if not resting then Powerups.update(dt, world) end
+  if not frozen then Powerups.update(dt, world) end
 
   Profiler.start("collision")
   Combat.update(dt, world)
   Profiler.stop("collision")
-  Combo.update(dt, world, resting)
+  Combo.update(dt, world, frozen)
 
   -- Screen shake: decai rápido e é aplicado no canvas inteiro.
   if world.shakeFatigue > 0 then

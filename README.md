@@ -313,7 +313,10 @@ sobre a mira automática.
 
 Entre uma wave e outra (os 3s de respiro), os timers de **power-up** — os
 ativos e os caídos no chão — e de **combo** ficam parados: nada some durante
-a pausa, e dá para carregar tudo para a wave seguinte. O power-up garantido do
+a pausa, e dá para carregar tudo para a wave seguinte. Na wave do boss eles
+também param enquanto ele não pode ser atingido (alerta, entrada e explosão
+final). Quando a wave fecha, os tiros inimigos que ainda estavam voando somem.
+O power-up garantido do
 fim da wave cai no ponto livre mais longe dos jogadores (e de onde quem está
 morto vai renascer), para ninguém pegar sem ver o que é.
 
@@ -326,7 +329,7 @@ morto vai renascer), para ninguém pegar sem ver o que é.
 | M | MISSILES | mísseis teleguiados, dano 3 (arma) |
 | V | SPEED BOOTS | 40% mais velocidade |
 | B | BOLHA | segura 1 golpe; ao estourar, empurra os inimigos em volta e dá 1s de invulnerabilidade |
-| D | DRONE | drone que orbita a nave e atira sozinho no inimigo mais próximo |
+| D | DRONE | drone que orbita a nave e atira sozinho (10/s) no inimigo mais próximo; os tiros são bolinhas de energia, diferentes dos da nave |
 | X | DANO X2 | dobra o dano de qualquer arma (e do drone) |
 | N | NOVA | na hora: onda de choque em volta, dano 5 e apaga os tiros inimigos no raio |
 | + | EXTRA LIFE | na hora: +1 vida (máx. 5) |
@@ -348,6 +351,9 @@ contagem acabar, a não ser que ele mova o marcador com o analógico esquerdo
 
 Quem ficou sem vidas e volta no fim da wave não ganha o suporte (não é uma
 morte); ele reaparece no ponto mais seguro da arena.
+
+Quem volta na **última vida**, por qualquer um dos dois caminhos, já volta com
+a **BOLHA** ativa.
 
 ### Boss
 

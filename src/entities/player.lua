@@ -84,6 +84,8 @@ function Player.new(index, device)
     spawnFx = 0,              -- anel de respawn
     droneAngle = 0,           -- DRONE power-up: orbit angle and fire timer
     droneCooldown = 0,
+    droneAimX = 0, droneAimY = -1,   -- barrel direction (last target)
+    droneFlash = 0,                  -- muzzle flash on each drone shot
     -- Respawn marker (while dead with lives left): where the ship comes back.
     markerX = 0, markerY = 0,
     markerDelay = 0,          -- hidden (and still) for this long after the death
@@ -214,6 +216,11 @@ function Player:update(dt, world)
       self.revived = false
       self:spawn(self.markerX, self.markerY)
       if support then world:respawnSupport(self) end
+      -- Last life (also when back from `out`): comes back with the BOLHA.
+      if R.lastLifeBubble and self.lives == 1 then
+        local Powerups = require("src.systems.powerups")
+        Powerups.give(self, Powerups.byId("bubble"), world)
+      end
     end
     return
   end
@@ -267,14 +274,18 @@ end
 function Player:updateDrone(dt, world)
   if not self.mods.drone then return end
   self.droneAngle = (self.droneAngle + DR.spin * dt) % (math.pi * 2)
+  if self.droneFlash > 0 then self.droneFlash = self.droneFlash - dt end
   if self.droneCooldown > 0 then self.droneCooldown = self.droneCooldown - dt end
-  if self.droneCooldown > 0 then return end
   local dx, dy = self:droneXY()
   local t = world:nearestVisibleEnemy(dx, dy)
   if not t then return end
   local nx, ny, len = Util.normalize(t.x - dx, t.y - dy)
   if len <= 0 then return end
-  fire(self, world, dx, dy, nx, ny, W.bulletSpeed, DR.damage * self.mods.damageMul, "single")
+  self.droneAimX, self.droneAimY = nx, ny   -- the barrel tracks every frame
+  if self.droneCooldown > 0 then return end
+  self.droneFlash = DR.flashTime
+  fire(self, world, dx + nx * DR.barrel, dy + ny * DR.barrel, nx, ny, W.bulletSpeed,
+    DR.damage * self.mods.damageMul, "drone")
   self.droneCooldown = 1 / DR.fireRate
   Audio.play("drone_shot")
 end
@@ -415,10 +426,19 @@ function Player:draw()
   end
 
   -- DRONE orbiting the ship, in the player's color.
+  -- The sprite is a plain disc, so a short barrel shows where it aims.
   if self.mods.drone then
     local dx, dy = self:droneXY()
+    local tx, ty = dx + self.droneAimX * DR.barrel, dy + self.droneAimY * DR.barrel
     g.setColor(c[1], c[2], c[3], 1)
+    g.setLineWidth(2)
+    g.line(dx, dy, tx, ty)
+    g.setLineWidth(1)
     Assets.draw("drone", dx, dy, self.droneAngle * 2, SIZE.drone)
+    if self.droneFlash > 0 then
+      g.setColor(1, 1, 1, 1)
+      g.circle("fill", tx, ty, 2)
+    end
   end
 
   -- Reticle ahead of the ship along the aim; pops a little on each shot.

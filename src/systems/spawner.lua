@@ -135,6 +135,8 @@ end
 -- Recompensas ao limpar a wave: bônus, vida de volta para quem estava fora e
 -- um power-up garantido num ponto vazio.
 local function onWaveCleared(world)
+  -- Shots still flying must not kill anyone during the breather.
+  world:clearEnemyShots()
   local bonus = Spawner.wave * Config.WAVE.clearBonus
   for i = 1, world.playerCount do
     local p = world.players[i]

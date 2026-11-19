@@ -11,6 +11,7 @@ local SIZE = Config.ART.size
 local BM = Config.BOSS.missile
 local SV = Config.RESPAWN.salvo
 local X2 = Config.POWERUPS.damage
+local DR = Config.POWERUPS.drone
 
 local Bullet = {}
 Bullet.__index = Bullet
@@ -22,7 +23,7 @@ function Bullet.new()
     life = 0,
     dmg = 1,
     owner = 0,          -- 1 ou 2 = jogador; "enemy" = inimigo
-    kind = "single",    -- "single" | "spread" | "missile" | "enemy" | "bossMissile"
+    kind = "single",    -- "single" | "spread" | "missile" | "drone" | "salvo" | "enemy" | "bossMissile"
     radius = Config.WEAPON.bulletRadius,
     angle = 0,
     trailT = 0,         -- missile smoke trail countdown
@@ -183,6 +184,10 @@ function Bullet:draw()
       Assets.draw("missile", self.x, self.y, self.angle, SIZE.missile * k)
     elseif self.kind == "salvo" then
       Assets.draw("missile", self.x, self.y, self.angle, SIZE.salvo)
+    elseif self.kind == "drone" then
+      -- Energy pellet: white core (the recolor leaves white alone), the
+      -- color comes from its glow.
+      love.graphics.circle("fill", self.x, self.y, DR.shotCore * k)
     else
       Assets.draw("shot", self.x, self.y, self.angle, SIZE.shot * k)
     end
@@ -194,6 +199,20 @@ end
 -- so the blend mode is switched once, not per bullet.
 function Bullet:drawGlow()
   local c = self.color
+  if self.kind == "drone" then
+    -- Two layers: a soft halo and a bright inner glow.
+    local r, a = DR.shotGlow, 1
+    if self.powered then
+      c = X2.color
+      r = r * X2.shotScale
+      a = math.min(1.3, X2.glowMul)
+    end
+    love.graphics.setColor(c[1], c[2], c[3], 0.35 * a)
+    love.graphics.circle("fill", self.x, self.y, r)
+    love.graphics.setColor(c[1], c[2], c[3], math.min(1, 0.8 * a))
+    love.graphics.circle("fill", self.x, self.y, r * 0.55)
+    return
+  end
   local r = (self.kind == "missile" and SIZE.missile * 0.35)
     or (self.kind == "salvo" and SIZE.salvo * 0.45)
     or SIZE.shot * 0.45
