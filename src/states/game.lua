@@ -457,11 +457,25 @@ function world:trail(x, y, color)
   Particle.trail(pool, x, y, color)
 end
 
-function world:shake(mag)
+-- `force` (player death, boss finale) skips the fatigue: those must land.
+function world:shake(mag, force)
+  if not force then
+    local F = J.shakeFatigue
+    local fatigue = self.shakeFatigue
+    self.shakeFatigue = math.min(1, fatigue + mag * F.gain)
+    mag = mag * math.max(F.minMul, 1 - fatigue)
+  end
+  mag = mag * J.shakeScale
   if mag > self.shakeMag then self.shakeMag = mag end
 end
 
-function world:hitStop(t)
+-- Tank hit-stops share a cooldown (a chain of kills would stutter);
+-- `force` (boss finale) always freezes.
+function world:hitStop(t, force)
+  if not force then
+    if self.hitStopCooldown > 0 then return end
+    self.hitStopCooldown = J.hitStopCooldown
+  end
   if t > self.hitStopTimer then self.hitStopTimer = t end
 end
 
@@ -509,7 +523,7 @@ function world:onPlayerHit(player)
   Combo.breakOn(player)
   Particle.explosion(self.particles, player.x, player.y, player.color,
     J.playerDeathPuffs, Config.ART.size.playerShip, J.playerDeathParticles, 5)
-  self:shake(J.shakePlayerDeath)
+  self:shake(J.shakePlayerDeath, true)
   Audio.play("player_die")
 
   if player.lives <= 0 then
@@ -595,7 +609,9 @@ function Game:enter(devices, count)
   world.playerCount = count or 1
   world.players = {}
   world.shakeMag = 0
+  world.shakeFatigue = 0
   world.hitStopTimer = 0
+  world.hitStopCooldown = 0
   world.godMode = Config.SMOKE_GOD or false
   bullets:clear()
   enemies:clear()
@@ -750,6 +766,10 @@ function Game:update(dt)
   Combo.update(dt, world, resting)
 
   -- Screen shake: decai rápido e é aplicado no canvas inteiro.
+  if world.shakeFatigue > 0 then
+    world.shakeFatigue = math.max(0, world.shakeFatigue - J.shakeFatigue.recover * dt)
+  end
+  if world.hitStopCooldown > 0 then world.hitStopCooldown = world.hitStopCooldown - dt end
   if world.shakeMag > 0 then
     world.shakeMag = Util.approach(world.shakeMag, 0, J.shakeDecay * dt)
     Screen.setShake(Util.randRange(-world.shakeMag, world.shakeMag),

@@ -367,7 +367,7 @@ espalhado em outro arquivo.
 | Janela do combo, degrau e teto do multiplicador | `Config.COMBO` |
 | Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
 | Boss: frequência, tamanho, HP, velocidade, rajadas, mísseis, fúria, inimigos de apoio, pontos, drops, variantes | `Config.BOSS` (valores `{ base, perBoss, min, max }`, lidos por `Config.bossValue`) |
-| Screen shake, hit-stop, explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
+| Screen shake (com fadiga e multiplicador global `shakeScale`), hit-stop (com cooldown), explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
 | Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 120 partículas) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
 | Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
 

@@ -289,8 +289,8 @@ local function finale(self, world)
   local x, y, c = self.x, self.y, self.variant.color
   world:explosion(x, y, c, 10, self.size * 0.45, 20, 6)
   world:explosion(x, y, Config.COLORS.flash, 4, self.size * 0.3, 10, 4)
-  world:shake(B.death.shake)
-  world:hitStop(B.death.hitStop)
+  world:shake(B.death.shake, true)
+  world:hitStop(B.death.hitStop, true)
   Background.pulse(x, y, B.death.pulse)
   Audio.play("boss_die")
 

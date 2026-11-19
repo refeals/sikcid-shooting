@@ -773,11 +773,19 @@ Config.MUSIC = {
 -- Juice
 -- ---------------------------------------------------------------------------
 Config.JUICE = {
+  shakeScale = 1,          -- global multiplier for every screen shake (0 = off)
   shakeEnemyDeath = 0.8,
-  shakePlayerDeath = 7.0,
-  shakeTankDeath = 3.0,
+  shakePlayerDeath = 7.0,  -- forced: ignores fatigue
+  shakeTankDeath = 2.0,
   shakeDecay = 12,
+  -- Shake fatigue: back-to-back shakes get weaker, so a chain of kills in a
+  -- dense wave doesn't keep the screen trembling. Each shake adds
+  -- `gain * magnitude` (capped at 1) and plays at max(minMul, 1 - fatigue)
+  -- of its strength; fatigue drains `recover` per second. Player and boss
+  -- deaths are forced and skip it.
+  shakeFatigue = { gain = 0.15, recover = 1.0, minMul = 0.25 },
   hitStopTank = 0.05,
+  hitStopCooldown = 0.4,   -- s: at most one tank hit-stop per window
   -- Explosions = smoke puffs + sparks, all from the same particle pool.
   deathParticles = 5,
   deathPuffs = 3,
