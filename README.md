@@ -323,7 +323,8 @@ espalhado em outro arquivo.
 | Curva de waves (cota, inimigos vivos, cadência, tamanho do lote) | `Config.waveQuota` / `waveMaxAlive` / `waveSpawnInterval` / `waveBatch` |
 | Quando cada tipo de inimigo entra e com que frequência | `Config.ENEMY_MIX` (`from`, `base`, `perWave`, `min`) |
 | HP, velocidade, tamanho e pontos de cada inimigo | `Config.ENEMIES` |
-| Repulsão entre inimigos, knockback, tamanho da célula do grid | `Config.ENEMY_SEPARATION`, `ENEMY_KNOCKBACK`, `GRID_CELL` |
+| Distância entre inimigos (folga entre sprites, força do desvio, raio do boss como obstáculo), knockback, tamanho da célula do grid | `Config.ENEMY_SPACING`, `ENEMY_KNOCKBACK`, `GRID_CELL` |
+| Inimigos sem jogador vivo (velocidade e curvas do vaguear) | `Config.ENEMY_WANDER` |
 | Vidas, velocidade, invulnerabilidade, tempo de respawn | `Config.PLAYER` |
 | Cadência, dano, velocidade de bala, spread, míssil, orbes | `Config.WEAPON` |
 | Duração, chance de drop e peso de cada power-up | `Config.POWERUP` e `DEFS` em [src/systems/powerups.lua](src/systems/powerups.lua) |
@@ -351,7 +352,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 |-------|---------|
 | Jogador (nave recolorida, contorno, chama, crosshair, orbes, escudo, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
 | Inimigos (os 4 tipos, flash de dano, barra de HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
-| Boss (nave recolorida, flash, pulso de fúria, tremor na morte) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw` |
+| Boss (nave recolorida, fogo nos bocais de cada nave, flash, pulso de fúria, tremor na morte) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw` |
 | Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
 | Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
 | Explosões (fumaça + faíscas) e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua) |

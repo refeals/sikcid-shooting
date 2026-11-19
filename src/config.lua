@@ -435,7 +435,37 @@ Config.ENEMIES = {
               keepDistance = 120, fireInterval = 1.8, bulletSpeed = 110, bulletLife = 4.0 },
 }
 
-Config.ENEMY_SEPARATION = 42    -- força de repulsão entre inimigos
+-- Spacing between enemies (steering in src/entities/enemy.lua, hard overlap
+-- fix in src/systems/combat.lua). Each enemy's "space" is half its drawn
+-- sprite size (Config.ART.size): sprites never overlap, and enemies steer to
+-- keep `gap` px more between them.
+Config.ENEMY_SPACING = {
+  gap = 4,           -- px kept between sprites (soft: steered around)
+  steer = 1.6,       -- weight of the avoidance against the chase direction
+  bossFrac = 0.45,   -- the boss as an obstacle: radius = this * its drawn size
+}
+-- Largest enemy space: neighbor queries reach this far (computed once).
+do
+  local m = 0
+  for kind, def in pairs(Config.ENEMIES) do
+    local s = (Config.ART.size[kind] or def.size) * 0.5
+    if s > m then m = s end
+  end
+  Config.ENEMY_SPACING.maxSpace = m
+end
+
+-- With no live player (respawn wait, both dead in 2P), enemies wander
+-- instead of standing still: a new heading every turnMin..turnMax s, eased
+-- in, pointing back inside near the walls.
+Config.ENEMY_WANDER = {
+  speedMul = 0.6,
+  turnMin = 1.0, turnMax = 2.5,   -- s between new headings
+  maxTurn = math.rad(90),         -- how far a new heading may swing
+  turnRate = math.rad(140),       -- rad/s easing toward it
+  wallMargin = 40,                -- px: closer than this, the new heading points inward
+  inwardSpread = math.rad(45),    -- random swing around the inward heading
+}
+
 Config.ENEMY_FLASH_TIME = 0.08  -- flash branco ao levar dano
 Config.ENEMY_KNOCKBACK = 60
 Config.GRID_CELL = 64           -- célula do grid espacial da broadphase
@@ -530,14 +560,30 @@ Config.BOSS = {
   },
   -- Death: `time` s of small blasts over the hull, then the big one.
   death = { time = 1.6, blastEvery = 0.11, shake = 10, hitStop = 0.12, pulse = 0.9 },
+  -- Engine flames (the player's flame sprites, additive): one per nozzle of
+  -- the variant, in the variant color with a white core. Length factor:
+  -- `idle` while stopped, `cruise` at roaming speed, `enter` while sliding
+  -- in; eased at `ease`/s. Rage makes them longer and redder; while dying
+  -- they sputter and shrink out. `lighten` mixes the outer flame toward
+  -- white: dark colors (purple, red) barely light up when drawn additively.
+  engine = { idle = 0.7, cruise = 1.0, enter = 1.4, ease = 4, lighten = 0.35,
+             rageMul = 1.3, rageTint = 0.6, coreScale = 0.55, coreAlpha = 0.9 },
   -- Boss n uses entry ((n - 1) % #variants) + 1. Names show in the alert
-  -- banner (big font: keep them unaccented) and on the HUD bar.
+  -- banner (big font: keep them unaccented) and on the HUD bar. `engines`:
+  -- nozzles as { u, v, s }: u, v = spot on the sprite as authored (0..1 from
+  -- its left/top; the ships point down, so the exhausts are near v = 0) and
+  -- s = flame size as a fraction of the boss size.
   variants = {
-    { name = "DESTRUIDOR", sprite = "boss1", color = { 0.95, 0.25, 0.25 } },
-    { name = "CEIFADOR",   sprite = "boss2", color = { 0.70, 0.35, 1.00 } },
-    { name = "DEVORADOR",  sprite = "boss3", color = { 0.25, 0.95, 0.55 } },
-    { name = "COLOSSO",    sprite = "boss4", color = { 1.00, 0.60, 0.15 } },
-    { name = "SENTINELA",  sprite = "boss5", color = { 0.30, 0.75, 1.00 } },
+    { name = "DESTRUIDOR", sprite = "boss1", color = { 0.95, 0.25, 0.25 },
+      engines = { { 0.28, 0.12, 0.30 }, { 0.72, 0.12, 0.30 } } },
+    { name = "CEIFADOR",   sprite = "boss2", color = { 0.70, 0.35, 1.00 },
+      engines = { { 0.24, 0.06, 0.28 }, { 0.76, 0.06, 0.28 } } },
+    { name = "DEVORADOR",  sprite = "boss3", color = { 0.25, 0.95, 0.55 },
+      engines = { { 0.50, 0.04, 0.42 } } },
+    { name = "COLOSSO",    sprite = "boss4", color = { 1.00, 0.60, 0.15 },
+      engines = { { 0.32, 0.06, 0.30 }, { 0.66, 0.06, 0.30 } } },
+    { name = "SENTINELA",  sprite = "boss5", color = { 0.30, 0.75, 1.00 },
+      engines = { { 0.50, 0.04, 0.32 }, { 0.20, 0.06, 0.18 }, { 0.80, 0.06, 0.18 } } },
   },
 }
 

@@ -9,10 +9,13 @@ local Util   = require("src.util")
 local Audio  = require("src.audio")
 local Assets = require("src.assets")
 local UI     = require("src.ui")
+local Combat = require("src.systems.combat")
 
 local SIZE = Config.ART.size
 local TURN_RATE = Config.ART.enemyTurnRate
 local TANK_SPIN = Config.ART.tankSpin
+local SP = Config.ENEMY_SPACING
+local WD = Config.ENEMY_WANDER
 
 local Enemy = {}
 Enemy.__index = Enemy
@@ -32,6 +35,11 @@ function Enemy.new()
     wobble = 0,
     orbHit = 0,         -- cooldown de dano por orbe (power-up Shield)
     angle = 0,          -- drawn facing (visual only)
+    space = 10,         -- half the drawn size: spacing between enemies
+    wandering = false,  -- no live player: roaming (see wander)
+    heading = 0,
+    wantHeading = 0,
+    wanderTimer = 0,
   }, Enemy)
 end
 
@@ -51,6 +59,8 @@ function Enemy:reset(kind, x, y)
   self.radius = def.radius
   self.color = Config.COLORS[def.color]
   self.angle = math.random() * math.pi * 2
+  self.space = (SIZE[kind] or def.size) * 0.5
+  self.wandering = false
 end
 
 -- Escolhe (ou troca) o jogador perseguido.
@@ -125,12 +135,102 @@ BEHAVIORS.shooter = function(self, dt, world)
 end
 
 -- ---------------------------------------------------------------------------
+-- No live player: roam instead of freezing. Starts along the current
+-- heading, picks a new one every few seconds (pointing back inside near the
+-- walls) and eases into it, at a reduced speed.
+-- ---------------------------------------------------------------------------
+local function wander(self, dt, world)
+  if not self.wandering then
+    self.wandering = true
+    self.target = nil
+    if self.vx ~= 0 or self.vy ~= 0 then
+      self.heading = math.atan2(self.vy, self.vx)
+    else
+      self.heading = self.angle
+    end
+    self.wantHeading = self.heading
+    self.wanderTimer = Util.randRange(WD.turnMin, WD.turnMax)
+  end
+
+  self.wanderTimer = self.wanderTimer - dt
+  if self.wanderTimer <= 0 then
+    self.wanderTimer = Util.randRange(WD.turnMin, WD.turnMax)
+    local a, m = world.arena, WD.wallMargin
+    if self.x < a.x + m or self.x > a.x + a.w - m or self.y < a.y + m or self.y > a.y + a.h - m then
+      self.wantHeading = math.atan2(a.cy - self.y, a.cx - self.x)
+        + Util.randRange(-WD.inwardSpread, WD.inwardSpread)
+    else
+      self.wantHeading = self.heading + Util.randRange(-WD.maxTurn, WD.maxTurn)
+    end
+  end
+
+  self.heading = Util.turnToward(self.heading, self.wantHeading, WD.turnRate * dt)
+  local speed = self.def.speed * WD.speedMul
+  self.vx, self.vy = math.cos(self.heading) * speed, math.sin(self.heading) * speed
+end
+
+-- ---------------------------------------------------------------------------
+-- Avoidance: bends the velocity away from neighbors closer than their two
+-- spaces plus the gap (stronger the closer they are), keeping the speed.
+-- The query callback is a module-level function fed by upvalues, so no
+-- closure is created per enemy per frame.
+-- ---------------------------------------------------------------------------
+local avSelf, avX, avY = nil, 0, 0
+
+local function avoidNeighbor(other)
+  if other == avSelf or other.dead then return end
+  local want = avSelf.space + other.space + SP.gap
+  local dx, dy = avSelf.x - other.x, avSelf.y - other.y
+  local d2 = dx * dx + dy * dy
+  if d2 >= want * want then return end
+  if d2 <= 0.0001 then
+    -- Same spot (fresh batch at a door): the overlap fix splits them.
+    return
+  end
+  local d = math.sqrt(d2)
+  local k = (1 - d / want) / d
+  avX, avY = avX + dx * k, avY + dy * k
+end
+
+local function avoid(self, world)
+  local vx, vy = self.vx, self.vy
+  if vx == 0 and vy == 0 then return end
+  avSelf, avX, avY = self, 0, 0
+  Combat.queryCircle(self.x, self.y, self.space + SP.maxSpace + SP.gap, avoidNeighbor)
+
+  local boss = world.boss
+  if boss and (boss.state == "enter" or boss.state == "fight") then
+    local want = self.space + boss.size * SP.bossFrac + SP.gap
+    local dx, dy = self.x - boss.x, self.y - boss.y
+    local d2 = dx * dx + dy * dy
+    if d2 < want * want and d2 > 0.0001 then
+      local d = math.sqrt(d2)
+      local k = (1 - d / want) / d
+      avX, avY = avX + dx * k, avY + dy * k
+    end
+  end
+  avSelf = nil
+
+  if avX == 0 and avY == 0 then return end
+  local nx, ny, speed = Util.normalize(vx, vy)
+  local fx, fy = Util.normalize(nx + avX * SP.steer, ny + avY * SP.steer)
+  if fx == 0 and fy == 0 then return end
+  self.vx, self.vy = fx * speed, fy * speed
+end
+
+-- ---------------------------------------------------------------------------
 function Enemy:update(dt, world)
   if self.flash > 0 then self.flash = self.flash - dt end
   if self.orbHit > 0 then self.orbHit = self.orbHit - dt end
 
-  local behavior = BEHAVIORS[self.type] or BEHAVIORS.grunt
-  behavior(self, dt, world)
+  if world:nearestPlayer(self.x, self.y) then
+    self.wandering = false
+    local behavior = BEHAVIORS[self.type] or BEHAVIORS.grunt
+    behavior(self, dt, world)
+  else
+    wander(self, dt, world)
+  end
+  avoid(self, world)
 
   self.x = self.x + self.vx * dt
   self.y = self.y + self.vy * dt

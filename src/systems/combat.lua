@@ -63,28 +63,67 @@ local function queryCircle(x, y, r, fn)
 end
 
 -- ---------------------------------------------------------------------------
--- Separação: inimigos se repelem levemente para não empilharem num pixel só.
--- Tank tem "massa" maior (def.push), então empurra mais do que é empurrado.
+-- Overlap fix: no two enemy SPRITES overlap (each one's `space` is half its
+-- drawn size). The gentle spacing is steering in src/entities/enemy.lua; this
+-- is the hard limit behind it. Each enemy of an overlapping pair moves out by
+-- its share of the overlap, inversely to its mass (def.push: the tank shoves
+-- the small ones aside); the pair is seen from both sides, so the overlap is
+-- gone in one frame. The boss is an obstacle that is never pushed. The query
+-- callback is module-level (fed by upvalues): no closure per enemy.
 -- ---------------------------------------------------------------------------
-local function separate(enemies, dt)
-  local force = Config.ENEMY_SEPARATION * dt
+local SP = Config.ENEMY_SPACING
+local GOLDEN = 2.39996       -- rad: spreads enemies stacked on the same spot
+local ovSelf, ovMass, ovIndex = nil, 1, 0
+
+local function pushApart(b)
+  local a = ovSelf
+  if b == a or b.dead then return end
+  local minDist = a.space + b.space
+  local dx, dy = a.x - b.x, a.y - b.y
+  local d2 = dx * dx + dy * dy
+  if d2 >= minDist * minDist then return end
+  local bm = b.def.push or 1
+  local share = bm / (ovMass + bm)
+  if d2 <= 0.0001 then
+    -- Same spot (a batch from one door): split along a per-enemy angle.
+    local ang = ovIndex * GOLDEN
+    a:push(math.cos(ang) * minDist * share, math.sin(ang) * minDist * share)
+    return
+  end
+  local d = math.sqrt(d2)
+  local k = (minDist - d) * share / d
+  a:push(dx * k, dy * k)
+end
+
+local function resolveOverlaps(world)
+  local enemies, arena = world.enemies, world.arena
+  local boss = world.boss
+  local bossSolid = boss and (boss.state == "enter" or boss.state == "fight")
+  local bossSpace = bossSolid and boss.size * SP.bossFrac or 0
   for i = 1, enemies.count do
     local a = enemies.items[i]
-    local ar = a.radius
-    local am = a.def.push or 1
-    queryCircle(a.x, a.y, ar + 24, function(b)
-      if b == a then return end
-      local minDist = ar + b.radius
-      local d2 = Util.dist2(a.x, a.y, b.x, b.y)
-      if d2 >= minDist * minDist or d2 <= 0.0001 then return end
-      local bm = b.def.push or 1
-      local nx, ny, dist = Util.normalize(a.x - b.x, a.y - b.y)
-      local overlap = (minDist - dist) / minDist
-      -- Cada um é empurrado na proporção inversa da própria massa.
-      local share = bm / (am + bm)
-      a:push(nx * force * overlap * share * 2, ny * force * overlap * share * 2)
-    end)
+    ovSelf, ovMass, ovIndex = a, a.def.push or 1, i
+    queryCircle(a.x, a.y, a.space + SP.maxSpace, pushApart)
+
+    if bossSolid then
+      local minDist = a.space + bossSpace
+      local dx, dy = a.x - boss.x, a.y - boss.y
+      local d2 = dx * dx + dy * dy
+      if d2 < minDist * minDist and d2 > 0.0001 then
+        local d = math.sqrt(d2)
+        local k = (minDist - d) / d
+        a:push(dx * k, dy * k)
+      end
+    end
+
+    -- Never shoved through a wall (same clamp as Enemy:update).
+    local r = a.radius
+    if a.x < arena.x + r then a.x = arena.x + r end
+    if a.x > arena.x + arena.w - r then a.x = arena.x + arena.w - r end
+    if a.y < arena.y + r then a.y = arena.y + r end
+    if a.y > arena.y + arena.h - r then a.y = arena.y + arena.h - r end
   end
+  ovSelf = nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -279,7 +318,7 @@ end
 
 function Combat.update(dt, world)
   buildGrid(world.enemies)
-  separate(world.enemies, dt)
+  resolveOverlaps(world)
   bulletsVsEnemies(world)
   bulletsVsBossMissiles(world)
   bulletsVsBoss(world)
