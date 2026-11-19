@@ -3,10 +3,12 @@
 -- Renders, with the game's own sprites, sky, shaders and fonts:
 --   media/cover.png   1260x1000  key art + logo (itch.io cover, Batocera
 --                                image/thumbnail)
---   media/logo.png    1200x480   logo on transparency (Batocera marquee,
---                                itch.io page banner)
---   media/fanart.png  1920x1080  key art without the logo (Batocera fanart,
---                                itch.io page background)
+--   media/logo.png    1200x509   logo on transparency (Batocera marquee)
+--   media/banner.png  960x~150   one-line logo on transparency (itch.io
+--                                page banner)
+--   media/fanart.png  1920x1080  key art without the logo (Batocera fanart)
+--   media/page-bg.png 2560x1440  key art fading into #0a0a0f at the sides
+--                                and bottom (itch.io page background)
 --
 -- Lives in tools/, so it never goes into the .love (build.sh packs only
 -- main.lua, conf.lua, src/ and assets/). Output goes straight into media/ next
@@ -73,6 +75,9 @@ local LOGO_FILL = { { 0.92, 0.94, 1.00 }, { 1.00, 0.84, 0.30 } }   -- text white
 local LOGO_EDGE = { 0.06, 0.05, 0.16 }
 local LOGO_GLOW = { 0.30, 0.62, 1.00 }                           -- AZUL, the P1 color
 local SUBTITLE = "TWIN-STICK SHOOTER DE ARENA - 1 OU 2 JOGADORES"
+-- itch.io page color (theme BG = #0a0a0f, the HUD background); page-bg.png
+-- fades into it.
+local PAGE_BG = { 0x0a / 255, 0x0a / 255, 0x0f / 255 }
 
 -- Text with a pixel-stepped outline: `r` px thick, drawn as offset copies.
 local function outlined(f, str, x, y, fill, edge, r)
@@ -139,13 +144,15 @@ local function blur(src, down, passes)
 end
 
 -- Sizes of the logo for a max width: title font, line height, outline, and
--- (with the subtitle) its font and gap. `h` = total height.
-local function logoLayout(maxW, withSubtitle)
-  local L = { size = fitSize(FONT_TITLE, LOGO_LINES, maxW, 256) }
+-- (with the subtitle) its font and gap. `h` = total height. `oneLine` puts
+-- the title words side by side (the itch.io banner).
+local function logoLayout(maxW, withSubtitle, oneLine)
+  local lines = oneLine and { table.concat(LOGO_LINES, " ") } or LOGO_LINES
+  local L = { size = fitSize(FONT_TITLE, lines, maxW, 256), oneLine = oneLine }
   L.font = font(FONT_TITLE, L.size)
   L.lineH = math.floor(L.size * 1.08)
   L.edge = math.max(4, math.floor(L.size / 14))
-  L.h = L.lineH * #LOGO_LINES
+  L.h = L.lineH * #lines
   if withSubtitle then
     L.sub = font(FONT_BODY, fitSize(FONT_BODY, { SUBTITLE }, maxW * 0.95, math.max(16, L.size / 4)))
     L.gap = math.floor(L.size * 0.12)
@@ -158,9 +165,17 @@ end
 -- a color draws a plain silhouette in it (the glow source).
 local function logoText(L, cx, y, fill)
   local g = love.graphics
+  local full = table.concat(LOGO_LINES, " ")
   for li, str in ipairs(LOGO_LINES) do
     local x = math.floor(cx - L.font:getWidth(str) * 0.5)
     local ly = y + (li - 1) * L.lineH
+    if L.oneLine then
+      -- Each word keeps its own color, on one shared line.
+      local before = table.concat(LOGO_LINES, " ", 1, li - 1)
+      x = math.floor(cx - L.font:getWidth(full) * 0.5
+        + (li > 1 and L.font:getWidth(before .. " ") or 0))
+      ly = y
+    end
     if fill then
       outlined(L.font, str, x, ly, fill, fill, L.edge * 2)
     else
@@ -172,7 +187,7 @@ local function logoText(L, cx, y, fill)
     end
   end
   if L.sub then
-    local sy = y + L.lineH * #LOGO_LINES + L.gap
+    local sy = y + L.h - L.sub:getHeight()
     local sx = math.floor(cx - L.sub:getWidth(SUBTITLE) * 0.5)
     local r = math.max(2, math.floor(L.sub:getHeight() / 8))
     outlined(L.sub, SUBTITLE, sx, sy, fill or Config.COLORS.text, fill or LOGO_EDGE, fill and r * 3 or r)
@@ -485,8 +500,43 @@ function Media.run()
     drawLogo(L, W * 0.5, PAD)
   end), true)
 
+  -- itch.io page banner: the title on one line, no subtitle. The page shows
+  -- the banner at its own size, so it is kept short.
+  local BW, BPAD = 960, 28
+  local B = logoLayout(BW - BPAD * 2, false, true)
+  save("banner.png", render(BW, B.h + BPAD * 2, function(W)
+    drawLogo(B, W * 0.5, BPAD)
+  end), true)
+
   save("fanart.png", render(1920, 1080, function(W, H)
     drawScene(W, H, setmetatable({ skyX = 0, skyY = 0.5 }, { __index = SCENE }))
+  end))
+
+  -- itch.io page background: the key art, bigger, fading into PAGE_BG at the
+  -- sides and bottom. itch draws it at its own size with no scaling, so on
+  -- wider screens the page color takes over without a visible edge.
+  save("page-bg.png", render(2560, 1440, function(W, H)
+    drawScene(W, H, setmetatable({ skyX = 0, skyY = 0.5 }, { __index = SCENE }))
+    local g = love.graphics
+    local function fade(x, y, w, h, horizontal, flip)
+      local n = 96
+      for i = 0, n - 1 do
+        local a = (i + 0.5) / n
+        -- Solid for the last 15%, so the image ends exactly on the page color.
+        a = math.min(1, (flip and (1 - a) or a) / 0.85) ^ 1.4
+        g.setColor(PAGE_BG[1], PAGE_BG[2], PAGE_BG[3], a)
+        if horizontal then
+          g.rectangle("fill", x + i * w / n, y, w / n + 1, h)
+        else
+          g.rectangle("fill", x, y + i * h / n, w, h / n + 1)
+        end
+      end
+    end
+    local side = W * 0.16
+    fade(0, 0, side, H, true, true)               -- left edge
+    fade(W - side, 0, side, H, true, false)       -- right edge
+    fade(0, H * 0.55, W, H * 0.45, false, false)  -- bottom
+    g.setColor(1, 1, 1, 1)
   end))
 
   if savedToSaveDir then

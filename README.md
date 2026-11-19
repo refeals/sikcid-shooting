@@ -58,14 +58,16 @@ As imagens do menu do Batocera e da página do itch.io ficam versionadas em
 e as fontes de verdade:
 
 ```sh
-love . --media        # regrava media/cover.png, logo.png e fanart.png
+love . --media        # regrava media/cover.png, logo.png, banner.png, fanart.png e page-bg.png
 ```
 
 | Arquivo | Tamanho | Batocera | itch.io |
 |---------|---------|----------|---------|
 | `media/cover.png` | 1260x1000 | `image` e `thumbnail` (capa na lista) | *Cover image* (proporção 630x500) |
-| `media/logo.png` | 1200 de largura, fundo transparente | `marquee` (logo) | banner/título da página |
-| `media/fanart.png` | 1920x1080, sem logo | `fanart` (fundo, nos temas que usam) | fundo da página ou imagem de divulgação |
+| `media/logo.png` | 1200 de largura, fundo transparente | `marquee` (logo) | — |
+| `media/banner.png` | 960x133, uma linha, sem subtítulo, fundo transparente | — | banner da página (*Edit theme*) |
+| `media/fanart.png` | 1920x1080, sem logo | `fanart` (fundo, nos temas que usam) | imagem de divulgação |
+| `media/page-bg.png` | 2560x1440, bordas e base somem em `#0a0a0f` | — | fundo da página (*Edit theme*) |
 
 A cena (posição do boss, dos jogadores, inimigos, tiros e explosões), o tema do
 céu, as cores dos jogadores e o texto do logo ficam em
@@ -126,9 +128,12 @@ Primeiro upload (depois é só trocar o zip):
   ligado (sem isso o build normal não abre); *Fullscreen button* ligado;
   *Mobile friendly* ligado, com orientação **landscape** (o jogo tem
   controles touch, ver "Controles touch").
-- **Cover image:** `media/cover.png`. O `media/logo.png` (transparente)
-  serve de banner no *Edit theme*, e o `media/fanart.png` de fundo. Ver
-  "Imagens do jogo".
+- **Cover image:** `media/cover.png`. Ver "Imagens do jogo".
+- **Edit theme:** banner `media/banner.png` (transparente, uma linha), fundo
+  `media/page-bg.png` sem repetir. Cores: BG `#0a0a0f`, BG 2 `#1a1d2b`, texto
+  `#e6ebff`, link e botão `#ffd64d` (texto do botão `#0a0a0f`). O itch não
+  escala o fundo: o `page-bg.png` some na cor do BG, então em tela maior que
+  ele não aparece borda.
 - **Visibilidade:** Draft ou Restricted enquanto for playtest.
 - **Créditos** na descrição: LÖVE, love.js (MIT), Kenney (CC0), música do
   Music Loop Bundle de Tallbeard Studios.
