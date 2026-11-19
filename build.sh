@@ -238,6 +238,8 @@ cat > dist/gamelist.xml <<EOF
 		<thumbnail>./images/${NAME}-image.png</thumbnail>
 		<marquee>./images/${NAME}-marquee.png</marquee>
 		<fanart>./images/${NAME}-fanart.png</fanart>
+		<releasedate>20260101T000000</releasedate>
+		<developer>SikStudio</developer>
 		<genre>Shooter</genre>
 		<players>1-2</players>
 	</game>

@@ -76,8 +76,8 @@ novo e faça commit dos PNGs.
 
 O `./build.sh` copia as imagens para `dist/images/` com os nomes que o
 scraper do Batocera usa (`SikCidShootin-image.png`, `-marquee.png`,
-`-fanart.png`) e escreve o `dist/gamelist.xml` com nome, descrição, gênero,
-jogadores e os caminhos das imagens. Para mudar a descrição do menu, edite o
+`-fanart.png`) e escreve o `dist/gamelist.xml` com nome, descrição, ano de
+lançamento, desenvolvedora, gênero, jogadores e os caminhos das imagens. Para mudar a descrição do menu, edite o
 `gamelist.xml` dentro do [build.sh](build.sh).
 
 ## Build web (itch.io)
