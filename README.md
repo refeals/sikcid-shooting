@@ -181,9 +181,9 @@ SELECT não sai: no lobby ele desvincula, no jogo abre a pausa.
 | Teste de input | — | F5 |
 
 O tiro é automático (`Config.AUTO_AIM` em `src/config.lua`): sem mira manual,
-a nave mira e atira sozinha no inimigo mais próximo dentro do raio (200px) e
-segura esse alvo até ele morrer, sair do raio ou outro ficar bem mais perto.
-Sem nenhum inimigo no raio, ela não atira e aponta para onde está andando. O
+a nave mira e atira sozinha no inimigo visível mais próximo e segura esse alvo
+até ele morrer, sair da tela ou outro ficar bem mais perto. Sem nenhum
+inimigo na tela, ela não atira e aponta para onde está andando. O
 analógico direito (ou o d-pad; no teclado, as setas) sempre tem prioridade
 sobre a mira automática.
 

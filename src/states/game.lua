@@ -99,6 +99,28 @@ function world:nearestEnemy(x, y, maxR)
   return best
 end
 
+-- Whether a point is inside the visible playfield. With no camera the screen
+-- shows the whole arena; a scrolling arena would test the camera view here.
+function world:isOnScreen(x, y)
+  local a = self.arena
+  return x >= a.x and x <= a.x + a.w and y >= a.y and y <= a.y + a.h
+end
+
+-- Nearest live enemy whose center is on screen (auto-aim). A plain scan: the
+-- pool caps it at MAX_ENEMIES and it runs once per player per frame.
+function world:nearestVisibleEnemy(x, y)
+  local pool = self.enemies
+  local best, bestD2 = nil, math.huge
+  for i = 1, pool.count do
+    local e = pool.items[i]
+    if not e.dead and self:isOnScreen(e.x, e.y) then
+      local d2 = Util.dist2(x, y, e.x, e.y)
+      if d2 < bestD2 then best, bestD2 = e, d2 end
+    end
+  end
+  return best
+end
+
 function world:randomPlayer()
   local alive, n = nil, 0
   for i = 1, self.playerCount do

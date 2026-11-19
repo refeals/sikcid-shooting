@@ -105,7 +105,7 @@ function Player:spawn(x, y)
 end
 
 -- ---------------------------------------------------------------------------
--- Auto-aim target: keeps the locked enemy while it lives and stays in range,
+-- Auto-aim target: keeps the locked enemy while it lives and stays on screen,
 -- unless another one is clearly closer (switchRatio), so the aim does not
 -- flicker between two enemies at about the same distance.
 -- ---------------------------------------------------------------------------
@@ -115,15 +115,17 @@ function Player:autoTarget(world)
     self.target = nil
     return nil
   end
-  local r2 = A.radius * A.radius
 
   local t, td2 = self.target, nil
   if t then
-    td2 = Util.dist2(self.x, self.y, t.x, t.y)
-    if t.dead or td2 > r2 then t, td2 = nil, nil end
+    if t.dead or not world:isOnScreen(t.x, t.y) then
+      t = nil
+    else
+      td2 = Util.dist2(self.x, self.y, t.x, t.y)
+    end
   end
 
-  local best = world:nearestEnemy(self.x, self.y, A.radius)
+  local best = world:nearestVisibleEnemy(self.x, self.y)
   if not t then
     t = best
   elseif best and best ~= t then
