@@ -14,6 +14,7 @@ local Audio  = require("src.audio")
 local Combat = {}
 
 local CELL = Config.GRID_CELL
+local X2_COLOR = Config.POWERUPS.damage.color   -- DANO X2 hit sparks
 local ORIGIN_Y = Config.HUD_H
 local COLS = math.ceil(Config.VIRTUAL_W / CELL)
 local ROWS = math.ceil((Config.VIRTUAL_H - Config.HUD_H) / CELL)
@@ -143,7 +144,13 @@ local function bulletsVsEnemies(world)
         b.dead = true
         local killed = e:damage(b.dmg)
         -- O som de morte fica em world:onEnemyKilled (cobre bala e explosão).
-        if not killed then Audio.play("enemy_hit") end
+        -- DANO X2: sparks in its color and a deeper hit sound.
+        if b.powered then
+          world:burst(2, b.x, b.y, X2_COLOR, 3)
+          if not killed then Audio.play("enemy_hit", 1.2, 0.75) end
+        elseif not killed then
+          Audio.play("enemy_hit")
+        end
         if killed then
           e.dead = true
           world:onEnemyKilled(e, b.owner)
@@ -176,7 +183,7 @@ local function bulletsVsBoss(world)
       local rr = b.radius + boss.radius
       if Util.dist2(b.x, b.y, boss.x, boss.y) <= rr * rr then
         b.dead = true
-        world:burst(2, b.x, b.y, boss.variant.color, 3)
+        world:burst(2, b.x, b.y, b.powered and X2_COLOR or boss.variant.color, 3)
         local killed = boss:hit(b.dmg, b.owner, world)
         if b.kind == "salvo" then world:salvoBlast(b) end
         if killed or not boss:isFighting() then return end

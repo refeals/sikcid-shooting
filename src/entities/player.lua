@@ -25,13 +25,20 @@ local function shotDamage(self)
   return self.mods.damage * self.mods.damageMul
 end
 
+-- Every player shot goes through here: flags it `powered` under DANO X2, so
+-- it is drawn bigger and hotter and sparks on impact.
+local function fire(self, world, x, y, dx, dy, speed, dmg, kind, life, radius)
+  local b = world:spawnBullet(x, y, dx, dy, speed, dmg, self.index, kind, life, radius, self.color)
+  if b and self.mods.damageMul > 1 then b.powered = true end
+  return b
+end
+
 -- Armas disponíveis, indexadas por mods.weapon. As etapas seguintes só
 -- acrescentam entradas aqui; nada de `if` espalhado pelo update.
 local WEAPONS = {}
 
 WEAPONS.single = function(self, world)
-  world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
-    W.bulletSpeed, shotDamage(self), self.index, "single", nil, nil, self.color)
+  fire(self, world, self.x, self.y, self.aimX, self.aimY, W.bulletSpeed, shotDamage(self), "single")
   Audio.play("shot")
 end
 
@@ -43,17 +50,15 @@ WEAPONS.spread = function(self, world)
   local start = base - W.spreadAngle * 0.5
   for i = 1, n do
     local a = start + step * (i - 1)
-    world:spawnBullet(self.x, self.y, math.cos(a), math.sin(a),
-      W.bulletSpeed, shotDamage(self), self.index, "spread", nil, nil, self.color)
+    fire(self, world, self.x, self.y, math.cos(a), math.sin(a), W.bulletSpeed, shotDamage(self), "spread")
   end
   Audio.play("shot_spread")
 end
 
 -- Missiles: projétil lento que corrige a rota até o inimigo mais próximo.
 WEAPONS.missiles = function(self, world)
-  world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
-    W.missileSpeed, shotDamage(self), self.index, "missile",
-    W.bulletLife * 2, W.bulletRadius + 1, self.color)
+  fire(self, world, self.x, self.y, self.aimX, self.aimY, W.missileSpeed, shotDamage(self),
+    "missile", W.bulletLife * 2, W.bulletRadius + 1)
   Audio.play("shot_missile")
 end
 
@@ -269,8 +274,7 @@ function Player:updateDrone(dt, world)
   if not t then return end
   local nx, ny, len = Util.normalize(t.x - dx, t.y - dy)
   if len <= 0 then return end
-  world:spawnBullet(dx, dy, nx, ny, W.bulletSpeed, DR.damage * self.mods.damageMul,
-    self.index, "single", nil, nil, self.color)
+  fire(self, world, dx, dy, nx, ny, W.bulletSpeed, DR.damage * self.mods.damageMul, "single")
   self.droneCooldown = 1 / DR.fireRate
   Audio.play("drone_shot")
 end
@@ -362,10 +366,16 @@ function Player:draw()
   -- ship, so each player finds their own ship in the chaos. Arena only
   -- (drawShip, used by the lobby and HUD, stays clean). Blinks with the ship
   -- (drawn after the invulnerability early-out above).
+  -- Under DANO X2 the outline takes the power-up color and pulses faster.
   local O = Config.ART.outline
   local l = O.lighten
-  g.setColor(c[1] + (1 - c[1]) * l, c[2] + (1 - c[2]) * l, c[3] + (1 - c[3]) * l,
-    O.alpha + O.pulseAmp * math.sin(self.engineT * O.pulseRate * math.pi * 2))
+  local oc, rate = c, O.pulseRate
+  if self.mods.damageMul > 1 then
+    local X2 = Config.POWERUPS.damage
+    oc, rate = X2.color, X2.auraRate
+  end
+  g.setColor(oc[1] + (1 - oc[1]) * l, oc[2] + (1 - oc[2]) * l, oc[3] + (1 - oc[3]) * l,
+    O.alpha + O.pulseAmp * math.sin(self.engineT * rate * math.pi * 2))
   Assets.draw("playerOutline", self.x, self.y, self.angle, SIZE.playerShip)
 
   -- Engine flame behind the ship while moving (two frames flickering): an

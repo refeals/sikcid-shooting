@@ -10,6 +10,7 @@ local Shaders = require("src.shaders")
 local SIZE = Config.ART.size
 local BM = Config.BOSS.missile
 local SV = Config.RESPAWN.salvo
+local X2 = Config.POWERUPS.damage
 
 local Bullet = {}
 Bullet.__index = Bullet
@@ -28,6 +29,7 @@ function Bullet.new()
     hp = 1,             -- boss missile: hits left before it is shot down
     age = 0,            -- boss missile: seconds since launch
     target = nil,       -- boss missile: player it chases
+    powered = false,    -- player shot under DANO X2: drawn bigger and hotter
     dead = false,       -- marcada em combat.lua, recolhida no sweep
     color = Config.COLORS.bullet,
   }, Bullet)
@@ -49,6 +51,7 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.hp = 1
   self.age = 0
   self.target = nil
+  self.powered = false
 end
 
 -- Boss missile going off: when it burns out or is shot down. Visual only.
@@ -172,15 +175,17 @@ function Bullet:draw()
     love.graphics.setColor(1, 1, 1, a)
     Assets.draw("missile", x, y, self.angle, SIZE.bossMissile)
     Shaders.reset()
-  elseif self.kind == "missile" then
-    love.graphics.setColor(1, 1, 1, 1)
-    Assets.draw("missile", self.x, self.y, self.angle, SIZE.missile)
-  elseif self.kind == "salvo" then
-    love.graphics.setColor(1, 1, 1, 1)
-    Assets.draw("missile", self.x, self.y, self.angle, SIZE.salvo)
   else
+    -- Player shots (DANO X2 makes them bigger).
+    local k = self.powered and X2.shotScale or 1
     love.graphics.setColor(1, 1, 1, 1)
-    Assets.draw("shot", self.x, self.y, self.angle, SIZE.shot)
+    if self.kind == "missile" then
+      Assets.draw("missile", self.x, self.y, self.angle, SIZE.missile * k)
+    elseif self.kind == "salvo" then
+      Assets.draw("missile", self.x, self.y, self.angle, SIZE.salvo)
+    else
+      Assets.draw("shot", self.x, self.y, self.angle, SIZE.shot * k)
+    end
   end
 end
 
@@ -192,7 +197,14 @@ function Bullet:drawGlow()
   local r = (self.kind == "missile" and SIZE.missile * 0.35)
     or (self.kind == "salvo" and SIZE.salvo * 0.45)
     or SIZE.shot * 0.45
-  love.graphics.setColor(c[1], c[2], c[3], 0.45)
+  local a = 0.45
+  -- DANO X2: a bigger, stronger glow in the power-up color.
+  if self.powered then
+    c = X2.color
+    r = r * X2.shotScale * X2.glowMul
+    a = math.min(1, a * X2.glowMul)
+  end
+  love.graphics.setColor(c[1], c[2], c[3], a)
   love.graphics.circle("fill", self.x, self.y, r)
 end
 

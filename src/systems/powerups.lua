@@ -71,7 +71,7 @@ Powerups.DEFS = {
     id = "damage", name = "DANO X2", letter = "X",
     desc = "dobra o dano de qualquer arma",
     duration = N.damage.duration, weight = N.damage.weight,
-    color = { 1.00, 0.40, 0.30, 1 },
+    color = N.damage.color,
     apply = function(m) m.damageMul = m.damageMul * N.damage.mul end,
   },
   {

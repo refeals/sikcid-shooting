@@ -637,7 +637,11 @@ Config.POWERUPS = {
   nova     = { weight = 5, radius = 130, damage = 5 },
   -- Orbiting drone that auto-aims at the nearest visible enemy.
   drone    = { duration = 12, weight = 12, fireRate = 3, damage = 1, distance = 22, spin = math.rad(160) },
-  damage   = { duration = 10, weight = 12, mul = 2 },
+  -- While active, shots are drawn `shotScale` bigger with a `glowMul` stronger
+  -- glow in `color` (the badge color), hits spark in it, and the ship's
+  -- outline pulses in it at `auraRate` Hz.
+  damage   = { duration = 10, weight = 12, mul = 2, color = { 1.00, 0.40, 0.30, 1 },
+               shotScale = 1.4, glowMul = 1.5, auraRate = 6 },
 }
 
 -- Respawn (with lives left; not the comeback at wave end after running out).
