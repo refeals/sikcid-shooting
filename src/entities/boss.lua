@@ -159,7 +159,6 @@ function Boss:begin(world, n, wave)
   self.angle = math.atan2(self.goalY - self.y, self.goalX - self.x)
 
   Audio.play("boss_alarm")
-  Music.play("boss")
   Background.pulse(a.cx, a.cy, Config.ART.background.grid.waveStart)
 end
 
@@ -353,6 +352,9 @@ function Boss:update(dt, world)
       self.x, self.y = self.goalX, self.goalY
       self.state = "fight"
       self.dead = false
+      -- The wave music plays through ALERTA and the entrance; the boss track
+      -- fades in (Config.MUSIC.tracks.boss.fadeIn) only when the fight starts.
+      Music.play("boss")
       self.pause = Util.randRange(B.pauseMin, B.pauseMax)
       pickGoal(self, world)
     else

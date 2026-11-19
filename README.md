@@ -129,8 +129,8 @@ Primeiro upload (depois é só trocar o zip):
   serve de banner no *Edit theme*, e o `media/fanart.png` de fundo. Ver
   "Imagens do jogo".
 - **Visibilidade:** Draft ou Restricted enquanto for playtest.
-- **Créditos** na descrição: LÖVE, love.js (MIT), Kenney (CC0), música de
-  Clement Panchout.
+- **Créditos** na descrição: LÖVE, love.js (MIT), Kenney (CC0), música do
+  Music Loop Bundle de Tallbeard Studios.
 
 Se o build normal não abrir em algum navegador (a opção SharedArrayBuffer do
 itch é experimental), suba o zip de `--web --compat`: roda sem threads e sem
@@ -574,25 +574,40 @@ novo = uma entrada em `Config.SFX` + o arquivo + uma chamada
 
 ### Música
 
-Faixas em **`assets/music/<nome>.ogg`**, tocadas em streaming e em loop por
-[src/music.lua](src/music.lua). Cada tela pede um **papel** e `Config.MUSIC.tracks`
-diz qual faixa toca em cada um:
+Faixas em **`assets/music/<nome>.ogg`**, tocadas por [src/music.lua](src/music.lua).
+Cada tela pede um **papel** e `Config.MUSIC.tracks` diz o que toca em cada um:
+uma faixa em loop (`file`) ou uma **playlist** (`playlist`), em que as faixas
+tocam em sequência e sem intervalo (a → b → c → a…):
 
-| Papel | Onde | Faixa atual |
+| Papel | Onde | Faixa |
 |---|---|---|
-| `menu` | lobby, briefing, volta do game over | `danse-contemporaine` |
-| `game` | arena | `danse-contemporaine` |
+| `menu` | lobby, briefing | `sunburn` |
+| `game` | waves comuns | playlist `cloak-of-darkness-1` → `-2` → `-3` |
+| `boss` | luta contra o boss | `never-miss` (fade in de 3 s) |
+| `gameover` | tela de game over | `crushing-it` |
 
-Com os dois papéis na mesma faixa, a música **continua sem reiniciar** do lobby
-para a partida. Para ter uma faixa própria na arena, coloque outro `.ogg` em
-`assets/music/` e troque o nome em `tracks.game`: o crossfade entre as duas já
-está pronto.
+Comportamento:
 
-Comportamento: fade in ao abrir; na **pausa** a música abaixa para 30%
-(`duck`) em vez de parar; no **game over** ela some em fade, o efeito de game
-over toca no silêncio e a música de menu volta depois de 2,5 s. Volume geral da
-música em `Config.MUSIC.volume` (abaixo dos efeitos, para tiros e explosões
-continuarem legíveis). `--mute` silencia tudo.
+- Troca de papel = crossfade (`fadeTime`, 0,6 s). Um papel pode ter `fadeIn`
+  próprio e `gain` (0..1) para igualar o volume entre faixas.
+- Um papel que sumiu por completo recomeça do início ao voltar: a playlist das
+  waves volta ao STAGE 1 depois de cada boss e em cada partida nova.
+- **Boss:** a música das waves continua durante o ALERTA e a entrada. Quando a
+  luta começa de fato, ela sai em 0,6 s e `never-miss` sobe em 3 s, porque a
+  faixa já começa agitada.
+- **Pausa:** a música abaixa para 30% (`duck`) em vez de parar.
+- **Game over:** a música some em fade, o efeito de game over toca no silêncio
+  e `crushing-it` entra depois de 2,5 s. De volta ao lobby, crossfade para
+  `sunburn`.
+- Volume geral em `Config.MUSIC.volume` (abaixo dos efeitos, para tiros e
+  explosões continuarem legíveis). `--mute` silencia tudo.
+
+A playlist usa uma `QueueableSource`, abastecida a cada frame com um `Decoder`
+por faixa, e por isso a emenda entre os STAGEs não tem intervalo. Todas as
+faixas de uma playlist precisam do mesmo formato (sample rate, bits, canais).
+
+`schmoovin.ogg` e `danse-contemporaine.ogg` ficam em `assets/music/` sem uso; o
+`build.sh` não as empacota.
 
 Para converter uma faixa nova (o `.wav` original não precisa ficar no projeto):
 
@@ -604,8 +619,9 @@ ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome
 
 ## Créditos
 
-- Música: **"Danse Contemporaine"**, de **Clement Panchout**
-  ([itch.io](https://clement-panchout.itch.io)).
+- Música: **Music Loop Bundle**, de **Tallbeard Studios**
+  ([itch.io](https://tallbeard.itch.io/music-loop-bundle)): "Sunburn",
+  "Cloak of Darkness", "Never Miss" e "Crushing It".
 - Arte e fontes: **[Kenney](https://kenney.nl)** (CC0): Space Shooter Extension,
   Simple Space, Planets, UI Pack (Sci-Fi) e Kenney Fonts.
 - Efeitos sonoros de combate: **[Kenney](https://kenney.nl)** (CC0), Sci-Fi

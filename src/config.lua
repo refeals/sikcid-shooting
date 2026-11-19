@@ -753,19 +753,25 @@ Config.SFX = {
 -- ---------------------------------------------------------------------------
 -- Música
 -- ---------------------------------------------------------------------------
--- Arquivos em assets/music/<nome>.ogg (ou .wav), tocados em streaming (não
--- ocupam a RAM toda). Cada tela pede um PAPEL; o papel aponta para uma faixa.
--- Dois papéis na mesma faixa = a música continua sem reiniciar ao trocar.
+-- Files in assets/music/<name>.ogg (or .wav). Each screen asks for a ROLE;
+-- a role is one looped track ({ file = ... }) or a gapless playlist
+-- ({ playlist = { ... } }, a -> b -> c -> a ...). Optional per role:
+-- `gain` (0..1, evens out loudness between tracks) and `fadeIn` (s, instead
+-- of fadeTime). A role always restarts from its beginning once faded out.
 Config.MUSIC = {
   dir = "assets/music/",
-  volume = 0.45,          -- abaixo dos efeitos, para tiros/explosões se destacarem
-  duck = 0.3,             -- fração do volume durante a pausa
-  fadeTime = 0.6,         -- crossfade entre faixas (s)
-  gameOverDelay = 2.5,    -- silêncio no game over antes da música de menu voltar
+  volume = 0.45,          -- below the SFX, so shots/explosions stand out
+  duck = 0.3,             -- volume fraction while paused
+  fadeTime = 0.6,         -- default fade in/out and crossfade (s)
+  gameOverDelay = 2.5,    -- silence on game over before its music comes in
   tracks = {
-    menu = "danse-contemporaine",   -- lobby, briefing, game over
-    game = "danse-contemporaine",   -- arena
-    boss = "danse-contemporaine",   -- boss fight (same track for now: keeps playing)
+    menu = { file = "sunburn" },                     -- lobby, briefing
+    game = { playlist = { "cloak-of-darkness-1",     -- regular waves
+                          "cloak-of-darkness-2",
+                          "cloak-of-darkness-3" } },
+    -- Starts loud: comes in slowly once the boss actually starts fighting.
+    boss = { file = "never-miss", fadeIn = 3.0 },
+    gameover = { file = "crushing-it" },
   },
 }
 

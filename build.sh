@@ -82,11 +82,13 @@ fi
 # source pack) and the full Kenney Planets pack in assets/art/PlanetParts/
 # (~4 MB). The sounds and planet parts the game actually uses are copied into
 # assets/sfx/kenney/ and assets/art/planets/, packed like any other asset.
+# Also the music tracks kept on disk but unused (schmoovin, danse-contemporaine).
 mkdir -p "${DATA_DIR}"
 rm -f "${LOVE_FILE}"
 zip -9 -q -r "${LOVE_FILE}" main.lua conf.lua src assets \
   -x '*/.gitkeep' '*sample*.png' '*/desktop.ini' 'assets/sfx/Audio/*' \
-     'assets/art/PlanetParts/*'
+     'assets/art/PlanetParts/*' \
+     'assets/music/schmoovin.ogg' 'assets/music/danse-contemporaine.ogg'
 
 # 1b. Web (--web) ---------------------------------------------------------------
 # O mesmo .love vira página web com o love.js (LÖVE 11.4 em WebAssembly). Os

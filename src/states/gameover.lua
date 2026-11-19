@@ -22,7 +22,7 @@ function GameOver:enter(summary)
   self.blink = 0
   self.musicBack = false
   -- A música da partida some em fade; o efeito de game over toca no
-  -- silêncio e a música de menu volta depois de Config.MUSIC.gameOverDelay.
+  -- silêncio e a música de game over entra depois de Config.MUSIC.gameOverDelay.
   Music.stop()
   Audio.play("game_over")
   if Config.SMOKE then
@@ -36,7 +36,7 @@ function GameOver:update(dt)
   self.blink = self.blink + dt
   if not self.musicBack and self.timer >= Config.MUSIC.gameOverDelay then
     self.musicBack = true
-    Music.play("menu")
+    Music.play("gameover")
   end
   if self.timer < ACCEPT_DELAY then return end
 
