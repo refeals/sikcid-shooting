@@ -1,0 +1,1 @@
+- ranking geral na nuvem (firebase?)
