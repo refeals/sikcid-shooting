@@ -355,6 +355,14 @@ morte); ele reaparece no ponto mais seguro da arena.
 Quem volta na **última vida**, por qualquer um dos dois caminhos, já volta com
 a **BOLHA** ativa.
 
+### Game over
+
+Quando o último jogador perde a última vida, a explosão roda em câmera lenta
+e a arena continua viva: os inimigos seguem vagando, mas as portas fecham.
+1s depois, a arena escurece e aparecem **GAME OVER**, a wave alcançada e a
+pontuação de cada jogador. Depois aparece **APERTE START**, que leva para a
+tela de resultados. Tempos e efeitos ficam em `Config.GAME_OVER`.
+
 ### Boss
 
 A cada 10 waves (10, 20, 30...) a wave é de **boss**:
@@ -602,9 +610,10 @@ Comportamento:
   luta começa de fato, ela sai em 0,6 s e `never-miss` sobe em 3 s, porque a
   faixa já começa agitada.
 - **Pausa:** a música abaixa para 30% (`duck`) em vez de parar.
-- **Game over:** a música some em fade, o efeito de game over toca no silêncio
-  e `crushing-it` entra depois de 2,5 s. De volta ao lobby, crossfade para
-  `sunburn`.
+- **Game over:** a música some em fade quando o último jogador explode, o
+  efeito de game over toca quando o texto GAME OVER aparece na arena, e
+  `crushing-it` entra 2,5 s depois dele, já na tela de resultados. De volta
+  ao lobby, crossfade para `sunburn`.
 - Volume geral em `Config.MUSIC.volume` (abaixo dos efeitos, para tiros e
   explosões continuarem legíveis). `--mute` silencia tudo.
 

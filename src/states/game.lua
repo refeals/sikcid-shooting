@@ -26,10 +26,12 @@ local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
 local Background = require("src.background")
 local UI        = require("src.ui")
+local Music     = require("src.music")
 
 local Game = {}
 
 local J = Config.JUICE
+local GO = Config.GAME_OVER
 
 -- Arena = tela inteira menos a faixa de HUD no topo.
 local arena = {
@@ -558,6 +560,9 @@ function world:onGameOver()
   summary.wave = Spawner.wave
   -- A wave em andamento não conta como sobrevivida.
   summary.wavesCleared = math.max(0, Spawner.wave - 1)
+  -- The jingle already played over the arena: the results screen only
+  -- brings the music in, timed from it.
+  summary.sinceJingle = world.endJingle and (world.endT - Config.GAME_OVER.textDelay) or nil
 
   local beat = Save.submitMatch(self.playerCount, summary.scores)
   summary.beat.solo, summary.beat.duo, summary.beat.coop = beat.solo, beat.duo, beat.coop
@@ -596,6 +601,7 @@ local hudInfo = { titleLabel = "WAVE ", titleNum = "", subLabel = "", subNum = "
 local numCache = {
   wave = { v = nil, s = "" }, enemies = { v = nil, s = "" },
   rest = { v = nil, s = "" }, bonus = { v = nil, s = "" },
+  goWave = { v = nil, s = "" }, goScore1 = { v = nil, s = "" }, goScore2 = { v = nil, s = "" },
 }
 local function numStr(slot, value, fmt)
   local c = numCache[slot]
@@ -606,6 +612,44 @@ local function numStr(slot, value, fmt)
   return c.s
 end
 
+-- Game over over the still-running arena: dims it, then GAME OVER, the wave
+-- reached and each score (in the player's color), and a blinking START.
+local goColor = { 1, 1, 1, 1 }
+local function faded(c, a)
+  goColor[1], goColor[2], goColor[3], goColor[4] = c[1], c[2], c[3], (c[4] or 1) * a
+  return goColor
+end
+
+local function drawGameOver()
+  if world.endT < GO.textDelay then return end
+  local C = Config.COLORS
+  local a = math.min(1, (world.endT - GO.textDelay) / GO.fadeIn)
+  local g = love.graphics
+  g.setColor(0, 0, 0, GO.dim * a)
+  g.rectangle("fill", arena.x, arena.y, arena.w, arena.h)
+
+  local cx, cy = arena.x, arena.cy
+  UI.text("big", "GAME OVER", cx, cy - 46, faded(C.doorWarn, a), arena.w, "center")
+  UI.textNumber("title", "digits", "WAVE ", numStr("goWave", Spawner.wave, "%d"), nil,
+    cx, cy - 14, faded(C.text, a), arena.w, "center")
+
+  if world.playerCount >= 2 then
+    for i = 1, 2 do
+      local p = world.players[i]
+      local s = numStr(i == 1 and "goScore1" or "goScore2", p.score, "%07d")
+      UI.digits("digits", s, arena.cx + (i == 1 and -150 or 10), cy + 10, faded(p.color, a), 140, "center")
+    end
+  else
+    UI.digits("digits", numStr("goScore1", world.players[1].score, "%07d"),
+      cx, cy + 10, faded(C.text, a), arena.w, "center")
+  end
+
+  if Game.endAccepting() and math.floor(world.endT * 2.5) % 2 == 0 then
+    UI.text("title", "APERTE START", cx, cy + 44, C.text, arena.w, "center")
+  end
+  g.setColor(1, 1, 1, 1)
+end
+
 function Game:enter(devices, count)
   world.playerCount = count or 1
   world.players = {}
@@ -613,6 +657,8 @@ function Game:enter(devices, count)
   world.shakeFatigue = 0
   world.hitStopTimer = 0
   world.hitStopCooldown = 0
+  world.endT = -1          -- game over sequence: real s since the last death
+  world.endJingle = false
   world.godMode = Config.SMOKE_GOD or false
   bullets:clear()
   enemies:clear()
@@ -672,7 +718,46 @@ local function allPlayersOut()
   return true
 end
 
+-- ---------------------------------------------------------------------------
+-- Game over sequence (Config.GAME_OVER): the last explosion plays in slow
+-- motion, the arena keeps running with the doors closed, GAME OVER shows
+-- after textDelay and START goes to the results screen.
+-- ---------------------------------------------------------------------------
+
+local function beginGameOver()
+  world.endT = 0
+  world.endJingle = false
+  Spawner.stop()
+  Music.stop()             -- fades out
+end
+
+local function gameOverTimeScale(t)
+  if t < GO.slowHold then return GO.slowMo end
+  local k = (t - GO.slowHold) / GO.slowEase
+  if k >= 1 then return 1 end
+  return GO.slowMo + (1 - GO.slowMo) * k
+end
+
+function Game.isEnding()
+  return world.endT >= 0
+end
+
+-- START works once the text has been up for acceptDelay.
+function Game.endAccepting()
+  return world.endT >= GO.textDelay + GO.acceptDelay
+end
+
 function Game:update(dt)
+  local ending = world.endT >= 0
+  if ending then
+    world.endT = world.endT + dt
+    if not world.endJingle and world.endT >= GO.textDelay then
+      world.endJingle = true
+      Audio.play("game_over")
+    end
+    dt = dt * gameOverTimeScale(world.endT)
+  end
+
   for i = 1, world.playerCount do
     local d = world.players[i].device
     -- Controle de um jogador caiu: pausa até ele voltar.
@@ -680,9 +765,15 @@ function Game:update(dt)
       State.push(require("src.states.pause"), world, "waiting", i)
       return
     end
+    if ending then
+      -- No pause during the game over: START goes to the results.
+      if d and d.connected and d:pressed("start") and Game.endAccepting() then
+        world:onGameOver()
+        return
+      end
     -- START e BACK abrem a pausa. Sair da partida só pelo menu de pausa
     -- (com confirmação): um toque em SELECT não pode jogar o jogador fora.
-    if d and d.connected and (d:pressed("start") or
+    elseif d and d.connected and (d:pressed("start") or
       (d:pressed("back") and not d:isDown("start"))) then
       State.push(require("src.states.pause"), world, "paused")
       return
@@ -781,10 +872,7 @@ function Game:update(dt)
     Screen.setShake(0, 0)
   end
 
-  if allPlayersOut() then
-    world:onGameOver()
-    return
-  end
+  if world.endT < 0 and allPlayersOut() then beginGameOver() end
 
   if Config.SMOKE then
     local Smoke = require("src.smoke")
@@ -915,6 +1003,7 @@ function Game:draw()
     hudInfo.subNum = numStr("enemies", Spawner.remaining(world), "%d")
   end
   Hud.draw(world.players, world.playerCount, hudInfo)
+  drawGameOver()
 
   if Config.DEBUG then
     Profiler.setCounts(enemies.count, bullets.count, particles.count)

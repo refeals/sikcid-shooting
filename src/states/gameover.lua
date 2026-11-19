@@ -21,10 +21,17 @@ function GameOver:enter(summary)
   self.timer = 0
   self.blink = 0
   self.musicBack = false
-  -- A música da partida some em fade; o efeito de game over toca no
-  -- silêncio e a música de game over entra depois de Config.MUSIC.gameOverDelay.
-  Music.stop()
-  Audio.play("game_over")
+  self.musicDelay = Config.MUSIC.gameOverDelay
+  if summary.sinceJingle then
+    -- The arena's game over sequence already faded the music out and played
+    -- the jingle: just bring the music in, gameOverDelay after the jingle.
+    self.musicDelay = math.max(0, self.musicDelay - summary.sinceJingle)
+  else
+    -- A música da partida some em fade; o efeito de game over toca no
+    -- silêncio e a música de game over entra depois de Config.MUSIC.gameOverDelay.
+    Music.stop()
+    Audio.play("game_over")
+  end
   if Config.SMOKE then
     require("src.smoke").note("state", "gameover")
     require("src.smoke").bump("gameovers")
@@ -34,7 +41,7 @@ end
 function GameOver:update(dt)
   self.timer = self.timer + dt
   self.blink = self.blink + dt
-  if not self.musicBack and self.timer >= Config.MUSIC.gameOverDelay then
+  if not self.musicBack and self.timer >= self.musicDelay then
     self.musicBack = true
     Music.play("gameover")
   end

@@ -225,6 +225,23 @@ function Smoke.update(dt)
 
   -- No game over, aperta START uma vez para exercitar a volta ao lobby.
   local State = require("src.state")
+  -- Before that, START once the arena's GAME OVER accepts it.
+  local Game = require("src.states.game")
+  if State.current() == Game and Game.isEnding() then
+    -- The screenshot is saved at the end of the frame: take it one frame
+    -- before START switches the screen.
+    if Game.endAccepting() and Config.SMOKE_SHOTS and not Smoke.endShot then
+      love.graphics.captureScreenshot("smoke_gameover.png")
+      Smoke.endShot = true
+    elseif Game.endAccepting() and not Smoke.endPressed then
+      press(1, "start", true)
+      Smoke.endPressed = true
+      Smoke.bump("endings")
+    end
+  elseif Smoke.endPressed and not Smoke.endReleased then
+    press(1, "start", false)
+    Smoke.endReleased = true
+  end
   if State.current() == require("src.states.gameover") then
     Smoke.goTimer = (Smoke.goTimer or 0) + dt
     if not Smoke.goPressed and Smoke.goTimer > 1.2 then

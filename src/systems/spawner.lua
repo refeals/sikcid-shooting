@@ -191,6 +191,8 @@ function Spawner.update(dt, world)
 
   Spawner.timer = Spawner.timer - dt
 
+  if Spawner.phase == "over" then return end   -- game over: doors closed
+
   if Spawner.phase == "rest" then
     if Spawner.timer <= 0 then Spawner.startWave(Spawner.wave + 1) end
     return
@@ -264,6 +266,13 @@ end
 
 function Spawner.isResting()
   return Spawner.phase == "rest"
+end
+
+-- Game over: no more enemies come in (what is in the arena keeps moving).
+function Spawner.stop()
+  Spawner.phase = "over"
+  Spawner.door = nil
+  for i = 1, 4 do doors[i].warn = 0 end
 end
 
 -- ---------------------------------------------------------------------------

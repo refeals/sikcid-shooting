@@ -781,6 +781,22 @@ Config.MUSIC = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Game over sequence: when the last player runs out, the arena keeps running
+-- (doors closed) in slow motion for a moment, then GAME OVER + the score
+-- show over it, and START goes to the results screen. Times in real seconds
+-- from the last death.
+-- ---------------------------------------------------------------------------
+Config.GAME_OVER = {
+  slowMo = 0.35,       -- time scale right after the last death
+  slowHold = 0.4,      -- s at slowMo, then
+  slowEase = 0.5,      -- s easing back to normal speed
+  textDelay = 1.0,     -- s before GAME OVER shows (and its jingle plays)
+  fadeIn = 0.4,        -- s for the text and the dimming to fade in
+  dim = 0.6,           -- arena darkening behind the text (alpha)
+  acceptDelay = 0.6,   -- s after the text before START works
+}
+
+-- ---------------------------------------------------------------------------
 -- Juice
 -- ---------------------------------------------------------------------------
 Config.JUICE = {
