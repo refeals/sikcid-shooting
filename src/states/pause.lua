@@ -9,6 +9,7 @@
 
 local Config = require("src.config")
 local Input  = require("src.input")
+local Touch  = require("src.touch")
 local State  = require("src.state")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
@@ -133,6 +134,19 @@ function Pause:draw()
     line2 = not Config.WEB and "SEGURE SELECT PARA SAIR DO JOGO" or nil
   end
 
+  -- Touch: a tap anywhere is START; BACK gets its own button under the window.
+  local touch = Input.usingTouch()
+  local backLabel = nil
+  if touch then
+    if self.mode == "waiting" then
+      line2, backLabel = nil, "ABANDONAR"
+    elseif self.confirmQuit then
+      line1, backLabel = "TOQUE FORA PARA CONTINUAR JOGANDO", "CONFIRMAR"
+    else
+      line1, line2, backLabel = "TOQUE PARA CONTINUAR", nil, "ABANDONAR"
+    end
+  end
+
   local pw, ph = 360, 102
   local px, py = math.floor((W - pw) * 0.5), math.floor((H - ph) * 0.5)
   local top = UI.window(px, py, pw, ph, title, tab)
@@ -141,6 +155,13 @@ function Pause:draw()
   UI.text(big and "big" or "title", headline, px, top + (big and 8 or 14), headColor, pw, "center")
   UI.text("body", line1, px, top + 44, C.text, pw, "center")
   if line2 then UI.text("body", line2, px, top + 60, C.textDim, pw, "center") end
+
+  if backLabel then
+    local bw, bh = 140, 20
+    local bx, by = math.floor((W - bw) * 0.5), py + ph + 14
+    UI.tab(C.doorWarn, backLabel, bx, by, bw, bh, "titleSmall", C.text)
+    Touch.button("back", bx, by, bw, bh)
+  end
 
   UI.exitBar(W * 0.5, py + ph + 10)
   love.graphics.setColor(1, 1, 1, 1)

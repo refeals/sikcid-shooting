@@ -68,6 +68,10 @@ function State.keypressed(key, scancode, isrepeat)
   call(State.current(), "keypressed", key, scancode, isrepeat)
 end
 
+function State.focus(focused)
+  call(State.current(), "focus", focused)
+end
+
 function State.gamepadpressed(joystick, button)
   call(State.current(), "gamepadpressed", joystick, button)
 end

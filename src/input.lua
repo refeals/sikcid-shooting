@@ -5,18 +5,23 @@
 --   "gamepad"  -- joystick com mapeamento SDL (Gamepad API), o caso do Batocera
 --   "keyboard" -- fallback de desenvolvimento no PC (jogador 1)
 --   "scripted" -- input sintético do modo --smoke
+--   "touch"    -- touch screen (mobile web); created on the first touch, see
+--                 src/touch.lua
 --
 -- Ações lógicas: "start", "back", "fire" e, no lobby, "left", "right" e
 -- "random" (seletor de cor).
 
 local Config = require("src.config")
 local Util   = require("src.util")
+local Touch  = require("src.touch")
 
 local Input = {
   devices = {},     -- todos os devices conhecidos (inclui desconectados)
   count = 0,
   keyboard = nil,
   scripted = nil,
+  touch = nil,      -- touch device, once the screen has been touched
+  lastTouch = false,  -- last input came from the touch screen (prompts)
   quitRequested = false,
   -- Joysticks que o SDL viu mas não sabe mapear como gamepad. Não viram
   -- device (eixos crus não são portáveis), mas ficam listados aqui para a
@@ -50,8 +55,8 @@ local KEY_MAP = {
 -- Deadzone radial: aplicada ao MÓDULO do vetor e renormalizada, para que a
 -- velocidade máxima seja a mesma em todas as direções.
 -- ---------------------------------------------------------------------------
-local function applyDeadzone(x, y)
-  local dz = Config.DEADZONE
+local function applyDeadzone(x, y, deadzone)
+  local dz = deadzone or Config.DEADZONE
   local nx, ny, len = Util.normalize(x, y)
   if len <= dz then return 0, 0 end
   local m = (len - dz) / (1 - dz)
@@ -82,6 +87,7 @@ end
 
 function Device:displayName()
   if self.kind == "keyboard" then return "TECLADO" end
+  if self.kind == "touch" then return "TOUCH" end
   if self.kind == "scripted" then return "SMOKE BOT" end
   if not self.joystick then return "CONTROLE ?" end
   local name = self.joystick:getName() or "CONTROLE"
@@ -128,6 +134,13 @@ function Device:poll(dt)
     -- do poll; copiar aqui (e não direto em `down`) preserva o edge detect.
     for k, v in pairs(self.pending) do down[k] = v end
     any = down.start or down.fire
+  elseif self.kind == "touch" then
+    down.start = Touch.actionDown("start")
+    down.back  = Touch.actionDown("back")
+    down.left  = Touch.actionDown("left")
+    down.right = Touch.actionDown("right")
+    down.fire, down.random = false, false
+    any = down.start
   else
     down.start, down.back, down.fire = false, false, false
     down.left, down.right, down.random = false, false, false
@@ -149,7 +162,8 @@ function Device:poll(dt)
   end
   -- No quit combo in the browser: love.event.quit freezes the canvas, and ESC
   -- (also the pause key) would kill the game for good.
-  if hold and not Config.WEB then
+  -- Nor for touch: holding the pause menu's ABANDONAR button is BACK.
+  if hold and not Config.WEB and self.kind ~= "touch" then
     self.exitTimer = self.exitTimer + dt / hold
   else
     self.exitTimer = 0
@@ -189,6 +203,9 @@ function Device:moveVector()
     -- Passa pela mesma deadzone dos gamepads: o smoke nunca gera um vetor
     -- maior que 1, como um analógico de verdade.
     return applyDeadzone(self.moveX or 0, self.moveY or 0)
+  elseif self.kind == "touch" then
+    local x, y = Touch.stick("move")
+    return applyDeadzone(x, y, Config.TOUCH.deadzone)
   end
   return 0, 0
 end
@@ -208,6 +225,9 @@ function Device:aimVector()
     return nx, ny
   elseif self.kind == "scripted" then
     return applyDeadzone(self.aimX or 0, self.aimY or 0)
+  elseif self.kind == "touch" then
+    local x, y = Touch.stick("aim")
+    return applyDeadzone(x, y, Config.TOUCH.deadzone)
   end
   return 0, 0
 end
@@ -235,6 +255,7 @@ function Input.load()
   Input.devices, Input.count = {}, 0
   Input.unmapped, Input.unmappedCount = {}, 0
   Input.quitRequested = false
+  Input.touch, Input.lastTouch = nil, false
 
   Input.keyboard = addDevice(newDevice("keyboard"))
 
@@ -325,7 +346,40 @@ function Input.update(dt)
     if d.exitTimer >= 1 then
       Input.quitRequested = true
     end
+    -- Prompts follow the last input: a button on a pad or keyboard switches
+    -- them back from "TOQUE ..." to "START ...".
+    if d.kind ~= "touch" and d:anyPressed() then Input.lastTouch = false end
   end
+end
+
+-- ---------------------------------------------------------------------------
+-- Touch screen: main.lua forwards the touches here in logical coordinates.
+-- The touch device is created on the first one, so a PC or a Batocera box
+-- that is never touched sees no change at all.
+-- ---------------------------------------------------------------------------
+function Input.addTouch()
+  if not Input.touch then Input.touch = addDevice(newDevice("touch")) end
+  return Input.touch
+end
+
+function Input.touchPressed(id, x, y)
+  Input.addTouch()
+  Input.lastTouch = true
+  Touch.pressed(id, x, y)
+end
+
+function Input.touchMoved(id, x, y)
+  Touch.moved(id, x, y)
+end
+
+function Input.touchReleased(id)
+  Touch.released(id)
+end
+
+-- Did the last input come from the touch screen? Screens pick their prompts
+-- ("TOQUE ..." vs "START ...") with it.
+function Input.usingTouch()
+  return Input.lastTouch
 end
 
 -- Maior progresso de combo de saída entre todos os devices (aviso no HUD).

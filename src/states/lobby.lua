@@ -16,6 +16,7 @@
 
 local Config = require("src.config")
 local Input  = require("src.input")
+local Touch  = require("src.touch")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
@@ -223,6 +224,13 @@ local function drawSlot(index, x, y, w, h)
 
   if s then
     drawArrows(cx, cy, color)
+    -- Touch: the arrows themselves are the buttons (Touch adds a margin).
+    if s.device.kind == "touch" then
+      local L = Config.LOBBY
+      local a, gap = L.arrowSize, L.arrowGap
+      Touch.button("left", cx - gap, cy - a, a, a * 2)
+      Touch.button("right", cx + gap - a, cy - a, a, a * 2)
+    end
     UI.text("body", PALETTE[s.colorIndex].name, x, top + 44, color, w, "center")
     if s.device.connected then
       UI.text("title", "PRONTO", x, top + 58, color, w, "center")
@@ -233,7 +241,9 @@ local function drawSlot(index, x, y, w, h)
   else
     -- Pulsing invitation to bring the screen to life.
     local a = 0.55 + 0.45 * math.sin(blink * 4)
-    UI.text("body", index == 1 and "PRESSIONE START" or "PRESSIONE QUALQUER BOTÃO",
+    local invite = index == 1 and "PRESSIONE START" or "PRESSIONE QUALQUER BOTÃO"
+    if index == 1 and Input.usingTouch() then invite = "TOQUE NA TELA" end
+    UI.text("body", invite,
       x + 6, top + 60, { C.textDim[1], C.textDim[2], C.textDim[3], a }, w - 12, "center")
   end
 end
@@ -268,14 +278,20 @@ function Lobby:draw()
   drawRecord("SOMA DA DUPLA", Save.get("coop"), rx + cw * 2, top + 8, cw)
 
   local bound = boundCount() > 0
-  local hint = bound
-    and "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT"
-    or  "START PARA ENTRAR   -   TECLADO: ENTER"
+  local touch = Input.usingTouch()
+  local hint
+  if touch then
+    hint = bound and "TOQUE PARA COMEÇAR   -   AS SETAS TROCAM A COR" or "TOQUE PARA ENTRAR"
+  else
+    hint = bound
+      and "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT"
+      or  "START PARA ENTRAR   -   TECLADO: ENTER"
+  end
   UI.text("body", hint, 0, 270, C.text, W, "center")
-  if bound then
+  if bound and not touch then
     UI.text("body", "D-PAD TROCA A COR   -   Y SORTEIA", 0, 284, C.text, W, "center")
   end
-  if not Config.WEB then   -- the browser build has no quit (see Input)
+  if not Config.WEB and not touch then   -- the browser build has no quit (see Input)
     UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 298, C.textDim, W, "center")
     UI.exitBar(W * 0.5, 314)
   end

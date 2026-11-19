@@ -13,6 +13,7 @@ local Assets  = require("src.assets")
 local Shaders = require("src.shaders")
 local Background = require("src.background")
 local UI      = require("src.ui")
+local Touch   = require("src.touch")
 
 local Lobby     = require("src.states.lobby")
 local InputTest = require("src.states.inputtest")
@@ -49,6 +50,10 @@ local function parseArgs(args)
       Config.SMOKE_SHOTS = true  -- smoke saves screenshots of each screen
     elseif a == "--smokesound" then
       Config.SMOKE_SOUND = true  -- smoke com som (por padrão ele roda mudo)
+    elseif a == "--touchmouse" then
+      Config.TOUCH_MOUSE = true  -- the mouse acts as one finger (test touch on a PC)
+    elseif a == "--smoketouch" then
+      Config.SMOKE_TOUCH = true  -- smoke bot 1 plays through synthetic touches
     elseif a == "--media" then
       Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
     end
@@ -124,6 +129,7 @@ end
 
 function love.draw()
   Screen.beginDraw()
+  Touch.beginFrame()   -- the screens re-register their touch buttons as they draw
   State.draw()
   Screen.endDraw()
   -- Fecha a medição antes do present (a espera do vsync não entra na conta).
@@ -150,6 +156,46 @@ function love.keypressed(key, scancode, isrepeat)
     return
   end
   State.keypressed(key, scancode, isrepeat)
+end
+
+-- Touch screen, in logical coordinates (see src/touch.lua). LÖVE gives touch
+-- positions in window pixels, like the mouse.
+function love.touchpressed(id, x, y)
+  Input.touchPressed(id, Screen.toVirtual(x, y))
+end
+
+function love.touchmoved(id, x, y)
+  Input.touchMoved(id, Screen.toVirtual(x, y))
+end
+
+function love.touchreleased(id)
+  Input.touchReleased(id)
+end
+
+-- --touchmouse: the mouse plays one finger. Mouse events the system makes up
+-- from real touches (istouch) are skipped: the touch callbacks got them.
+function love.mousepressed(x, y, button, istouch)
+  if Config.TOUCH_MOUSE and button == 1 and not istouch then
+    Input.touchPressed("mouse", Screen.toVirtual(x, y))
+  end
+end
+
+function love.mousemoved(x, y, _, _, istouch)
+  if Config.TOUCH_MOUSE and not istouch and love.mouse.isDown(1) then
+    Input.touchMoved("mouse", Screen.toVirtual(x, y))
+  end
+end
+
+function love.mousereleased(_, _, button, istouch)
+  if Config.TOUCH_MOUSE and button == 1 and not istouch then
+    Input.touchReleased("mouse")
+  end
+end
+
+function love.focus(focused)
+  -- A finger lifted while the app was in the background never reports it.
+  if not focused then Touch.releaseAll() end
+  State.focus(focused)
 end
 
 function love.gamepadpressed(joystick, button)

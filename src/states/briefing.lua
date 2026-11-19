@@ -111,9 +111,12 @@ function Briefing:draw()
   -- Pulsing call to start.
   local ready = self.timer >= ACCEPT_DELAY
   local a = ready and (0.6 + 0.4 * math.sin(self.timer * 5)) or 0.3
-  UI.text("title", "START COMEÇA A PARTIDA", 0, py + ph + 8,
+  local touch = Input.usingTouch()
+  UI.text("title", touch and "TOQUE PARA COMEÇAR" or "START COMEÇA A PARTIDA", 0, py + ph + 8,
     { C.textWarn[1], C.textWarn[2], C.textWarn[3], a }, W, "center")
-  UI.text("body", "BACK VOLTA PARA A SELEÇÃO", 0, py + ph + 30, C.textDim, W, "center")
+  if not touch then
+    UI.text("body", "BACK VOLTA PARA A SELEÇÃO", 0, py + ph + 30, C.textDim, W, "center")
+  end
 
   love.graphics.setColor(1, 1, 1, 1)
 end

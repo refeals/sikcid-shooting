@@ -124,7 +124,8 @@ Primeiro upload (depois é só trocar o zip):
   *This file will be played in the browser*.
 - **Embed options:** viewport **1280 x 720**; **SharedArrayBuffer support**
   ligado (sem isso o build normal não abre); *Fullscreen button* ligado;
-  *Mobile friendly* desligado.
+  *Mobile friendly* ligado, com orientação **landscape** (o jogo tem
+  controles touch, ver "Controles touch").
 - **Cover image:** `media/cover.png`. O `media/logo.png` (transparente)
   serve de banner no *Edit theme*, e o `media/fanart.png` de fundo. Ver
   "Imagens do jogo".
@@ -304,6 +305,28 @@ SELECT não sai: no lobby ele desvincula, no jogo abre a pausa.
 | Sair do jogo (não existe na web) | segurar SELECT (1s) ou SELECT + START (0,5s) | segurar ESC (0,5s) |
 | Teste de input | — | F5 |
 
+### Controles touch (celular, tablet)
+
+Os controles de touch aparecem no primeiro toque na tela; antes disso, nada
+muda no PC ou no Batocera. O touch é um jogador como os outros: o segundo
+jogador entra com um controle.
+
+| Ação | Touch |
+|------|-------|
+| Mover | metade esquerda: onde o dedo encosta vira o centro do analógico |
+| Mirar (opcional) | metade direita, igual; sem dedo ali, vale a mira automática |
+| Atirar | automático |
+| Pausar | botão ‖ ao lado do WAVE |
+| Entrar, começar, continuar | tocar em qualquer lugar |
+| Trocar a cor no lobby | tocar nas setas |
+| Abandonar a partida | botão ABANDONAR na pausa, depois CONFIRMAR |
+
+Se o dedo passa do raio do analógico, a base vem junto. Sem dedo encostado,
+círculos fracos nos cantos de baixo (MOVER / MIRAR) mostram onde tocar. Os
+textos de ajuda viram "TOQUE ..." enquanto o último input for touch. Se a
+janela ou a aba perde o foco durante a partida, o jogo pausa sozinho (em
+qualquer plataforma). Ajustes em `Config.TOUCH`.
+
 O tiro é automático (`Config.AUTO_AIM` em `src/config.lua`): sem mira manual,
 a nave mira e atira sozinha no inimigo visível mais próximo e segura esse alvo
 até ele morrer, sair da tela ou outro ficar bem mais perto. Sem nenhum
@@ -436,6 +459,8 @@ espalhado em outro arquivo.
 | Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
 | Boss: frequência, tamanho, HP, velocidade, rajadas, mísseis, fúria, inimigos de apoio, pontos, drops, variantes | `Config.BOSS` (valores `{ base, perBoss, min, max }`, lidos por `Config.bossValue`) |
 | Screen shake (com fadiga e multiplicador global `shakeScale`), hit-stop (com cooldown), explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
+| Controles touch: raio dos analógicos, deadzone, fantasmas, botões | `Config.TOUCH` |
+| Sequência de game over: câmera lenta, tempos, escurecimento | `Config.GAME_OVER` |
 | Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 120 partículas) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
 | Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
 
@@ -752,8 +777,15 @@ love . --smoke 20 --fakepad    # jogador 1 entra por um gamepad falso
 love . --smoke 20 --smokegod   # bots invencíveis (mede FPS sem game over)
 love . --smoke 20 --wave 30    # começa numa wave alta
 love . --smoke 13 --smoke2p --shots   # salva screenshots de cada tela
+love . --smoke 20 --smoketouch # jogador 1 joga só por toques sintéticos
 echo $?                        # 0 = rodou sem erro
 ```
+
+`--smoketouch` faz o jogador 1 tocar na tela para entrar, começar, pausar
+(pelo botão ‖) e voltar, com dois dedos nos analógicos durante a partida
+(com `--shots`, também salva o GAME OVER da arena). Para testar o touch na
+mão sem celular, `love . --touchmouse` faz o mouse valer como um dedo (clicar
+e arrastar).
 
 Ao terminar, imprime um resumo: FPS mínimo (contado em janelas de 1s depois do
 primeiro segundo, sem incluir o tempo de carga), waves, bosses mortos, kills, mortes, pickups,

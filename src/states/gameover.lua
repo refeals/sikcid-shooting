@@ -5,6 +5,7 @@
 
 local Config = require("src.config")
 local State  = require("src.state")
+local Input  = require("src.input")
 local Save   = require("src.save")
 local Audio  = require("src.audio")
 local Music  = require("src.music")
@@ -122,9 +123,11 @@ function GameOver:draw()
     end
   end
 
-  UI.text("title", "START VOLTA AO LOBBY", 0, 270,
+  local touch = Input.usingTouch()
+  UI.text("title", touch and "TOQUE PARA VOLTAR AO LOBBY" or "START VOLTA AO LOBBY", 0, 270,
     self.timer >= ACCEPT_DELAY and C.text or C.textDim, W, "center")
-  if not Config.WEB then   -- the browser build has no quit (see Input)
+  -- The browser build has no quit (see Input), nor does a touch screen.
+  if not Config.WEB and not touch then
     UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 294, C.textDim, W, "center")
     UI.exitBar(W * 0.5, 312)
   end

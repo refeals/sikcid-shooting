@@ -781,6 +781,22 @@ Config.MUSIC = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Touch controls (src/touch.lua): floating sticks in the arena (left half
+-- moves, right half aims; the base follows a finger dragged past
+-- stickRadius), a tap anywhere else is START. Logical px.
+-- ---------------------------------------------------------------------------
+Config.TOUCH = {
+  stickRadius = 34,
+  knobRadius = 12,
+  deadzone = 0.12,
+  ghostRadius = 28,    -- faint hint circles in the bottom corners
+  ghostAlpha = 0.12,
+  ghostInset = 56,     -- their distance from the corners
+  buttonPad = 8,       -- extra hit margin around on-screen buttons
+  pauseSize = 18,      -- pause button in the HUD
+}
+
+-- ---------------------------------------------------------------------------
 -- Game over sequence: when the last player runs out, the arena keeps running
 -- (doors closed) in slow motion for a moment, then GAME OVER + the score
 -- show over it, and START goes to the results screen. Times in real seconds

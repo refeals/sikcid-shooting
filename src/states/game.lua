@@ -27,6 +27,8 @@ local Shaders  = require("src.shaders")
 local Background = require("src.background")
 local UI        = require("src.ui")
 local Music     = require("src.music")
+local Input     = require("src.input")
+local Touch     = require("src.touch")
 
 local Game = {}
 
@@ -645,9 +647,35 @@ local function drawGameOver()
   end
 
   if Game.endAccepting() and math.floor(world.endT * 2.5) % 2 == 0 then
-    UI.text("title", "APERTE START", cx, cy + 44, C.text, arena.w, "center")
+    UI.text("title", Input.usingTouch() and "TOQUE NA TELA" or "APERTE START",
+      cx, cy + 44, C.text, arena.w, "center")
   end
   g.setColor(1, 1, 1, 1)
+end
+
+-- Player playing on the touch screen, if any.
+local function touchPlayer()
+  for i = 1, world.playerCount do
+    local p = world.players[i]
+    if p.device and p.device.kind == "touch" then return p end
+  end
+  return nil
+end
+
+-- Pause button (touch): a small panel with two bars, right of the WAVE title.
+local function drawPauseButton()
+  local s = Config.TOUCH.pauseSize
+  local tw = UI.textNumberWidth("title", "digits", hudInfo.titleLabel, hudInfo.titleNum)
+  local x = math.floor(Config.VIRTUAL_W * 0.5 + tw * 0.5 + 10)
+  local y = 3
+  UI.panel(x, y, s, s)
+  local g = love.graphics
+  g.setColor(Config.COLORS.text)
+  local bw, bh = 3, s * 0.5
+  g.rectangle("fill", x + s * 0.5 - bw - 1.5, y + (s - bh) * 0.5, bw, bh)
+  g.rectangle("fill", x + s * 0.5 + 1.5, y + (s - bh) * 0.5, bw, bh)
+  g.setColor(1, 1, 1, 1)
+  Touch.button("start", x, y, s, s)
 end
 
 function Game:enter(devices, count)
@@ -745,6 +773,13 @@ end
 -- START works once the text has been up for acceptDelay.
 function Game.endAccepting()
   return world.endT >= GO.textDelay + GO.acceptDelay
+end
+
+-- Window/tab lost focus (another app on the phone, alt-tab): pause. Not
+-- during the game over, and never in the smoke run (the bot would unpause).
+function Game:focus(focused)
+  if focused or world.endT >= 0 or Config.SMOKE then return end
+  State.push(require("src.states.pause"), world, "paused")
 end
 
 function Game:update(dt)
@@ -888,7 +923,8 @@ function Game:update(dt)
 end
 
 -- ---------------------------------------------------------------------------
-function Game:draw()
+-- `covered`: a pause/briefing is drawn on top (it owns the touch input).
+function Game:draw(covered)
   local C = Config.COLORS
 
   Background.draw()
@@ -1002,7 +1038,14 @@ function Game:draw()
     hudInfo.subLabel = "INIMIGOS "
     hudInfo.subNum = numStr("enemies", Spawner.remaining(world), "%d")
   end
+  -- Touch: the sticks under the HUD, the pause button beside the WAVE title.
+  local tp = not covered and world.endT < 0 and touchPlayer()
+  if tp then
+    Touch.useSticks()
+    Touch.drawSticks(tp.color)
+  end
   Hud.draw(world.players, world.playerCount, hudInfo)
+  if tp then drawPauseButton() end
   drawGameOver()
 
   if Config.DEBUG then

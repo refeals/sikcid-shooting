@@ -114,8 +114,50 @@ end
 -- Logical action -> fake gamepad button (anything else keeps its own name).
 local PAD_BUTTONS = { fire = "a", left = "dpleft", right = "dpright", random = "y" }
 
+-- --smoketouch: bot 1 is a finger. A button press taps the on-screen button
+-- for that action (pause, color arrows, ABANDONAR) or, for START with no
+-- button, the middle of the screen; actions with no touch form are skipped.
+-- The sticks are two more fingers held in the arena.
+local Touch = require("src.touch")
+local TAP, MOVE, AIM = "smk-tap", "smk-move", "smk-aim"
+local MOVE_X, MOVE_Y, AIM_X, AIM_Y = 110, 280, 530, 280
+local moveHeld, aimHeld = false, false
+
+local function touchPress(action, value)
+  if not value then
+    Input.touchReleased(TAP)
+    return
+  end
+  local x, y = Touch.buttonCenter(action)
+  if not x and action == "start" and not Touch.sticksLive() then
+    x, y = Config.VIRTUAL_W * 0.5, Config.VIRTUAL_H * 0.5
+  end
+  if x then Input.touchPressed(TAP, x, y) end
+end
+
+local function touchAxis(mx, my, ax, ay)
+  local r = Config.TOUCH.stickRadius * 0.9
+  if not Touch.sticksLive() then
+    if moveHeld then Input.touchReleased(MOVE); moveHeld = false end
+    if aimHeld then Input.touchReleased(AIM); aimHeld = false end
+    return
+  end
+  if not moveHeld then Input.touchPressed(MOVE, MOVE_X, MOVE_Y); moveHeld = true end
+  Input.touchMoved(MOVE, MOVE_X + mx * r, MOVE_Y + my * r)
+  -- Aim by hand half the time, so the auto-aim also gets its turns.
+  if math.sin(Smoke.t * 0.6) > 0 then
+    if not aimHeld then Input.touchPressed(AIM, AIM_X, AIM_Y); aimHeld = true end
+    Input.touchMoved(AIM, AIM_X + ax * r, AIM_Y + ay * r)
+  elseif aimHeld then
+    Input.touchReleased(AIM)
+    aimHeld = false
+  end
+end
+
 local function press(which, action, value)
-  if which == 1 and pad then
+  if which == 1 and Config.SMOKE_TOUCH then
+    touchPress(action, value)
+  elseif which == 1 and pad then
     pad.st.buttons[PAD_BUTTONS[action] or action] = value or nil
   else
     Input.scriptPress(which, action, value)
@@ -123,7 +165,9 @@ local function press(which, action, value)
 end
 
 local function axis(which, mx, my, ax, ay)
-  if which == 1 and pad then
+  if which == 1 and Config.SMOKE_TOUCH then
+    touchAxis(mx, my, ax, ay)
+  elseif which == 1 and pad then
     pad.st.axes.leftx, pad.st.axes.lefty = mx, my
     pad.st.axes.rightx, pad.st.axes.righty = ax, ay
   else
