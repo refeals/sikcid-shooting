@@ -320,23 +320,51 @@ if [ "$DEPLOY" = 1 ]; then
     "mv -f '${REMOTE_GAME}/${NAME}.love.tmp' '${REMOTE_GAME}/${NAME}.love' && chmod +x '${REMOTE_PORTS}/${NAME}.sh'"
 
   # Menu art: images go next to the other ports' media, and this game's entry
-  # is merged into ports/gamelist.xml by the Batocera's own python3 (script
-  # sent on stdin). The entry file stays in .data for a manual re-merge.
+  # is merged into ports/gamelist.xml by the Batocera's own python3
+  # (tools/merge_gamelist.py, kept in .data with the entry for re-merging).
+  #
+  # Editing the file is not enough while EmulationStation runs: ES keeps the
+  # gamelist in memory and, every time a game is played, rewrites that game's
+  # whole <game> node from memory, dropping what it never loaded (desc,
+  # marquee, fanart). So after the merge ES is told to reload through its
+  # local HTTP API (port 1234, /reloadgames). If ES saved a pending change
+  # over the merge right before reloading, the second merge catches it and
+  # ES reloads once more.
   if [ "$HAS_MEDIA" = 1 ]; then
     echo "  images -> ${REMOTE_PORTS}/images/"
     "$SCP" "${SSH_OPTS[@]}" -q "${IMAGES_DIR}"/*.png "${HOST}:${REMOTE_PORTS}/images/"
   fi
   echo "  gamelist.xml (entrada do jogo) -> ${REMOTE_PORTS}/gamelist.xml"
   "$SCP" "${SSH_OPTS[@]}" -q dist/gamelist.xml "${HOST}:${REMOTE_GAME}/gamelist-entry.xml"
-  if ! "$SSH" "${SSH_OPTS[@]}" "$HOST" \
-      "python3 - '${REMOTE_PORTS}/gamelist.xml' '${REMOTE_GAME}/gamelist-entry.xml'" \
-      < tools/merge_gamelist.py; then
-    echo "  AVISO: nao consegui atualizar o gamelist.xml (o jogo roda, so sem imagens)."
-  fi
+  "$SCP" "${SSH_OPTS[@]}" -q tools/merge_gamelist.py "${HOST}:${REMOTE_GAME}/merge_gamelist.py"
+  set +e
+  "$SSH" "${SSH_OPTS[@]}" "$HOST" \
+      "sh -s '${REMOTE_PORTS}/gamelist.xml' '${REMOTE_GAME}/gamelist-entry.xml' '${REMOTE_GAME}/merge_gamelist.py'" <<'EOF'
+G="$1"; E="$2"; M="$3"
+merge() { python3 "$M" "$G" "$E"; }
+reload() { curl -s -m 10 -o /dev/null http://127.0.0.1:1234/reloadgames; }
+out=$(merge) || { echo "  $out"; exit 1; }
+echo "  $out"
+reload || exit 3
+sleep 4
+out=$(merge) || { echo "  $out"; exit 1; }
+case "$out" in
+  *"ja atualizado"*) ;;
+  *) echo "  (o ES regravou a lista antes de recarregar; mesclado de novo)"; reload; sleep 2 ;;
+esac
+echo "  EmulationStation: lista de jogos recarregada"
+EOF
+  MENU_STATUS=$?
+  set -e
+  case "$MENU_STATUS" in
+    0) ;;
+    3) echo "  AVISO: o EmulationStation nao respondeu (porta 1234). O gamelist.xml foi"
+       echo "         atualizado; reinicie o Batocera para ele ler o arquivo novo." ;;
+    *) echo "  AVISO: nao consegui atualizar o gamelist.xml (o jogo roda, so sem imagens)." ;;
+  esac
   "$SSH" "${SSH_OPTS[@]}" -O exit "$HOST" 2>/dev/null || true
 
   echo "Deploy concluido. Se o jogo estiver aberto no Batocera, feche e abra de novo."
-  echo "Imagens/descricao novas: Menu -> Configuracoes do Jogo -> Atualizar lista de jogos."
 fi
 
 # 6. Teste local opcional (--run) -------------------------------------------------

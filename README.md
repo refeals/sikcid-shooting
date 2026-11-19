@@ -179,10 +179,16 @@ roda em Raspberry Pi/ARM.
    no `ports/gamelist.xml` pelo Python do próprio Batocera
    ([tools/merge_gamelist.py](tools/merge_gamelist.py)): os outros ports e o
    histórico do jogo (vezes jogado, favorito) ficam intactos, e o arquivo
-   original é guardado uma vez em `gamelist.xml.bak`.
-5. No Batocera: **Menu → Configurações do Jogo → Atualizar lista de jogos**
-   (da primeira vez e quando as imagens/descrição mudarem). O jogo aparece em
-   **Ports** com capa, logo e descrição.
+   original é guardado uma vez em `gamelist.xml.bak`. Em seguida o deploy
+   manda o EmulationStation **recarregar a lista** pela API local dele
+   (`http://127.0.0.1:1234/reloadgames`): o jogo aparece em **Ports** com
+   capa, logo e descrição, sem mexer em nada no Batocera.
+
+   Por que recarregar: o ES guarda a lista na memória e, a cada partida,
+   regrava o `<game>` inteiro do jogo a partir dela. Um `gamelist.xml`
+   alterado com o ES aberto e sem reload perde a descrição, o logo e o
+   fanart na próxima vez que o jogo for jogado. Se o deploy avisar que o ES
+   não respondeu, reinicie o Batocera.
 
 ### Atualizar o jogo no Batocera
 
