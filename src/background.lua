@@ -1,6 +1,6 @@
 -- The sky behind the arena and the menus: nebula, three drifting star layers
--- with parallax, distant objects, sparkles, shooting stars, and the arena grid
--- with ripples.
+-- with parallax, a planet per theme, distant objects, sparkles, shooting
+-- stars, and the arena grid with ripples.
 --
 -- Ambient motion is a pure function of the clock and fixed seeds:
 -- star positions wrap around the screen as they drift, and sparkles, shooting
@@ -46,6 +46,11 @@ local cur, from = {}, {}
 local to = B.themes[1]
 local themeIndex = 1
 local fadeStart = -math.huge
+-- Planets cross-fade along with the palette: `fadeK` goes 0 -> 1 from the
+-- old theme's planet to the new one's.
+local fromTheme = 1
+local fadeK = 1
+local planetImages = {}                -- [theme index] = baked Image (premultiplied)
 
 -- Grid ripples: fixed slots, the oldest is overwritten.
 local PULSE_SLOTS = 4
@@ -145,6 +150,71 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 }
 ]]
 
+-- Planets: each theme's planet is stacked from Kenney Planets parts on a
+-- canvas (tinted sphere, tinted surface patterns, light map multiplied on
+-- top, its lit side turned toward the screen center) and kept as an Image.
+-- The canvas holds premultiplied colors, so the result is drawn in
+-- premultiplied mode. A missing part only costs that theme its planet.
+local function bakePlanets()
+  local P = B.planets
+  local parts = {}   -- name -> Image, or false if it failed to load
+  local function part(name)
+    if parts[name] == nil then
+      local ok, img = pcall(love.graphics.newImage, P.dir .. name .. ".png")
+      parts[name] = ok and img or false
+      if not ok then print(string.format("[background] planet part '%s' not found", name)) end
+    end
+    return parts[name] or nil
+  end
+
+  local size = P.bake
+  local half = size * 0.5
+  local canvas = love.graphics.newCanvas(size, size)
+  local function stamp(img, rot)
+    local k = size / img:getWidth()
+    love.graphics.draw(img, half, half, rot or 0, k, k, img:getWidth() * 0.5, img:getHeight() * 0.5)
+  end
+
+  for i, theme in ipairs(B.themes) do
+    local def = theme.planet
+    local sphere, light = def and part(def.sphere), def and part(def.light)
+    local ok = sphere and light
+    if ok then
+      for _, layer in ipairs(def.layers) do
+        if not part(layer[1]) then ok = false end
+      end
+    end
+    if ok then
+      love.graphics.setCanvas(canvas)
+      love.graphics.clear(0, 0, 0, 0)
+      love.graphics.setBlendMode("alpha")
+      love.graphics.setColor(def.base[1], def.base[2], def.base[3], 1)
+      stamp(sphere)
+      for _, layer in ipairs(def.layers) do
+        local c = layer[2]
+        love.graphics.setColor(c[1], c[2], c[3], layer[3])
+        stamp(parts[layer[1]], layer[4])
+      end
+      local lit = atan2(H * 0.5 - def.y, W * 0.5 - def.x)
+      love.graphics.setBlendMode("multiply", "premultiplied")
+      love.graphics.setColor(1, 1, 1, 1)
+      stamp(light, lit - (P.lightDir[def.light] or 0))
+      love.graphics.setBlendMode("alpha")
+      love.graphics.setCanvas()
+
+      local img = love.graphics.newImage(canvas:newImageData(), { mipmaps = true })
+      img:setFilter("linear", "linear")
+      img:setMipmapFilter("linear")
+      planetImages[i] = img
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+  canvas:release()
+  for _, img in pairs(parts) do
+    if img then img:release() end
+  end
+end
+
 function Background.load()
   t0 = love.timer.getTime()
   local len = sqrt(B.drift[1] ^ 2 + B.drift[2] ^ 2)
@@ -152,6 +222,7 @@ function Background.load()
   buildStars()
   nebulaImages[1] = bakeNebula(1)
   nebulaImages[2] = bakeNebula(2)
+  bakePlanets()
 
   local d = love.image.newImageData(1, 1)
   d:setPixel(0, 0, 1, 1, 1, 1)
@@ -194,6 +265,7 @@ local function refreshColors(now)
   local t = (now - fadeStart) / B.themeFade
   if t >= 1 then t = 1 elseif t < 0 then t = 0 end
   t = t * t * (3 - 2 * t)
+  fadeK = t
   for i = 1, #KEYS do
     local k = KEYS[i]
     local c, a, b = cur[k], from[k], to[k]
@@ -210,6 +282,7 @@ function Background.setTheme(index, instant)
     local k = KEYS[i]
     from[k][1], from[k][2], from[k][3] = cur[k][1], cur[k][2], cur[k][3]
   end
+  fromTheme = instant and index or themeIndex
   themeIndex = index
   to = B.themes[index]
   fadeStart = instant and -math.huge or now
@@ -325,6 +398,28 @@ local function drawObjects(t)
   end
 end
 
+-- Planet of theme `i` at opacity `a` (blend mode set by the caller to
+-- premultiplied alpha, which is how the baked image stores its colors).
+local function drawPlanet(i, a, t)
+  local img = planetImages[i]
+  if not img or a <= 0 then return end
+  local P, def = B.planets, B.themes[i].planet
+  local x = def.x - focusX * P.parallax + P.bob * cos(t * P.bobRate + i)
+  local y = def.y - focusY * P.parallax + P.bob * sin(t * P.bobRate * 1.3 + i)
+  local k = def.size / img:getWidth()
+  local b = P.brightness * a
+  love.graphics.setColor(b, b, b, a)
+  love.graphics.draw(img, x, y, 0, k, k, img:getWidth() * 0.5, img:getHeight() * 0.5)
+end
+
+-- True when (x, y) lies on the current theme's planet disc.
+local function behindPlanet(x, y)
+  if not planetImages[themeIndex] then return false end
+  local def = B.themes[themeIndex].planet
+  local dx, dy, r = x - def.x, y - def.y, def.size * 0.5
+  return dx * dx + dy * dy < r * r
+end
+
 -- Glints: slot i fires every `period` seconds, on a hashed mid/near star.
 local function drawSparkles(t)
   local S = B.sparkle
@@ -339,10 +434,12 @@ local function drawSparkles(t)
       local stars = layer.stars
       local s = stars[floor(hash(cycle * 7 + i, 14) * #stars) + 1]
       local x, y = starPos(s, layer.def, t)
-      local k = sin(pi * u / S.life)
-      local size = lerp(S.sizeMin, S.sizeMax, hash(cycle * 7 + i, 15)) * k
-      love.graphics.setColor(c[1], c[2], c[3], S.alpha * k)
-      Assets.draw("starGlint", x, y, s.rot + u * S.spin, size)
+      if not behindPlanet(x, y) then   -- that star is hidden by the planet
+        local k = sin(pi * u / S.life)
+        local size = lerp(S.sizeMin, S.sizeMax, hash(cycle * 7 + i, 15)) * k
+        love.graphics.setColor(c[1], c[2], c[3], S.alpha * k)
+        Assets.draw("starGlint", x, y, s.rot + u * S.spin, size)
+      end
     end
   end
 end
@@ -386,13 +483,18 @@ function Background.draw()
   love.graphics.setColor(bg[1], bg[2], bg[3], 1)
   love.graphics.rectangle("fill", 0, 0, W, H)
 
-  drawNebula(t)
-  drawStars(layers[1], "starTiny", t)
-  drawObjects(t)
-  for li = 2, #layers do
+  for li = 1, #layers do
     drawStars(layers[li], "starTiny", t)
     drawStars(layers[li], "starSmall", t)
   end
+  -- Opaque planet over the stars (they are behind it), veiled by the nebula
+  -- drawn on top, so it sits back in the sky. Objects pass in front.
+  love.graphics.setBlendMode("alpha", "premultiplied")
+  if fadeK < 1 and fromTheme ~= themeIndex then drawPlanet(fromTheme, 1 - fadeK, t) end
+  drawPlanet(themeIndex, fadeK, t)
+  love.graphics.setBlendMode("alpha")
+  drawNebula(t)
+  drawObjects(t)
   love.graphics.setBlendMode("add")
   drawSparkles(t)
   love.graphics.setBlendMode("alpha")

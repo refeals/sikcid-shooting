@@ -41,9 +41,11 @@ dist/
 
 O `.love` leva só `main.lua`, `conf.lua`, `src/` e `assets/` (com `main.lua` na
 raiz do zip, como o LÖVE exige). De `assets/` ficam de fora as imagens de
-amostra da Kenney (`*sample*.png`), os `desktop.ini` e o pacote completo de
-sons `assets/sfx/Audio/` (~6 MB). Os sons que o jogo usa ficam copiados em
-`assets/sfx/kenney/` e entram normalmente. O build **não apaga** o `dist/`: só troca o
+amostra da Kenney (`*sample*.png`), os `desktop.ini`, o pacote completo de
+sons `assets/sfx/Audio/` (~6 MB) e o pacote completo de planetas
+`assets/art/PlanetParts/` (~4 MB). Os sons e as peças de planeta que o jogo usa
+ficam copiados em `assets/sfx/kenney/` e `assets/art/planets/` e entram
+normalmente. O build **não apaga** o `dist/`: só troca o
 `.love` e o `.sh`, então o `love/` extraído continua lá entre builds. Se o
 `love/` estiver faltando, o script avisa no final com os passos de extração.
 
@@ -346,6 +348,12 @@ A arte vem dos pacotes da [Kenney](https://kenney.nl) (CC0) em `assets/art/`:
   `grey = true`, o sprite é convertido no boot para tons de cinza com base
   branca, para que `setColor` o tinja na cor exata (a chama do motor usa isso
   para sair na cor do jogador).
+- **Planetas:** um por tema do fundo, montados no boot por
+  [src/background.lua](src/background.lua) a partir das peças do pacote
+  Planets em `assets/art/planets/`: esfera tingida + texturas de superfície
+  tingidas + mapa de luz multiplicado (crescente). Cada tema escolhe as peças,
+  as cores, a posição e o tamanho em `Config.ART.background.themes[i].planet`.
+  Para usar uma peça nova, copie-a de `PlanetParts/` para `planets/`.
 - **UI:** peças do `UIPack`, desenhadas por [src/ui.lua](src/ui.lua)
   (painel 9-slice, aba, barra, badge, crosshair), tingidas com qualquer cor.
   As abas de título das janelas têm `Config.ART.ui.tabH` (22px) com Rocket
@@ -471,7 +479,7 @@ ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome
 - Música: **"Danse Contemporaine"**, de **Clement Panchout**
   ([itch.io](https://clement-panchout.itch.io)).
 - Arte e fontes: **[Kenney](https://kenney.nl)** (CC0): Space Shooter Extension,
-  Simple Space, UI Pack (Sci-Fi) e Kenney Fonts.
+  Simple Space, Planets, UI Pack (Sci-Fi) e Kenney Fonts.
 - Efeitos sonoros de combate: **[Kenney](https://kenney.nl)** (CC0), Sci-Fi
   Sounds.
 - Demais efeitos sonoros: gerados com o sintetizador do [sfxr](https://sfxr.me)
@@ -507,7 +515,9 @@ src/systems/          -- spawner, combat, powerups, combo
 assets/sfx/           -- efeitos sfxr (.wav); kenney/ = sons Kenney usados;
                          Audio/ = pacote Kenney completo (fora do .love)
 assets/music/         -- música de fundo (.ogg)
-assets/art/           -- arte da Kenney: folhas + XML, UIPack, fontes
+assets/art/           -- arte da Kenney: folhas + XML, UIPack, fontes;
+                         planets/ = peças de planeta usadas;
+                         PlanetParts/ = pacote Planets completo (fora do .love)
 tools/                -- gerador dos sons, servidor local da versão web
                          (fora do .love)
 web/index.html        -- página da versão web (love.js)

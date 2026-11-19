@@ -76,13 +76,15 @@ fi
 # O arquivo anterior é apagado antes: zip sobre um arquivo existente só
 # adiciona entradas, nunca remove as que sumiram do projeto.
 # Excluded from assets/: the Kenney preview images (*sample*.png), Windows
-# desktop.ini files, and the full Kenney sound pack in assets/sfx/Audio/ (~6 MB
-# source pack). The sounds the game actually plays are copied into
-# assets/sfx/kenney/, which is packed like any other asset.
+# desktop.ini files, the full Kenney sound pack in assets/sfx/Audio/ (~6 MB
+# source pack) and the full Kenney Planets pack in assets/art/PlanetParts/
+# (~4 MB). The sounds and planet parts the game actually uses are copied into
+# assets/sfx/kenney/ and assets/art/planets/, packed like any other asset.
 mkdir -p "${DATA_DIR}"
 rm -f "${LOVE_FILE}"
 zip -9 -q -r "${LOVE_FILE}" main.lua conf.lua src assets \
-  -x '*/.gitkeep' '*sample*.png' '*/desktop.ini' 'assets/sfx/Audio/*'
+  -x '*/.gitkeep' '*sample*.png' '*/desktop.ini' 'assets/sfx/Audio/*' \
+     'assets/art/PlanetParts/*'
 
 # 1b. Web (--web) ---------------------------------------------------------------
 # O mesmo .love vira página web com o love.js (LÖVE 11.4 em WebAssembly). Os

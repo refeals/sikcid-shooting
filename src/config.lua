@@ -234,31 +234,60 @@ Config.ART = {
       pulseFill = 0.06,       -- faint glow between the lines under the ring
       waveStart = 0.50, waveClear = 0.35, tankDeath = 0.70,  -- ring strengths
     },
+    -- One planet per theme, built at load from Kenney Planets parts
+    -- (assets/art/planets/, the used subset of PlanetParts/): a tinted
+    -- sphere, tinted surface patterns, then a light map multiplied on top
+    -- (~25% grey night side, white lit side). It sits big in a corner, cut by
+    -- the screen edge; `brightness` keeps the night side near the sky color so
+    -- mostly the lit crescent shows. The lit side is turned to face the
+    -- screen center; `lightDir` is where each light map's lit side points as
+    -- authored (radians, 0 = right, pi/2 = down).
+    planets = {
+      dir = "assets/art/planets/",
+      bake = 512,             -- baked texture size (px)
+      brightness = 0.45,
+      parallax = 0.004,
+      bob = 1.5,              -- px of slow drift
+      bobRate = 0.15,         -- rad/s
+      lightDir = { light0 = math.pi / 4, light3 = math.pi / 2 },
+    },
     -- Sky palette, switched every `themeEvery` waves (cycling), fading over
     -- `themeFade` seconds. bg = base fill; nebulaA/B = cloud tints; star =
     -- stars, glints and shooting stars; obj = distant object silhouettes;
-    -- grid = grid lines.
+    -- grid = grid lines; planet = see `planets` above (x, y = center and size
+    -- = diameter in logical px; layers = { part, color, alpha, rotation }).
     themeEvery = 10,
     themeFade = 2.5,
     themes = {
-      { -- deep violet
+      { -- deep violet: lilac banded gas giant, bottom left
         bg = { 0.11, 0.11, 0.15 }, nebulaA = { 0.35, 0.30, 0.85 }, nebulaB = { 0.75, 0.30, 0.70 },
-        star = { 0.75, 0.80, 1.00 }, obj = { 0.20, 0.21, 0.30 }, grid = { 0.20, 0.20, 0.28 } },
-      { -- teal / emerald
+        star = { 0.75, 0.80, 1.00 }, obj = { 0.20, 0.21, 0.30 }, grid = { 0.20, 0.20, 0.28 },
+        planet = { x = -30, y = 372, size = 300, sphere = "sphere1", base = { 0.45, 0.38, 0.85 },
+                   layers = { { "noise08", { 0.80, 0.70, 1.00 }, 0.55, 0 } }, light = "light0" } },
+      { -- teal / emerald: ocean world with continents and clouds, top right
         bg = { 0.07, 0.12, 0.13 }, nebulaA = { 0.15, 0.75, 0.62 }, nebulaB = { 0.25, 0.50, 0.95 },
-        star = { 0.75, 1.00, 0.92 }, obj = { 0.14, 0.24, 0.25 }, grid = { 0.16, 0.28, 0.30 } },
-      { -- crimson / magenta
+        star = { 0.75, 1.00, 0.92 }, obj = { 0.14, 0.24, 0.25 }, grid = { 0.16, 0.28, 0.30 },
+        planet = { x = 650, y = 75, size = 260, sphere = "sphere0", base = { 0.20, 0.45, 0.85 },
+                   layers = { { "noise19", { 0.30, 0.80, 0.50 }, 0.8, 0 },
+                              { "noise10", { 1.00, 1.00, 1.00 }, 0.25, 0.6 } }, light = "light0" } },
+      { -- crimson / magenta: spotted rocky world, bottom right
         bg = { 0.13, 0.08, 0.11 }, nebulaA = { 0.90, 0.25, 0.38 }, nebulaB = { 0.55, 0.20, 0.85 },
-        star = { 0.95, 0.90, 0.88 }, obj = { 0.27, 0.16, 0.22 }, grid = { 0.32, 0.18, 0.26 } },
-      { -- amber / rust
+        star = { 0.95, 0.90, 0.88 }, obj = { 0.27, 0.16, 0.22 }, grid = { 0.32, 0.18, 0.26 },
+        planet = { x = 670, y = 360, size = 300, sphere = "sphere2", base = { 0.85, 0.35, 0.40 },
+                   layers = { { "noise00", { 0.45, 0.10, 0.18 }, 0.9, 0 } }, light = "light3" } },
+      { -- amber / rust: orange with brown bands, top left
         bg = { 0.12, 0.10, 0.07 }, nebulaA = { 0.95, 0.55, 0.20 }, nebulaB = { 0.80, 0.28, 0.18 },
-        star = { 1.00, 0.92, 0.78 }, obj = { 0.27, 0.21, 0.15 }, grid = { 0.30, 0.25, 0.18 } },
-      { -- ice
+        star = { 1.00, 0.92, 0.78 }, obj = { 0.27, 0.21, 0.15 }, grid = { 0.30, 0.25, 0.18 },
+        planet = { x = -20, y = 65, size = 240, sphere = "sphere1", base = { 1.00, 0.65, 0.30 },
+                   layers = { { "noise07", { 0.70, 0.30, 0.12 }, 0.85, 0 } }, light = "light0" } },
+      { -- ice: white with blue frost spots, rising from the bottom
         bg = { 0.08, 0.11, 0.16 }, nebulaA = { 0.40, 0.80, 1.00 }, nebulaB = { 0.75, 0.85, 1.00 },
-        star = { 0.85, 0.95, 1.00 }, obj = { 0.18, 0.24, 0.32 }, grid = { 0.20, 0.28, 0.38 } },
+        star = { 0.85, 0.95, 1.00 }, obj = { 0.18, 0.24, 0.32 }, grid = { 0.20, 0.28, 0.38 },
+        planet = { x = 130, y = 425, size = 280, sphere = "sphere1", base = { 0.80, 0.90, 1.00 },
+                   layers = { { "noise27", { 0.50, 0.70, 0.95 }, 0.8, 0 } }, light = "light3" } },
     },
   },
-  door ={ thick = 18, light = 7 },  -- hatch depth into the arena / light size
+  door = { thick = 18, light = 7 },  -- hatch depth into the arena / light size
   -- Player outline in the arena (not in the lobby or HUD): the player's color
   -- mixed toward white by `lighten`, alpha pulsing gently around `alpha` so
   -- the ship stands out in the chaos without blinking.
