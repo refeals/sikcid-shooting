@@ -164,11 +164,11 @@ local function finish(code)
   local s = Smoke.stats
   s.devices = Input.count
   print(string.format(
-    "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
+    "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d bosses=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
     "combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d deniedFx=%d " ..
     "cores=%s",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
-    s.waves or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
+    s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
   -- Both players ending on the same color means the picker's skip rule broke.

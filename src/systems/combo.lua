@@ -34,6 +34,12 @@ function Combo.add(player)
   end
 end
 
+-- Keeps a running combo alive without adding to it (hits on the boss: the
+-- first boss fight has nothing else to kill).
+function Combo.keep(player)
+  if player.combo > 0 then player.comboTimer = C.window end
+end
+
 function Combo.mult(player)
   local m = 1 + math.floor(player.combo / C.perMult)
   if m > C.maxMult then m = C.maxMult end

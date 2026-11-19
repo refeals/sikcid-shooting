@@ -103,6 +103,10 @@ Config.ART = {
   -- Sprite sheets: Kenney XML atlases. Sprite names drop the ".png".
   sheets = {
     ss2    = { image = "assets/art/spaceShooter2_spritesheet.png", atlas = "assets/art/spaceShooter2_spritesheet.xml" },
+    -- Same pack at 2x, for sprites drawn big (the bosses): the 1x ships would
+    -- be upscaled 1.5-2.3x and blur. Its sprite NUMBERS differ from the 1x
+    -- sheet; match them by size (2x = double the 1x width/height).
+    ss2x   = { image = "assets/art/spaceShooter2_spritesheet_2X.png", atlas = "assets/art/spaceShooter2_spritesheet_2X.xml" },
     simple = { image = "assets/art/simpleSpace_sheet.png",         atlas = "assets/art/simpleSpace_sheet.xml" },
   },
   uiDir = "assets/art/UIPack/",
@@ -149,6 +153,15 @@ Config.ART = {
     bgPanels     = { "ss2:spaceBuilding_015", grey = true },
     bgStation    = { "ss2:spaceStation_021", grey = true },
     bgShip       = { "ss2:spaceShips_008", rot = math.pi / 2, grey = true },
+    -- Bosses (Config.BOSS.variants): big red/white Kenney ships from the 2x
+    -- sheet, recolored per variant. 1x equivalents in the comments; never the
+    -- player's ship (1x 002 = 2x 009) nor the sky's distant ship (1x 008 =
+    -- 2x 006).
+    boss1        = { "ss2x:spaceShips_005", rot = math.pi / 2 },  -- 1x 007
+    boss2        = { "ss2x:spaceShips_002", rot = math.pi / 2 },  -- 1x 004
+    boss3        = { "ss2x:spaceShips_004", rot = math.pi / 2 },  -- 1x 006
+    boss4        = { "ss2x:spaceShips_003", rot = math.pi / 2 },  -- 1x 005
+    boss5        = { "ss2x:spaceShips_007", rot = math.pi / 2 },  -- 1x 009
     door         = { "ss2:spaceStation_003", rot = math.pi / 2 },  -- long side = wall
     doorLight    = { "ss2:spaceBuilding_004" },
     iconPlus     = { "simple:icon_plusSmall" },
@@ -164,6 +177,7 @@ Config.ART = {
     orb = 10,
     shot = 8,
     missile = 15,
+    bossMissile = 18,
     enemyShot = 10,
     grunt = 20,
     runner = 17,
@@ -251,13 +265,21 @@ Config.ART = {
       bobRate = 0.15,         -- rad/s
       lightDir = { light0 = math.pi / 4, light3 = math.pi / 2 },
     },
-    -- Sky palette, switched every `themeEvery` waves (cycling), fading over
-    -- `themeFade` seconds. bg = base fill; nebulaA/B = cloud tints; star =
-    -- stars, glints and shooting stars; obj = distant object silhouettes;
-    -- grid = grid lines; planet = see `planets` above (x, y = center and size
-    -- = diameter in logical px; layers = { part, color, alpha, rotation }).
-    themeEvery = 10,
+    -- Sky palette, fading over `themeFade` seconds. The boss waves (every
+    -- Config.BOSS.every) use `bossTheme`; the blocks of waves between them
+    -- cycle through `themes` (waves 1-9 theme 1, 11-19 theme 2...), and the
+    -- next block's palette comes in as the boss dies. bg = base fill;
+    -- nebulaA/B = cloud tints; star = stars, glints and shooting stars; obj =
+    -- distant object silhouettes; grid = grid lines; planet = see `planets`
+    -- above (x, y = center and size = diameter in logical px; layers =
+    -- { part, color, alpha, rotation }). Red is kept for the boss theme only.
     themeFade = 2.5,
+    bossTheme = { -- danger: blood red, a dying red star at the top right
+      bg = { 0.15, 0.04, 0.05 }, nebulaA = { 0.95, 0.18, 0.12 }, nebulaB = { 0.80, 0.35, 0.08 },
+      star = { 1.00, 0.88, 0.84 }, obj = { 0.30, 0.10, 0.10 }, grid = { 0.42, 0.12, 0.12 },
+      planet = { x = 610, y = 80, size = 280, sphere = "sphere2", base = { 0.85, 0.20, 0.12 },
+                 layers = { { "noise00", { 0.40, 0.05, 0.05 }, 0.9, 0 },
+                            { "noise10", { 1.00, 0.55, 0.20 }, 0.30, 0.3 } }, light = "light0" } },
     themes = {
       { -- deep violet: lilac banded gas giant, bottom left
         bg = { 0.11, 0.11, 0.15 }, nebulaA = { 0.35, 0.30, 0.85 }, nebulaB = { 0.75, 0.30, 0.70 },
@@ -270,11 +292,11 @@ Config.ART = {
         planet = { x = 650, y = 75, size = 260, sphere = "sphere0", base = { 0.20, 0.45, 0.85 },
                    layers = { { "noise19", { 0.30, 0.80, 0.50 }, 0.8, 0 },
                               { "noise10", { 1.00, 1.00, 1.00 }, 0.25, 0.6 } }, light = "light0" } },
-      { -- crimson / magenta: spotted rocky world, bottom right
-        bg = { 0.13, 0.08, 0.11 }, nebulaA = { 0.90, 0.25, 0.38 }, nebulaB = { 0.55, 0.20, 0.85 },
-        star = { 0.95, 0.90, 0.88 }, obj = { 0.27, 0.16, 0.22 }, grid = { 0.32, 0.18, 0.26 },
-        planet = { x = 670, y = 360, size = 300, sphere = "sphere2", base = { 0.85, 0.35, 0.40 },
-                   layers = { { "noise00", { 0.45, 0.10, 0.18 }, 0.9, 0 } }, light = "light3" } },
+      { -- olive / chartreuse: mossy spotted world, bottom right
+        bg = { 0.09, 0.11, 0.07 }, nebulaA = { 0.60, 0.80, 0.20 }, nebulaB = { 0.25, 0.60, 0.35 },
+        star = { 0.92, 1.00, 0.85 }, obj = { 0.19, 0.24, 0.14 }, grid = { 0.24, 0.30, 0.16 },
+        planet = { x = 670, y = 360, size = 300, sphere = "sphere2", base = { 0.55, 0.65, 0.25 },
+                   layers = { { "noise00", { 0.28, 0.38, 0.10 }, 0.9, 0 } }, light = "light3" } },
       { -- amber / rust: orange with brown bands, top left
         bg = { 0.12, 0.10, 0.07 }, nebulaA = { 0.95, 0.55, 0.20 }, nebulaB = { 0.80, 0.28, 0.18 },
         star = { 1.00, 0.92, 0.78 }, obj = { 0.27, 0.21, 0.15 }, grid = { 0.30, 0.25, 0.18 },
@@ -448,6 +470,84 @@ function Config.waveBatch(w)
   return Config.WAVE.batchMin, math.min(8, Config.WAVE.batchMax + math.floor(w / 6))
 end
 
+-- ---------------------------------------------------------------------------
+-- Boss (src/entities/boss.lua): one every `every` waves.
+-- ---------------------------------------------------------------------------
+-- Values that scale per boss are { base = , perBoss = , min = , max = }:
+-- boss n (n = 1 at wave 10, 2 at wave 20...) gets base + perBoss * (n - 1),
+-- clamped to min/max when given. Read them with Config.bossValue(spec, n).
+-- Counts (burst count, fan, drops...) are floored.
+Config.BOSS = {
+  every = 10,
+  size = 130,                 -- px, longest side of the sprite (~40% of the arena height)
+  radiusFrac = 0.36,          -- hitbox radius as a fraction of `size` (check with F1)
+  growPerCycle = 0.12,        -- extra size each time the variant list starts over
+  warnTime = 2.0,             -- s of "ALERTA" banner before the entrance
+  enterSpeed = 55,            -- px/s while sliding in (invulnerable, holding fire)
+  turnRate = 2.0,             -- how fast the sprite turns toward its target (visual)
+  margin = 24,                -- px kept between the hull and the walls while roaming
+  pauseMin = 0.6,             -- s it stops at each roaming point
+  pauseMax = 1.6,
+  hp     = { base = 260, perBoss = 180 },
+  speed  = { base = 22, perBoss = 3, max = 40 },          -- px/s while roaming
+  points = { base = 5000, perBoss = 2500 },                -- split by each player's damage
+  drops  = { base = 2, perBoss = 0.5, max = 4 },           -- power-ups out of the wreck
+  -- Aimed bursts: every `interval` s, `count` volleys `gap` s apart, each
+  -- volley a fan of `fan` shots spread over `fanAngle`.
+  burst = {
+    interval    = { base = 2.4, perBoss = -0.25, min = 1.1 },
+    count       = { base = 3, perBoss = 1, max = 8 },
+    gap         = 0.14,
+    fan         = { base = 1, perBoss = 1, max = 5 },
+    fanAngle    = math.rad(28),
+    bulletSpeed = { base = 140, perBoss = 12, max = 220 },
+    bulletLife  = 4.0,
+  },
+  -- Homing missile: chases its target for `homingTime`, then sputters for
+  -- `failTime` (slowing down to failSpeedMul of its speed) and blows up
+  -- harmlessly. Deadly on contact until then; `hp` hits shoot it down.
+  missile = {
+    interval   = { base = 6.0, perBoss = -0.6, min = 2.8 },
+    maxAlive   = { base = 1, perBoss = 1, max = 4 },
+    hp         = 3,
+    points     = 100,         -- for shooting one down
+    speed      = 95,
+    turn       = math.rad(120),   -- rad/s while homing
+    homingTime = 3.5,
+    failTime   = 1.2,
+    failSpeedMul = 0.35,
+    radius     = 5,
+  },
+  -- Rage below `below` of its HP: fires and launches faster, roams faster
+  -- and pulses red.
+  rage = { below = 0.4, fireMul = 1.5, missileMul = 1.6, speedMul = 1.35, pulseRate = 3 },
+  -- Normal enemies through the doors during the fight (not before boss
+  -- `fromBoss`), using that wave's usual mix, with no quota.
+  adds = {
+    fromBoss = 2,
+    maxAlive = { base = 4, perBoss = 2, max = 24 },
+    interval = { base = 2.6, perBoss = -0.25, min = 0.8 },
+  },
+  -- Death: `time` s of small blasts over the hull, then the big one.
+  death = { time = 1.6, blastEvery = 0.11, shake = 10, hitStop = 0.12, pulse = 0.9 },
+  -- Boss n uses entry ((n - 1) % #variants) + 1. Names show in the alert
+  -- banner (big font: keep them unaccented) and on the HUD bar.
+  variants = {
+    { name = "DESTRUIDOR", sprite = "boss1", color = { 0.95, 0.25, 0.25 } },
+    { name = "CEIFADOR",   sprite = "boss2", color = { 0.70, 0.35, 1.00 } },
+    { name = "DEVORADOR",  sprite = "boss3", color = { 0.25, 0.95, 0.55 } },
+    { name = "COLOSSO",    sprite = "boss4", color = { 1.00, 0.60, 0.15 } },
+    { name = "SENTINELA",  sprite = "boss5", color = { 0.30, 0.75, 1.00 } },
+  },
+}
+
+function Config.bossValue(spec, n)
+  local v = spec.base + (spec.perBoss or 0) * (n - 1)
+  if spec.min and v < spec.min then v = spec.min end
+  if spec.max and v > spec.max then v = spec.max end
+  return v
+end
+
 -- Pesos do mix de inimigos por wave; tipo só entra a partir de `from`.
 Config.ENEMY_MIX = {
   { type = "grunt",   from = 1, base = 100, perWave = -4,  min = 25 },
@@ -538,6 +638,21 @@ Config.SFX = {
   menu_move     = { vol = 0.45, voices = 2, pitchVar = 0.00, minGap = 0.05 },
   menu_confirm  = { vol = 0.55, voices = 2, pitchVar = 0.00, minGap = 0.05 },
   menu_cancel   = { vol = 0.50, voices = 2, pitchVar = 0.00, minGap = 0.05 },
+  -- Boss: the same Kenney files, pitched down to sound heavier.
+  boss_alarm    = { src = "kenney/doorOpen", variants = 3,
+                    vol = 0.45, voices = 2, pitch = 0.5, pitchVar = 0.00, minGap = 0.30 },
+  boss_shot     = { src = "kenney/laserRetro", variants = 5,
+                    vol = 0.22, voices = 4, pitch = 0.5, pitchVar = 0.06, minGap = 0.06 },
+  boss_missile  = { src = "kenney/laserLarge", variants = 5,
+                    vol = 0.35, voices = 2, pitch = 0.55, pitchVar = 0.04, minGap = 0.20 },
+  boss_hit      = { src = "kenney/impactMetal", variants = 5,
+                    vol = 0.12, voices = 3, pitch = 0.6, pitchVar = 0.08, minGap = 0.07 },
+  missile_fail  = { src = "kenney/explosionCrunch", variants = 5,
+                    vol = 0.30, voices = 3, pitch = 0.8, pitchVar = 0.08, minGap = 0.05 },
+  boss_blast    = { src = "kenney/explosionCrunch", variants = 5,
+                    vol = 0.35, voices = 4, pitch = 0.7, pitchVar = 0.12, minGap = 0.06 },
+  boss_die      = { src = "kenney/lowFrequency_explosion", variants = 2,
+                    vol = 0.85, voices = 1, pitch = 0.6, pitchVar = 0.00, minGap = 0.50 },
 }
 
 -- ---------------------------------------------------------------------------
@@ -555,6 +670,7 @@ Config.MUSIC = {
   tracks = {
     menu = "danse-contemporaine",   -- lobby, briefing, game over
     game = "danse-contemporaine",   -- arena
+    boss = "danse-contemporaine",   -- boss fight (same track for now: keeps playing)
   },
 }
 

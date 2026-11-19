@@ -20,6 +20,7 @@ local Pickup   = require("src.entities.pickup")
 local Player   = require("src.entities.player")
 local Bullet   = require("src.entities.bullet")
 local Enemy    = require("src.entities.enemy")
+local Boss     = require("src.entities.boss")
 local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
@@ -53,6 +54,7 @@ local world = {
   enemies = enemies,
   particles = particles,
   pickups = pickups,
+  boss = Boss.new(),   -- one instance, reused every boss wave
   players = {},
   playerCount = 0,
   godMode = false,
@@ -96,6 +98,12 @@ function world:nearestEnemy(x, y, maxR)
     local d2 = Util.dist2(x, y, e.x, e.y)
     if d2 < bestD2 then best, bestD2 = e, d2 end
   end)
+  -- The boss lives outside the grid.
+  local boss = self.boss
+  if not boss.dead then
+    local d2 = Util.dist2(x, y, boss.x, boss.y)
+    if d2 < bestD2 then best = boss end
+  end
   return best
 end
 
@@ -117,6 +125,10 @@ function world:nearestVisibleEnemy(x, y)
       local d2 = Util.dist2(x, y, e.x, e.y)
       if d2 < bestD2 then best, bestD2 = e, d2 end
     end
+  end
+  local boss = self.boss
+  if not boss.dead and self:isOnScreen(boss.x, boss.y) then
+    if Util.dist2(x, y, boss.x, boss.y) < bestD2 then best = boss end
   end
   return best
 end
@@ -152,6 +164,34 @@ end
 -- Atalho para efeitos soltarem partículas sem conhecer o pool.
 function world:burst(count, x, y, color, size)
   Particle.burst(self.particles, count, x, y, color, size)
+end
+
+function world:explosion(x, y, color, puffs, puffSize, sparks, sparkSize)
+  Particle.explosion(self.particles, x, y, color, puffs, puffSize, sparks, sparkSize)
+end
+
+-- The boss died: every enemy blows up (no points) and every enemy shot pops.
+-- Enemies leave the pool right away (flagged dead first, so collision
+-- queries this frame skip them); bullets are flagged and swept by Combat, so
+-- this is safe to call from inside the collision loops.
+function world:clearHostiles()
+  local pool = self.enemies
+  for i = pool.count, 1, -1 do
+    local e = pool.items[i]
+    local size = Config.ART.size[e.type] or e.def.size
+    Particle.explosion(self.particles, e.x, e.y, e.color, J.deathPuffs, size * 0.7,
+      J.deathParticles, e.def.size * 0.35)
+    e.dead = true
+    pool:release(i)
+  end
+  local shots = self.bullets
+  for i = 1, shots.count do
+    local b = shots.items[i]
+    if b.owner == "enemy" and not b.dead then
+      b.dead = true
+      Particle.burst(self.particles, 2, b.x, b.y, b.color, 3)
+    end
+  end
 end
 
 -- Missile smoke: skipped while the pool is busy, so explosions keep priority.
@@ -295,6 +335,7 @@ function Game:enter(devices, count)
   enemies:clear()
   particles:clear()
   pickups:clear()
+  world.boss:clear()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
   -- Sky set straight to the starting wave's palette (--wave 25 starts there).
@@ -383,6 +424,8 @@ function Game:update(dt)
   for i = 1, world.playerCount do
     world.players[i]:update(dt, world)
   end
+
+  world.boss:update(dt, world)
 
   Profiler.start("enemies")
   for i = 1, enemies.count do
@@ -484,6 +527,7 @@ function Game:draw()
   for i = 1, particles.count do particles.items[i]:draw() end
   Profiler.stop("particles")
   for i = 1, enemies.count do enemies.items[i]:draw() end
+  world.boss:draw()
 
   -- Bullets grouped by pass: enemy shots plain, an additive glow under every
   -- player shot, then each player's shots under the recolor shader in that
@@ -522,6 +566,15 @@ function Game:draw()
       { C.text[1], C.text[2], C.text[3], math.min(1, t * 2) }, 320, "center")
   end
 
+  -- Boss alert: blinking ALERTA and the boss name while it is still offscreen.
+  local boss = world.boss
+  if boss.state == "warn" then
+    if math.floor(boss.timer * 4) % 2 == 0 then
+      UI.text("big", "ALERTA", arena.cx - 160, arena.cy - 60, C.doorWarn, 320, "center")
+    end
+    UI.text("title", boss.variant.name, arena.cx - 160, arena.cy - 28, C.text, 320, "center")
+  end
+
   -- Wave cleared notice during the breather.
   if Spawner.isResting() and Spawner.wave >= 1 then
     UI.textNumber("title", "digits", "WAVE ", waveNum, " COMPLETA",
@@ -556,10 +609,14 @@ function Game:draw()
       love.graphics.circle("line", b.x, b.y, b.radius)
     end
     for i = 1, world.playerCount do world.players[i]:drawDebug() end
+    boss:drawDebug()
   end
 
   hudInfo.titleNum = waveNum
-  if Spawner.isResting() then
+  hudInfo.boss = nil
+  if Spawner.bossWave and boss.active then
+    hudInfo.boss = boss
+  elseif Spawner.isResting() then
     hudInfo.subLabel = "PRÓXIMA EM "
     hudInfo.subNum = restNum
   else

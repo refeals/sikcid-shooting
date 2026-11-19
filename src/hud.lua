@@ -3,7 +3,8 @@
 -- One glass panel per player (P1 left, P2 right, same inner layout):
 --   row 1: colored "Pn" tab, score, lives as mini ships;
 --   row 2: combo count + multiplier with its timer bar, active power-ups.
--- Center: wave number and enemies left (or the countdown between waves).
+-- Center: wave number and enemies left (or the countdown between waves, or
+-- the boss's name and HP bar on boss waves).
 
 local Config = require("src.config")
 local Combo  = require("src.systems.combo")
@@ -21,6 +22,7 @@ local COMBO_BAR_W = 92
 local ICON = 11               -- power-up badge size
 local ICON_GAP = 3
 local PLAYER_TAGS = { "P1", "P2" }   -- built once: no string concat per frame
+local BOSS_BAR_W = 150
 
 local function drawPowerups(p, x, y)
   local list = p.powerups
@@ -95,7 +97,19 @@ function Hud.draw(players, playerCount, info)
   -- "0" as a box).
   if info then
     UI.textNumber("title", "digits", info.titleLabel, info.titleNum, nil, cx, 3, C.text, cw, "center")
-    UI.textNumber("body", "digitsSmall", info.subLabel, info.subNum, nil, cx, 22, C.textDim, cw, "center")
+    local boss = info.boss
+    if boss then
+      -- Boss wave: its name and HP bar in place of the enemy count. The bar
+      -- turns warning red while it rages.
+      local name = boss.variant.name
+      local nw = Assets.font("body"):getWidth(name)
+      local bx = cx + (cw - (nw + 6 + BOSS_BAR_W)) * 0.5
+      UI.text("body", name, bx, 22, C.text)
+      UI.bar(boss:isRaging() and C.doorWarn or boss.variant.color,
+        bx + nw + 6, 24, BOSS_BAR_W, boss:fraction(), 6)
+    else
+      UI.textNumber("body", "digitsSmall", info.subLabel, info.subNum, nil, cx, 22, C.textDim, cw, "center")
+    end
   else
     UI.text("title", "ARENA", cx, 3, C.text, cw, "center")
   end

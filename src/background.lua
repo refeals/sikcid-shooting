@@ -10,7 +10,8 @@
 -- by the game screen: the parallax offset (Background.update), the palette
 -- fade (Background.setTheme) and the grid ripples (Background.pulse).
 --
--- Palette: Config.ART.background.themes, one per `themeEvery` waves.
+-- Palette: Config.ART.background.themes, one per block of waves between two
+-- bosses, plus bossTheme for the boss waves (see Background.themeForWave).
 
 local Config = require("src.config")
 local Assets = require("src.assets")
@@ -18,6 +19,12 @@ local Assets = require("src.assets")
 local Background = {}
 
 local B = Config.ART.background
+
+-- Every palette by index: the cycling themes, then the boss theme last.
+local THEMES = {}
+for i, theme in ipairs(B.themes) do THEMES[i] = theme end
+local BOSS_THEME = #THEMES + 1
+THEMES[BOSS_THEME] = B.bossTheme
 local W, H = Config.VIRTUAL_W, Config.VIRTUAL_H
 local MARGIN = 8                       -- stars wrap this far outside the screen
 local WRAP_W, WRAP_H = W + MARGIN * 2, H + MARGIN * 2
@@ -43,7 +50,7 @@ local focusX, focusY = 0, 0
 -- Theme fade: `cur` is what gets drawn, lerped from `from` to `to`.
 local KEYS = { "bg", "nebulaA", "nebulaB", "star", "obj", "grid" }
 local cur, from = {}, {}
-local to = B.themes[1]
+local to = THEMES[1]
 local themeIndex = 1
 local fadeStart = -math.huge
 -- Planets cross-fade along with the palette: `fadeK` goes 0 -> 1 from the
@@ -175,7 +182,7 @@ local function bakePlanets()
     love.graphics.draw(img, half, half, rot or 0, k, k, img:getWidth() * 0.5, img:getHeight() * 0.5)
   end
 
-  for i, theme in ipairs(B.themes) do
+  for i, theme in ipairs(THEMES) do
     local def = theme.planet
     local sphere, light = def and part(def.sphere), def and part(def.light)
     local ok = sphere and light
@@ -255,10 +262,14 @@ end
 -- State fed by the game screen
 -- ---------------------------------------------------------------------------
 
--- Theme for a wave number (waves 1..themeEvery = theme 1, and so on, cycling).
+-- Theme for a wave number: the boss theme on boss waves; otherwise one theme
+-- per block of waves between two bosses (with every = 10: waves 1-9 = theme
+-- 1, 11-19 = theme 2...), cycling.
 function Background.themeForWave(wave)
-  local n = #B.themes
-  return (floor((math.max(1, wave) - 1) / B.themeEvery) % n) + 1
+  local every = Config.BOSS.every
+  wave = math.max(1, wave)
+  if wave % every == 0 then return BOSS_THEME end
+  return (floor(wave / every) % #B.themes) + 1
 end
 
 local function refreshColors(now)
@@ -284,7 +295,7 @@ function Background.setTheme(index, instant)
   end
   fromTheme = instant and index or themeIndex
   themeIndex = index
-  to = B.themes[index]
+  to = THEMES[index]
   fadeStart = instant and -math.huge or now
   refreshColors(now)
 end
@@ -403,7 +414,7 @@ end
 local function drawPlanet(i, a, t)
   local img = planetImages[i]
   if not img or a <= 0 then return end
-  local P, def = B.planets, B.themes[i].planet
+  local P, def = B.planets, THEMES[i].planet
   local x = def.x - focusX * P.parallax + P.bob * cos(t * P.bobRate + i)
   local y = def.y - focusY * P.parallax + P.bob * sin(t * P.bobRate * 1.3 + i)
   local k = def.size / img:getWidth()
@@ -415,7 +426,7 @@ end
 -- True when (x, y) lies on the current theme's planet disc.
 local function behindPlanet(x, y)
   if not planetImages[themeIndex] then return false end
-  local def = B.themes[themeIndex].planet
+  local def = THEMES[themeIndex].planet
   local dx, dy, r = x - def.x, y - def.y, def.size * 0.5
   return dx * dx + dy * dy < r * r
 end

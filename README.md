@@ -261,6 +261,34 @@ Entre uma wave e outra (os 3s de respiro), os timers de **power-up** — os
 ativos e os caídos no chão — e de **combo** ficam parados: nada some durante
 a pausa, e dá para carregar tudo para a wave seguinte.
 
+### Boss
+
+A cada 10 waves (10, 20, 30...) a wave é de **boss**:
+
+- O fundo fica vermelho, um banner **ALERTA** pisca com o nome do boss e ele
+  entra de fora da tela por um lado sorteado. Enquanto entra, não atira e não
+  toma dano; encostar nele mata, como nos outros inimigos.
+- Ele anda devagar pela arena, atira **rajadas miradas** (que viram leque nos
+  bosses seguintes) e lança **mísseis teleguiados**: o míssil persegue um
+  jogador por alguns segundos, depois falha (pisca, solta fumaça, perde
+  velocidade) e explode sem causar dano. Dá para derrubá-lo com alguns tiros.
+  Em 2 jogadores, ele alterna o alvo entre os dois.
+- Abaixo de 40% do HP entra em **fúria**: atira e anda mais rápido e pulsa
+  vermelho.
+- Do 2º boss em diante, inimigos normais continuam saindo pelas portas durante
+  a luta.
+- A vida dele aparece no centro do HUD. Cada acerto no boss mantém o combo
+  vivo (sem aumentá-lo).
+- Na morte, ele explode em sequência e leva junto todos os inimigos e tiros
+  inimigos. Os pontos são divididos pelo dano que cada jogador causou, e saem
+  power-ups dos destroços (além do bônus e da vida de volta de toda wave). O
+  fundo já muda para a cor do próximo bloco de waves.
+
+Cada boss é uma das 5 variantes (nave, cor e nome) em ciclo, e fica mais
+forte que o anterior: mais HP, rajadas maiores, mísseis mais frequentes, mais
+inimigos de apoio. Quando a lista de variantes recomeça, ele também fica
+maior.
+
 ### Lobby
 
 1. O primeiro controle que apertar **START** vira o Jogador 1.
@@ -301,6 +329,7 @@ espalhado em outro arquivo.
 | Duração, chance de drop e peso de cada power-up | `Config.POWERUP` e `DEFS` em [src/systems/powerups.lua](src/systems/powerups.lua) |
 | Janela do combo, degrau e teto do multiplicador | `Config.COMBO` |
 | Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
+| Boss: frequência, tamanho, HP, velocidade, rajadas, mísseis, fúria, inimigos de apoio, pontos, drops, variantes | `Config.BOSS` (valores `{ base, perBoss, min, max }`, lidos por `Config.bossValue`) |
 | Screen shake, hit-stop, explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
 | Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 120 partículas) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
 | Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
@@ -308,6 +337,10 @@ espalhado em outro arquivo.
 As fórmulas de wave são funções, não tabela: a curva é infinita. Para deixar o
 jogo mais fácil, o mais direto é reduzir o coeficiente quadrático de
 `waveQuota` (`0.35 * w * w`) e subir `waveSpawnInterval`.
+
+Os bosses seguem a mesma ideia: cada valor que escala é `base + perBoss * (n - 1)`
+(n = 1 na wave 10, 2 na wave 20...), com `min`/`max` opcionais. Para testar um
+boss direto: `love . --wave 10 --debug` (F2 mata o boss, F3 deixa invencível).
 
 ## Onde mexer no visual
 
@@ -318,11 +351,12 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 |-------|---------|
 | Jogador (nave recolorida, contorno, chama, crosshair, orbes, escudo, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
 | Inimigos (os 4 tipos, flash de dano, barra de HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
+| Boss (nave recolorida, flash, pulso de fúria, tremor na morte) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw` |
 | Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
 | Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
 | Explosões (fumaça + faíscas) e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua) |
 | Portas e telégrafo | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw` |
-| Fundo: nebulosa, estrelas em camadas, objetos distantes, brilhos, estrelas cadentes, paleta por bloco de 10 waves e grade com ondas | [src/background.lua](src/background.lua) (tuning em `Config.ART.background`) |
+| Fundo: nebulosa, estrelas em camadas, objetos distantes, brilhos, estrelas cadentes, paleta por bloco de waves entre bosses (vermelha na wave de boss) e grade com ondas | [src/background.lua](src/background.lua) (tuning em `Config.ART.background`) |
 | Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
 | HUD | [src/hud.lua](src/hud.lua) |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
@@ -342,7 +376,10 @@ lê (nave, tiros, HUD, pausa, game over). A cor inicial de cada slot fica em
 A arte vem dos pacotes da [Kenney](https://kenney.nl) (CC0) em `assets/art/`:
 
 - **Sprites:** recortados das folhas `spaceShooter2_spritesheet` e
-  `simpleSpace_sheet` pelos atlas XML. Cada papel (nave do jogador, inimigo,
+  `simpleSpace_sheet` pelos atlas XML. Os bosses saem da
+  `spaceShooter2_spritesheet_2X` (a mesma folha em 2x), porque são desenhados
+  grandes e a 1x borraria; a numeração dos sprites da 2X é **diferente** da 1x
+  (case pelo tamanho: o da 2X tem o dobro). Cada papel (nave do jogador, inimigo,
   tiro...) aponta para um sprite em `Config.ART.sprites`, e o tamanho na tela
   fica em `Config.ART.size`. Trocar um sprite é mudar o nome ali. Com
   `grey = true`, o sprite é convertido no boot para tons de cinza com base
@@ -510,7 +547,7 @@ src/background.lua    -- céu animado (seed + relógio), paleta por wave, grade 
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest
-src/entities/         -- player, enemy, bullet, pickup, particle
+src/entities/         -- player, enemy, boss, bullet, pickup, particle
 src/systems/          -- spawner, combat, powerups, combo
 assets/sfx/           -- efeitos sfxr (.wav); kenney/ = sons Kenney usados;
                          Audio/ = pacote Kenney completo (fora do .love)
@@ -550,7 +587,7 @@ Ligue `Config.DEBUG = true` em `src/config.lua` (ou rode com `--debug`):
 | Tecla | Efeito |
 |-------|--------|
 | F1 | hitboxes |
-| F2 | pula a wave |
+| F2 | pula a wave (na wave de boss, mata o boss) |
 | F3 | invencibilidade |
 | F4 | dropa um power-up aleatório |
 | F5 | tela de teste de input (funciona sempre, mesmo sem DEBUG) |
@@ -594,7 +631,7 @@ echo $?                        # 0 = rodou sem erro
 ```
 
 Ao terminar, imprime um resumo: FPS mínimo (contado em janelas de 1s depois do
-primeiro segundo, sem incluir o tempo de carga), waves, kills, mortes, pickups,
+primeiro segundo, sem incluir o tempo de carga), waves, bosses mortos, kills, mortes, pickups,
 combo máximo, pausas, e os **picos de cada pool**. `denied=` conta balas e
 inimigos recusados por bater no teto (afeta o jogo: deve ser 0); `deniedFx=`
 conta partículas descartadas (só efeito visual a menos, aceitável em explosões

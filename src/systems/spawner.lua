@@ -8,6 +8,10 @@
 --   escolhe porta -> pisca 0.4s (telégrafo) -> solta um lote -> repete até
 --   zerar a cota -> quando a arena esvazia: bônus, vida de volta, drop
 --   garantido e 3s de respiro -> próxima wave.
+--
+-- Boss waves (every Config.BOSS.every): the boss (world.boss) runs the show
+-- and the wave closes when it is done. From boss `adds.fromBoss` on, the
+-- doors keep feeding normal enemies (no quota) while it fights.
 
 local Config = require("src.config")
 local Util   = require("src.util")
@@ -91,21 +95,41 @@ function Spawner.reset(world, startWave)
   Spawner.interval = 1
   Spawner.door = nil
   Spawner.banner = 0
+  Spawner.bossWave = false
   for i = 1, 4 do doors[i].warn = 0 end
+end
+
+function Spawner.isBossWave(n)
+  return n >= 1 and n % Config.BOSS.every == 0
 end
 
 function Spawner.startWave(n)
   Spawner.wave = n
-  Spawner.quota = Config.waveQuota(n)
   Spawner.spawned = 0
-  Spawner.maxAlive = Config.waveMaxAlive(n)
-  Spawner.interval = Config.waveSpawnInterval(n)
   Spawner.phase = "idle"
   Spawner.timer = 0.2
-  Spawner.banner = Config.WAVE.bannerTime
   buildMix(n)
-  Audio.play("wave_start")
   if Config.SMOKE then require("src.smoke").note("waves", n) end
+
+  Spawner.bossWave = Spawner.isBossWave(n)
+  if Spawner.bossWave then
+    local bossN = n / Config.BOSS.every
+    local A = Config.BOSS.adds
+    -- No quota: adds keep coming until the boss dies (or none at all for the
+    -- first bosses). The ALERTA banner replaces the "WAVE N" one.
+    Spawner.quota = bossN >= A.fromBoss and math.huge or 0
+    Spawner.maxAlive = math.min(Config.MAX_ENEMIES, math.floor(Config.bossValue(A.maxAlive, bossN)))
+    Spawner.interval = Config.bossValue(A.interval, bossN)
+    Spawner.banner = 0
+    Spawner.world.boss:begin(Spawner.world, bossN, n)
+    return
+  end
+
+  Spawner.quota = Config.waveQuota(n)
+  Spawner.maxAlive = Config.waveMaxAlive(n)
+  Spawner.interval = Config.waveSpawnInterval(n)
+  Spawner.banner = Config.WAVE.bannerTime
+  Audio.play("wave_start")
 end
 
 -- Recompensas ao limpar a wave: bônus, vida de volta para quem estava fora e
@@ -165,8 +189,24 @@ function Spawner.update(dt, world)
     return
   end
 
-  -- Cota cumprida e arena limpa: fecha a wave.
-  if Spawner.spawned >= Spawner.quota and world.enemies.count == 0 then
+  if Spawner.bossWave then
+    -- The boss closes the wave; the doors only work while it fights.
+    local boss = world.boss
+    if boss.state == "done" then
+      boss:clear()
+      Spawner.bossWave = false
+      onWaveCleared(world)
+      Spawner.phase = "rest"
+      Spawner.timer = Config.WAVE.restTime
+      return
+    end
+    if not boss:isFighting() then
+      Spawner.door = nil
+      Spawner.phase = "idle"
+      return
+    end
+  elseif Spawner.spawned >= Spawner.quota and world.enemies.count == 0 then
+    -- Cota cumprida e arena limpa: fecha a wave.
     onWaveCleared(world)
     Spawner.phase = "rest"
     Spawner.timer = Config.WAVE.restTime
@@ -195,8 +235,14 @@ function Spawner.update(dt, world)
   end
 end
 
--- Debug (F2): mata a cota restante e limpa a arena.
+-- Debug (F2): mata a cota restante e limpa a arena. Numa wave de boss,
+-- dispara a morte do boss (que limpa o resto).
 function Spawner.skipWave(world)
+  if Spawner.bossWave and world.boss.active then
+    Spawner.spawned = Spawner.quota
+    world.boss:startDeath(world)
+    return
+  end
   Spawner.spawned = Spawner.quota
   for i = world.enemies.count, 1, -1 do
     world.enemies:release(i)
@@ -205,6 +251,7 @@ end
 
 -- Quantos inimigos ainda faltam nesta wave (por spawnar + vivos).
 function Spawner.remaining(world)
+  if Spawner.bossWave then return world.enemies.count end
   return (Spawner.quota - Spawner.spawned) + world.enemies.count
 end
 
