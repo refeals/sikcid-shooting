@@ -136,7 +136,7 @@ Primeiro upload (depois é só trocar o zip):
   ele não aparece borda.
 - **Visibilidade:** Draft ou Restricted enquanto for playtest.
 - **Créditos** na descrição: LÖVE, love.js (MIT), Kenney (CC0), música do
-  Music Loop Bundle de Tallbeard Studios.
+  Music Loop Bundle de Abstraction (Tallbeard Studios).
 
 Se o build normal não abrir em algum navegador (a opção SharedArrayBuffer do
 itch é experimental), suba o zip de `--web --compat`: roda sem threads e sem
@@ -664,9 +664,10 @@ ffmpeg -i "original.wav" -af volume=-1dB -c:a libvorbis -q:a 4 assets/music/nome
 
 ## Créditos
 
-- Música: **Music Loop Bundle**, de **Tallbeard Studios**
+- Música: **Music Loop Bundle**, de **Abstraction** (Tallbeard Studios)
   ([itch.io](https://tallbeard.itch.io/music-loop-bundle)): "Sunburn",
-  "Cloak of Darkness", "Never Miss" e "Crushing It".
+  "Cloak of Darkness", "Never Miss" e "Crushing It". Licença CC0; o autor
+  pede o nome artístico "Abstraction" nos créditos.
 - Arte e fontes: **[Kenney](https://kenney.nl)** (CC0): Space Shooter Extension,
   Simple Space, Planets, UI Pack (Sci-Fi) e Kenney Fonts.
 - Efeitos sonoros de combate: **[Kenney](https://kenney.nl)** (CC0), Sci-Fi
