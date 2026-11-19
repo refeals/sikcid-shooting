@@ -32,9 +32,10 @@ end
 
 local function buildGrid(enemies)
   for i = 1, COLS * ROWS do cells[i].count = 0 end
+  -- `dead` is NOT reset here (Enemy:reset does that): enemies killed outside
+  -- the collision pass (NOVA, salvo blasts) stay flagged until the sweep.
   for i = 1, enemies.count do
     local e = enemies.items[i]
-    e.dead = false
     local idx = cellIndex(e.x, e.y)
     local c = cells[idx]
     local n = c.count + 1
@@ -141,7 +142,7 @@ local function bulletsVsEnemies(world)
 
         b.dead = true
         local killed = e:damage(b.dmg)
-        -- O som de morte fica em world:onEnemyKilled (cobre bala e orbe).
+        -- O som de morte fica em world:onEnemyKilled (cobre bala e explosão).
         if not killed then Audio.play("enemy_hit") end
         if killed then
           e.dead = true
@@ -153,6 +154,8 @@ local function bulletsVsEnemies(world)
           e:push(nx * Config.ENEMY_KNOCKBACK / mass * 0.02,
                  ny * Config.ENEMY_KNOCKBACK / mass * 0.02)
         end
+        -- Respawn salvo: the blast hurts everything around the hit.
+        if b.kind == "salvo" then world:salvoBlast(b) end
         return false   -- a bala para no primeiro inimigo
       end)
     end
@@ -174,7 +177,9 @@ local function bulletsVsBoss(world)
       if Util.dist2(b.x, b.y, boss.x, boss.y) <= rr * rr then
         b.dead = true
         world:burst(2, b.x, b.y, boss.variant.color, 3)
-        if boss:hit(b.dmg, b.owner, world) then return end
+        local killed = boss:hit(b.dmg, b.owner, world)
+        if b.kind == "salvo" then world:salvoBlast(b) end
+        if killed or not boss:isFighting() then return end
       end
     end
   end
@@ -198,7 +203,8 @@ local function bulletsVsBossMissiles(world)
 
   for i = 1, bullets.count do
     local b = bullets.items[i]
-    if b.owner ~= "enemy" and not b.dead then
+    -- Salvo missiles fly past them to their targets.
+    if b.owner ~= "enemy" and b.kind ~= "salvo" and not b.dead then
       for k = 1, missileCount do
         local m = missileBuf[k]
         if not m.dead then
@@ -270,39 +276,6 @@ local function enemyBulletsVsPlayers(world)
   end
 end
 
--- Orbes do power-up Orbital Shield (ativado na etapa 7; o teste é barato).
-local function orbsVsEnemies(world)
-  local W = Config.WEAPON
-  local boss = world.boss
-  for pi = 1, world.playerCount do
-    local p = world.players[pi]
-    if p.alive and p.mods.orbs > 0 then
-      for oi = 1, p.mods.orbs do
-        local a = p.orbAngle + (oi - 1) * (math.pi * 2 / p.mods.orbs)
-        local ox = p.x + math.cos(a) * W.orbDistance
-        local oy = p.y + math.sin(a) * W.orbDistance
-        queryCircle(ox, oy, W.orbRadius + 16, function(e)
-          if e.dead or e.orbHit > 0 then return end
-          local rr = W.orbRadius + e.radius
-          if Util.dist2(ox, oy, e.x, e.y) > rr * rr then return end
-          e.orbHit = W.orbHitCooldown
-          if e:damage(W.orbDamage) then
-            e.dead = true
-            world:onEnemyKilled(e, p.index)
-          end
-        end)
-        if boss and boss:isFighting() and boss.orbHit <= 0 then
-          local rr = W.orbRadius + boss.radius
-          if Util.dist2(ox, oy, boss.x, boss.y) <= rr * rr then
-            boss.orbHit = W.orbHitCooldown
-            boss:hit(W.orbDamage, p.index, world)
-          end
-        end
-      end
-    end
-  end
-end
-
 -- Recolhe para os pools tudo que morreu neste frame (swap-remove).
 local function sweep(world)
   local enemies, bullets = world.enemies, world.bullets
@@ -316,13 +289,12 @@ local function sweep(world)
   end
 end
 
-function Combat.update(dt, world)
+function Combat.update(_, world)
   buildGrid(world.enemies)
   resolveOverlaps(world)
   bulletsVsEnemies(world)
   bulletsVsBossMissiles(world)
   bulletsVsBoss(world)
-  orbsVsEnemies(world)
   enemiesVsPlayers(world)
   enemyBulletsVsPlayers(world)
   sweep(world)

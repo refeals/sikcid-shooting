@@ -19,6 +19,8 @@ local Briefing = {}
 local ACCEPT_DELAY = 0.3   -- ignora o START que saiu do lobby
 local ICON = 16
 local ROW_H = 22
+local COLS = 2             -- two columns: one would not fit the 360px screen
+local COL_W = 290
 
 -- Letras das armas e dos acumuláveis, montadas uma vez a partir dos dados.
 local function lettersWhere(pred)
@@ -78,26 +80,29 @@ function Briefing:draw()
   love.graphics.setColor(0, 0, 0, 0.72)
   love.graphics.rectangle("fill", 0, 0, W, H)
 
-  -- Window: tab + subtitle + one row per power-up + the stacking rule.
-  local pw = 440
-  local ph = Config.ART.ui.tabH + 52 + #defs * ROW_H
+  -- Window: tab + subtitle + the power-ups in columns + the stacking rule.
+  local rows = math.ceil(#defs / COLS)
+  local pw = COLS * COL_W + 20
+  local ph = Config.ART.ui.tabH + 52 + rows * ROW_H
   local px = math.floor((W - pw) * 0.5)
   local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5) - 12
   local top = UI.window(px, py, pw, ph, "POWER-UPS")
 
-  UI.text("body", string.format("PASSE POR CIMA PARA PEGAR  -  DURAM %dS", Config.POWERUP.duration),
-    px, top + 8, C.textDim, pw, "center")
+  UI.text("body", "PASSE POR CIMA PARA PEGAR", px, top + 8, C.textDim, pw, "center")
 
-  -- One row per power-up: icon, name, description.
-  local y = top + 24
+  -- One cell per power-up, filled column by column: icon, name, description.
+  local y0 = top + 24
   for i = 1, #defs do
     local d = defs[i]
-    local cy = y + ICON * 0.5
-    Pickup.drawIcon(d, px + 30, cy, ICON)
-    UI.text("body", d.name, px + 48, cy - 5, d.color)
-    UI.text("body", d.desc or "", px + 184, cy - 5, C.text)
-    y = y + ROW_H
+    local col = math.floor((i - 1) / rows)
+    local row = (i - 1) % rows
+    local cx = px + 10 + col * COL_W
+    local cy = y0 + row * ROW_H + ICON * 0.5
+    Pickup.drawIcon(d, cx + 14, cy, ICON)
+    UI.text("body", d.name, cx + 30, cy - 9, d.color)
+    UI.text("body", d.desc or "", cx + 30, cy + 1, C.text)
   end
+  local y = y0 + rows * ROW_H
 
   -- Stacking rule.
   UI.text("body", string.format("%s SÃO ARMAS: PEGAR UMA TROCA A OUTRA.   %s ACUMULAM.",

@@ -133,7 +133,7 @@ function Spawner.startWave(n)
 end
 
 -- Recompensas ao limpar a wave: bônus, vida de volta para quem estava fora e
--- um power-up garantido no centro.
+-- um power-up garantido num ponto vazio.
 local function onWaveCleared(world)
   local bonus = Spawner.wave * Config.WAVE.clearBonus
   for i = 1, world.playerCount do
@@ -141,14 +141,19 @@ local function onWaveCleared(world)
     p.score = p.score + bonus
     if p.lives < Config.PLAYER.lives then
       p.lives = p.lives + 1
-      -- Quem estava fora volta para a partida na próxima janela de respawn.
+      -- Quem estava fora volta para a partida na próxima janela de respawn,
+      -- no ponto seguro e SEM o suporte de respawn (não é uma morte).
       if p.out then
         p.out = false
         p.respawnTimer = 0
+        p.revived = true
+        p:placeMarker(world)
       end
     end
   end
-  world:dropPowerup(world.arena.cx, world.arena.cy, true)
+  -- After the revivals: the drop avoids where they are about to appear.
+  local x, y = world:dropSpot()
+  world:dropPowerup(x, y, true)
   Audio.play("wave_clear")
 end
 

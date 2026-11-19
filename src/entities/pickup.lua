@@ -16,6 +16,7 @@ function Pickup.new()
     life = 0,
     bob = 0,
     dead = false,
+    frozen = false,     -- wave breather: life is paused, so no blinking
   }, Pickup)
 end
 
@@ -30,6 +31,7 @@ end
 -- Devolve false quando expira (o pool recolhe). `frozen` = respiro entre
 -- waves: o pickup continua flutuando, mas o tempo de vida não corre.
 function Pickup:update(dt, frozen)
+  self.frozen = frozen and true or false
   if not frozen then self.life = self.life - dt end
   self.bob = self.bob + dt * 4
   return self.life > 0 and not self.dead
@@ -59,8 +61,10 @@ function Pickup.drawIcon(def, x, y, s, alpha)
 end
 
 function Pickup:draw()
-  -- Blinks in its last seconds as a warning it is about to vanish.
-  if self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0 then return end
+  -- Blinks in its last seconds as a warning it is about to vanish. Not while
+  -- frozen: the blink phase comes from `life`, and a life paused in an "off"
+  -- phase would leave it invisible for the whole breather.
+  if not self.frozen and self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0 then return end
   local y = self.y + math.sin(self.bob) * 2   -- gentle float
   local c = self.def.color
   -- Pulsing glow so drops stand out from enemies and debris.

@@ -10,12 +10,20 @@ local UI      = require("src.ui")
 
 local P = Config.PLAYER
 local W = Config.WEAPON
+local R = Config.RESPAWN
+local DR = Config.POWERUPS.drone
 local SIZE = Config.ART.size
 
 local UP = -math.pi / 2
+local BUBBLE_COLOR = { 0.60, 0.95, 1.00 }
 
 local Player = {}
 Player.__index = Player
+
+-- Damage of one shot: the weapon's base damage times the DANO X2 multiplier.
+local function shotDamage(self)
+  return self.mods.damage * self.mods.damageMul
+end
 
 -- Armas disponíveis, indexadas por mods.weapon. As etapas seguintes só
 -- acrescentam entradas aqui; nada de `if` espalhado pelo update.
@@ -23,7 +31,7 @@ local WEAPONS = {}
 
 WEAPONS.single = function(self, world)
   world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
-    W.bulletSpeed, self.mods.damage, self.index, "single", nil, nil, self.color)
+    W.bulletSpeed, shotDamage(self), self.index, "single", nil, nil, self.color)
   Audio.play("shot")
 end
 
@@ -36,7 +44,7 @@ WEAPONS.spread = function(self, world)
   for i = 1, n do
     local a = start + step * (i - 1)
     world:spawnBullet(self.x, self.y, math.cos(a), math.sin(a),
-      W.bulletSpeed, self.mods.damage, self.index, "spread", nil, nil, self.color)
+      W.bulletSpeed, shotDamage(self), self.index, "spread", nil, nil, self.color)
   end
   Audio.play("shot_spread")
 end
@@ -44,7 +52,7 @@ end
 -- Missiles: projétil lento que corrige a rota até o inimigo mais próximo.
 WEAPONS.missiles = function(self, world)
   world:spawnBullet(self.x, self.y, self.aimX, self.aimY,
-    W.missileSpeed, self.mods.damage, self.index, "missile",
+    W.missileSpeed, shotDamage(self), self.index, "missile",
     W.bulletLife * 2, W.bulletRadius + 1, self.color)
   Audio.play("shot_missile")
 end
@@ -67,9 +75,14 @@ function Player.new(index, device)
     respawnTimer = 0,
     fireCooldown = 0,
     target = nil,             -- enemy locked by the auto-aim
-    orbAngle = 0,
     muzzle = 0,               -- clarão curto do cano ao atirar
     spawnFx = 0,              -- anel de respawn
+    droneAngle = 0,           -- DRONE power-up: orbit angle and fire timer
+    droneCooldown = 0,
+    -- Respawn marker (while dead with lives left): where the ship comes back.
+    markerX = 0, markerY = 0,
+    markerDelay = 0,          -- hidden (and still) for this long after the death
+    revived = false,          -- set by the spawner: back after running out (no support)
     mods = {},
     powerups = {},            -- { { def = <DEF>, timeLeft = s }, ... }
   }, Player)
@@ -83,8 +96,22 @@ function Player:resetMods()
   m.speedMul = 1
   m.fireRateMul = 1
   m.damage = W.damage
+  m.damageMul = 1
   m.weapon = "single"
-  m.orbs = 0
+  m.bubble = false
+  m.drone = false
+end
+
+-- Respawn marker on death: where the ship died, shown after markerDelay.
+function Player:markDeath()
+  self.markerX, self.markerY = self.x, self.y
+  self.markerDelay = R.markerDelay
+end
+
+-- Respawn marker for the comeback at wave end: the safest spot, right away.
+function Player:placeMarker(world)
+  self.markerX, self.markerY = world:safeSpot()
+  self.markerDelay = 0
 end
 
 function Player:spawn(x, y)
@@ -176,8 +203,12 @@ function Player:update(dt, world)
   if not self.alive then
     if self.out then return end
     self.respawnTimer = self.respawnTimer - dt
+    self:updateMarker(dt, world)
     if self.respawnTimer <= 0 and world:canRespawn(self) then
-      self:spawn(world.arena.cx, world.arena.cy)
+      local support = not self.revived
+      self.revived = false
+      self:spawn(self.markerX, self.markerY)
+      if support then world:respawnSupport(self) end
     end
     return
   end
@@ -218,7 +249,46 @@ function Player:update(dt, world)
     self.muzzle = P.muzzleTime
   end
 
-  self.orbAngle = (self.orbAngle + W.orbSpeed * dt) % (math.pi * 2)
+  self:updateDrone(dt, world)
+end
+
+-- DRONE power-up: orbits the ship and fires on its own at the nearest
+-- visible enemy (same rule as the auto-aim), from where it is.
+function Player:droneXY()
+  return self.x + math.cos(self.droneAngle) * DR.distance,
+         self.y + math.sin(self.droneAngle) * DR.distance
+end
+
+function Player:updateDrone(dt, world)
+  if not self.mods.drone then return end
+  self.droneAngle = (self.droneAngle + DR.spin * dt) % (math.pi * 2)
+  if self.droneCooldown > 0 then self.droneCooldown = self.droneCooldown - dt end
+  if self.droneCooldown > 0 then return end
+  local dx, dy = self:droneXY()
+  local t = world:nearestVisibleEnemy(dx, dy)
+  if not t then return end
+  local nx, ny, len = Util.normalize(t.x - dx, t.y - dy)
+  if len <= 0 then return end
+  world:spawnBullet(dx, dy, nx, ny, W.bulletSpeed, DR.damage * self.mods.damageMul,
+    self.index, "single", nil, nil, self.color)
+  self.droneCooldown = 1 / DR.fireRate
+  Audio.play("drone_shot")
+end
+
+-- Respawn marker: stays where the ship died; after markerDelay the player
+-- can steer it with the move stick for the rest of the countdown.
+function Player:updateMarker(dt, world)
+  if self.markerDelay > 0 then
+    self.markerDelay = self.markerDelay - dt
+    return
+  end
+  local d = self.device
+  if not d or not d.connected then return end
+  local mx, my = d:moveVector()
+  if mx == 0 and my == 0 then return end
+  local a, m = world.arena, P.radius + 4
+  self.markerX = Util.clamp(self.markerX + mx * R.markerSpeed * dt, a.x + m, a.x + a.w - m)
+  self.markerY = Util.clamp(self.markerY + my * R.markerSpeed * dt, a.y + m, a.y + a.h - m)
 end
 
 -- ---------------------------------------------------------------------------
@@ -234,8 +304,31 @@ function Player.drawShip(color, x, y, angle, size, alpha)
   Shaders.reset()
 end
 
+-- Respawn marker: a pulsing ring in the player's color with its tag, from
+-- markerDelay after the death until the ship is back.
+local PLAYER_TAGS = { "P1", "P2" }
+
+function Player:drawMarker()
+  if self.markerDelay > 0 then return end
+  local c = self.color
+  local g = love.graphics
+  local t = love.timer.getTime()
+  local r = SIZE.playerShip * 0.6 + 2 * math.sin(t * 6)
+  local alpha = 0.7 + 0.25 * math.sin(t * 6)
+  g.setColor(c[1], c[2], c[3], alpha * 0.18)
+  g.circle("fill", self.markerX, self.markerY, r)
+  g.setColor(c[1], c[2], c[3], alpha)
+  g.setLineWidth(2)
+  g.circle("line", self.markerX, self.markerY, r)
+  g.setLineWidth(1)
+  UI.text("body", PLAYER_TAGS[self.index] or "P?", self.markerX - 20, self.markerY - 4, c, 40, "center")
+end
+
 function Player:draw()
-  if not self.alive then return end
+  if not self.alive then
+    if not self.out then self:drawMarker() end
+    return
+  end
   local c = self.color
   local g = love.graphics
 
@@ -299,15 +392,23 @@ function Player:draw()
 
   Player.drawShip(c, self.x, self.y, self.angle, SIZE.playerShip)
 
-  -- Orbital Shield orbs (their collision lives in systems/combat.lua).
-  local orbs = self.mods.orbs
-  if orbs > 0 then
-    g.setColor(Config.COLORS.orb)
-    for i = 1, orbs do
-      local a = self.orbAngle + (i - 1) * (math.pi * 2 / orbs)
-      Assets.draw("orb", self.x + math.cos(a) * W.orbDistance, self.y + math.sin(a) * W.orbDistance,
-        a * 2, SIZE.orb)
-    end
+  -- BOLHA: a wobbling bubble around the ship while it is active.
+  if self.mods.bubble then
+    local bc = BUBBLE_COLOR
+    local r = SIZE.playerShip * 0.72 + math.sin(self.engineT * 5) * 1.2
+    g.setColor(bc[1], bc[2], bc[3], 0.16)
+    g.circle("fill", self.x, self.y, r)
+    g.setColor(bc[1], bc[2], bc[3], 0.75)
+    g.setLineWidth(1.5)
+    g.circle("line", self.x, self.y, r)
+    g.setLineWidth(1)
+  end
+
+  -- DRONE orbiting the ship, in the player's color.
+  if self.mods.drone then
+    local dx, dy = self:droneXY()
+    g.setColor(c[1], c[2], c[3], 1)
+    Assets.draw("drone", dx, dy, self.droneAngle * 2, SIZE.drone)
   end
 
   -- Reticle ahead of the ship along the aim; pops a little on each shot.

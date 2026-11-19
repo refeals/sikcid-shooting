@@ -13,33 +13,33 @@ local Config = require("src.config")
 local Util   = require("src.util")
 local Audio  = require("src.audio")
 
-local C = Config.COLORS
 local W = Config.WEAPON
-local PU = Config.POWERUP
+local N = Config.POWERUPS   -- every number lives there
 
 local Powerups = {}
 
 -- weapon = true -> ocupa o "slot de arma" (substitui o anterior).
--- permanent = true -> efeito imediato, não entra na lista de ativos.
+-- permanent = true -> efeito imediato, não entra na lista de ativos; o
+-- grant recebe (player, world).
 Powerups.DEFS = {
   {
     id = "spread", name = "SPREAD", letter = "S",
     desc = "3 tiros em leque",
-    weapon = true, duration = PU.duration, weight = 20,
+    weapon = true, duration = N.spread.duration, weight = N.spread.weight,
     color = { 0.45, 0.85, 1.00, 1 },
     apply = function(m) m.weapon = "spread" end,
   },
   {
     id = "rapid", name = "RAPID FIRE", letter = "R",
     desc = "cadência de tiro em dobro",
-    weapon = true, duration = PU.duration, weight = 20,
+    weapon = true, duration = N.rapid.duration, weight = N.rapid.weight,
     color = { 1.00, 0.85, 0.30, 1 },
-    apply = function(m) m.fireRateMul = m.fireRateMul * 2 end,
+    apply = function(m) m.fireRateMul = m.fireRateMul * N.rapid.fireMul end,
   },
   {
     id = "missiles", name = "MISSILES", letter = "M",
     desc = "mísseis teleguiados, dano 3",
-    weapon = true, duration = PU.duration, weight = 15,
+    weapon = true, duration = N.missiles.duration, weight = N.missiles.weight,
     color = { 1.00, 0.55, 0.35, 1 },
     apply = function(m)
       m.weapon = "missiles"
@@ -47,24 +47,48 @@ Powerups.DEFS = {
     end,
   },
   {
-    id = "shield", name = "ORBITAL SHIELD", letter = "O",
-    desc = "2 orbes que destroem ao tocar",
-    duration = PU.duration, weight = 15,
-    color = C.orb,
-    apply = function(m) m.orbs = W.orbCount end,
-  },
-  {
     id = "boots", name = "SPEED BOOTS", letter = "V",
     desc = "40% mais velocidade",
-    duration = PU.duration, weight = 20,
+    duration = N.boots.duration, weight = N.boots.weight,
     color = { 0.55, 1.00, 0.55, 1 },
-    apply = function(m) m.speedMul = m.speedMul * 1.4 end,
+    apply = function(m) m.speedMul = m.speedMul * N.boots.speedMul end,
+  },
+  {
+    id = "bubble", name = "BOLHA", letter = "B",
+    desc = "segura 1 golpe e empurra",
+    duration = N.bubble.duration, weight = N.bubble.weight,
+    color = { 0.60, 0.95, 1.00, 1 },
+    apply = function(m) m.bubble = true end,
+  },
+  {
+    id = "drone", name = "DRONE", letter = "D",
+    desc = "drone que atira sozinho",
+    duration = N.drone.duration, weight = N.drone.weight,
+    color = { 0.75, 0.75, 1.00, 1 },
+    apply = function(m) m.drone = true end,
+  },
+  {
+    id = "damage", name = "DANO X2", letter = "X",
+    desc = "dobra o dano de qualquer arma",
+    duration = N.damage.duration, weight = N.damage.weight,
+    color = { 1.00, 0.40, 0.30, 1 },
+    apply = function(m) m.damageMul = m.damageMul * N.damage.mul end,
+  },
+  {
+    id = "nova", name = "NOVA", letter = "N",
+    desc = "onda de choque em volta (na hora)",
+    sound = "nova",
+    permanent = true, duration = 1, weight = N.nova.weight,
+    color = { 1.00, 0.95, 0.60, 1 },
+    grant = function(p, world)
+      if world then world:nova(p) end
+    end,
   },
   {
     id = "life", name = "EXTRA LIFE", letter = "+",
     desc = "+1 vida na hora (máx. 5)",
     sound = "pickup_life",    -- som próprio (os outros usam "pickup")
-    permanent = true, duration = 1, weight = 6,
+    permanent = true, duration = 1, weight = N.life.weight,
     color = { 1.00, 0.45, 0.55, 1 },
     grant = function(p)
       if p.lives < Config.PLAYER.maxLives then p.lives = p.lives + 1 end
@@ -75,6 +99,19 @@ Powerups.DEFS = {
 -- Sorteia uma definição por peso (Extra Life tem peso menor).
 function Powerups.pick()
   return Util.weightedPick(Powerups.DEFS, #Powerups.DEFS)
+end
+
+-- Weapons only (the respawn support drop). A reused buffer: no allocation.
+local weaponBuf, weaponCount = {}, 0
+for i = 1, #Powerups.DEFS do
+  if Powerups.DEFS[i].weapon then
+    weaponCount = weaponCount + 1
+    weaponBuf[weaponCount] = Powerups.DEFS[i]
+  end
+end
+
+function Powerups.pickWeapon()
+  return Util.weightedPick(weaponBuf, weaponCount)
 end
 
 function Powerups.byId(id)
@@ -100,12 +137,24 @@ function Powerups.clear(player)
   Powerups.recompute(player)
 end
 
+-- Removes the active power-up `id` (the bubble when it pops) and recomputes.
+function Powerups.consume(player, id)
+  local list = player.powerups
+  for i = #list, 1, -1 do
+    if list[i].def.id == id then
+      list[i] = list[#list]
+      list[#list] = nil
+    end
+  end
+  Powerups.recompute(player)
+end
+
 -- Entrega um power-up ao jogador.
-function Powerups.give(player, def)
+function Powerups.give(player, def, world)
   Audio.play(def.sound or "pickup")
 
   if def.permanent then
-    if def.grant then def.grant(player) end
+    if def.grant then def.grant(player, world) end
     return
   end
 

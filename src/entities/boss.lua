@@ -3,8 +3,8 @@
 -- A single instance, created once and reused (`active`), kept OUT of the
 -- enemy pool and the collision grid: it is far bigger than a grid cell and it
 -- enters from outside the arena, which pooled enemies are clamped against.
--- It exposes the same target fields as an Enemy (x, y, radius, dead, orbHit)
--- so combat, the auto-aim and the player missiles test it explicitly the same
+-- It exposes the same target fields as an Enemy (x, y, radius, dead) so
+-- combat, the auto-aim and the player missiles test it explicitly the same
 -- way they test enemies.
 --
 -- States:
@@ -35,14 +35,14 @@ function Boss.new()
   return setmetatable({
     active = false,
     state = "idle",
-    dead = true,          -- true unless it can be hit (auto-aim, missiles, orbs)
+    dead = true,          -- true unless it can be hit (auto-aim, missiles, blasts)
     n = 1,                -- which boss this is (1 = wave 10)
     wave = 0,
     variant = B.variants[1],
     x = 0, y = 0, angle = math.pi / 2,
     size = B.size, radius = B.size * B.radiusFrac,
     hp = 1, maxHp = 1,
-    flash = 0, orbHit = 0,
+    flash = 0,
     timer = 0,            -- time left in "warn" / "dying"
     goalX = 0, goalY = 0, pause = 0,
     burstTimer = 0, volleysLeft = 0, volleyTimer = 0, burstTarget = nil,
@@ -133,7 +133,7 @@ function Boss:begin(world, n, wave)
   self.state = "warn"
   self.dead = true
   self.timer = B.warnTime
-  self.flash, self.orbHit = 0, 0
+  self.flash = 0
   self.damageBy[1], self.damageBy[2] = 0, 0
   self.volleysLeft = 0
   self.thrust = B.engine.enter
@@ -327,7 +327,6 @@ end
 function Boss:update(dt, world)
   if not self.active then return end
   if self.flash > 0 then self.flash = self.flash - dt end
-  if self.orbHit > 0 then self.orbHit = self.orbHit - dt end
   self.engineT = self.engineT + dt
 
   -- Engine flame length: long while sliding in, idle while stopped, cruise

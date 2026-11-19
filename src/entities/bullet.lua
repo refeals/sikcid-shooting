@@ -9,6 +9,7 @@ local Shaders = require("src.shaders")
 
 local SIZE = Config.ART.size
 local BM = Config.BOSS.missile
+local SV = Config.RESPAWN.salvo
 
 local Bullet = {}
 Bullet.__index = Bullet
@@ -89,16 +90,40 @@ local function updateBossMissile(self, dt, world)
   end
 end
 
+-- Respawn salvo missile: fired out in a ring, then turns hard toward its own
+-- target; if that one dies, the nearest enemy left. Smokes like a missile.
+local function updateSalvo(self, dt, world)
+  local t = self.target
+  if not t or t.dead then
+    t = world:nearestEnemy(self.x, self.y, 400)
+    self.target = t
+  end
+  if t then
+    local want = math.atan2(t.y - self.y, t.x - self.x)
+    self.angle = Util.turnToward(self.angle, want, SV.turn * dt)
+    self.vx = math.cos(self.angle) * SV.speed
+    self.vy = math.sin(self.angle) * SV.speed
+  end
+  self.trailT = self.trailT - dt
+  if self.trailT <= 0 then
+    self.trailT = Config.JUICE.trailInterval
+    local back = SIZE.salvo * 0.5
+    world:trail(self.x - math.cos(self.angle) * back, self.y - math.sin(self.angle) * back, self.color)
+  end
+end
+
 -- Devolve false quando a bala deve ser recolhida pelo pool.
 function Bullet:update(dt, world)
   local arena = world.arena
   self.life = self.life - dt
   if self.life <= 0 then
     if self.kind == "bossMissile" then self:blast(world) end
+    if self.kind == "salvo" then world:salvoBlast(self) end
     return false
   end
 
-  if self.kind == "bossMissile" then updateBossMissile(self, dt, world) end
+  if self.kind == "bossMissile" then updateBossMissile(self, dt, world)
+  elseif self.kind == "salvo" then updateSalvo(self, dt, world) end
 
   -- Míssil: corrige a rota de leve na direção do inimigo mais próximo.
   if self.kind == "missile" then
@@ -150,6 +175,9 @@ function Bullet:draw()
   elseif self.kind == "missile" then
     love.graphics.setColor(1, 1, 1, 1)
     Assets.draw("missile", self.x, self.y, self.angle, SIZE.missile)
+  elseif self.kind == "salvo" then
+    love.graphics.setColor(1, 1, 1, 1)
+    Assets.draw("missile", self.x, self.y, self.angle, SIZE.salvo)
   else
     love.graphics.setColor(1, 1, 1, 1)
     Assets.draw("shot", self.x, self.y, self.angle, SIZE.shot)
@@ -161,7 +189,9 @@ end
 -- so the blend mode is switched once, not per bullet.
 function Bullet:drawGlow()
   local c = self.color
-  local r = self.kind == "missile" and SIZE.missile * 0.35 or SIZE.shot * 0.45
+  local r = (self.kind == "missile" and SIZE.missile * 0.35)
+    or (self.kind == "salvo" and SIZE.salvo * 0.45)
+    or SIZE.shot * 0.45
   love.graphics.setColor(c[1], c[2], c[3], 0.45)
   love.graphics.circle("fill", self.x, self.y, r)
 end

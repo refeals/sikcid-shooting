@@ -170,6 +170,262 @@ function world:explosion(x, y, color, puffs, puffSize, sparks, sparkSize)
   Particle.explosion(self.particles, x, y, color, puffs, puffSize, sparks, sparkSize)
 end
 
+-- ---------------------------------------------------------------------------
+-- Effect rings (NOVA shockwave, bubble pop, salvo blasts): fixed slots, the
+-- oldest is overwritten; nothing is allocated during play.
+-- ---------------------------------------------------------------------------
+local RING_SLOTS = 10
+local rings = {}
+for i = 1, RING_SLOTS do rings[i] = { x = 0, y = 0, r = 0, t = 0, life = 0, color = nil } end
+
+function world:ring(x, y, radius, color, life)
+  local slot, oldest = 1, math.huge
+  for i = 1, RING_SLOTS do
+    local left = rings[i].life - rings[i].t
+    if left < oldest then slot, oldest = i, left end
+  end
+  local g = rings[slot]
+  g.x, g.y, g.r, g.t, g.life, g.color = x, y, radius, 0, life or 0.35, color
+end
+
+local function updateRings(dt)
+  for i = 1, RING_SLOTS do
+    local g = rings[i]
+    if g.t < g.life then g.t = g.t + dt end
+  end
+end
+
+local function drawRings()
+  local gr = love.graphics
+  gr.setBlendMode("add")
+  for i = 1, RING_SLOTS do
+    local g = rings[i]
+    if g.t < g.life then
+      local k = g.t / g.life
+      local c = g.color
+      gr.setColor(c[1], c[2], c[3], (1 - k) * 0.9)
+      gr.setLineWidth(3 * (1 - k) + 1)
+      gr.circle("line", g.x, g.y, g.r * (0.25 + 0.75 * k))
+    end
+  end
+  gr.setLineWidth(1)
+  gr.setBlendMode("alpha")
+end
+
+-- ---------------------------------------------------------------------------
+-- Spots: random candidates inside the arena, scored, best one wins.
+-- ---------------------------------------------------------------------------
+local RS = Config.RESPAWN
+
+-- Distance from (x, y) to the nearest threat: enemy (minus its size), the
+-- boss hull, enemy shots. math.huge with none around.
+local function threatDistance(self, x, y)
+  local best = math.huge
+  local pool = self.enemies
+  for i = 1, pool.count do
+    local e = pool.items[i]
+    if not e.dead then
+      local d = math.sqrt(Util.dist2(x, y, e.x, e.y)) - e.space
+      if d < best then best = d end
+    end
+  end
+  local boss = self.boss
+  if boss.active and boss.state ~= "done" then
+    local d = math.sqrt(Util.dist2(x, y, boss.x, boss.y)) - boss.size * 0.5
+    if d < best then best = d end
+  end
+  local shots = self.bullets
+  for i = 1, shots.count do
+    local b = shots.items[i]
+    if b.owner == "enemy" and not b.dead then
+      local d = math.sqrt(Util.dist2(x, y, b.x, b.y))
+      if d < best then best = d end
+    end
+  end
+  return best
+end
+
+-- Safest spot to respawn: farthest from every threat. The arena center is
+-- candidate zero, so with nothing around (wave end) it wins the tie.
+function world:safeSpot()
+  local a, m = self.arena, RS.margin
+  local bx, by = a.cx, a.cy
+  local bestScore = threatDistance(self, bx, by)
+  for _ = 1, RS.samples do
+    local x = Util.randRange(a.x + m, a.x + a.w - m)
+    local y = Util.randRange(a.y + m, a.y + a.h - m)
+    local s = threatDistance(self, x, y)
+    if s > bestScore then bx, by, bestScore = x, y, s end
+  end
+  return bx, by
+end
+
+-- Wave-end drop: the spot farthest from the live players and from where the
+-- dead ones will come back (their markers), so nobody grabs it unseen.
+function world:dropSpot()
+  local a, m = self.arena, Config.POWERUP.dropMargin
+  local bx, by, bestScore = a.cx, a.cy, -1
+  for _ = 1, Config.POWERUP.dropSamples do
+    local x = Util.randRange(a.x + m, a.x + a.w - m)
+    local y = Util.randRange(a.y + m, a.y + a.h - m)
+    local s = math.huge
+    for i = 1, self.playerCount do
+      local p = self.players[i]
+      local px, py
+      if p.alive then px, py = p.x, p.y
+      elseif not p.out then px, py = p.markerX, p.markerY end
+      if px then
+        local d = Util.dist2(x, y, px, py)
+        if d < s then s = d end
+      end
+    end
+    if s > bestScore then bx, by, bestScore = x, y, s end
+  end
+  return bx, by
+end
+
+-- ---------------------------------------------------------------------------
+-- Area damage (NOVA, salvo blasts): enemies through the grid, the boss
+-- directly. Kills are flagged dead and swept by Combat at the end of the
+-- frame. The query callback is module-level, fed by upvalues.
+-- ---------------------------------------------------------------------------
+local adX, adY, adR, adDmg, adOwner = 0, 0, 0, 0, nil
+
+local function areaHit(e)
+  if e.dead then return end
+  local rr = adR + e.radius
+  if Util.dist2(adX, adY, e.x, e.y) > rr * rr then return end
+  if e:damage(adDmg) then
+    e.dead = true
+    world:onEnemyKilled(e, adOwner)
+  end
+end
+
+function world:areaDamage(x, y, radius, dmg, owner)
+  adX, adY, adR, adDmg, adOwner = x, y, radius, dmg, owner
+  Combat.queryCircle(x, y, radius + Config.ENEMY_SPACING.maxSpace, areaHit)
+  local boss = self.boss
+  if boss:isFighting() then
+    local rr = radius + boss.radius
+    if Util.dist2(x, y, boss.x, boss.y) <= rr * rr then boss:hit(dmg, owner, self) end
+  end
+end
+
+-- Erases enemy shots (and boss missiles) within `radius`.
+function world:clearEnemyShots(x, y, radius)
+  local shots, r2 = self.bullets, radius * radius
+  for i = 1, shots.count do
+    local b = shots.items[i]
+    if b.owner == "enemy" and not b.dead and Util.dist2(x, y, b.x, b.y) <= r2 then
+      b.dead = true
+      Particle.burst(self.particles, 2, b.x, b.y, b.color, 3)
+    end
+  end
+end
+
+-- NOVA power-up: shockwave around the player.
+function world:nova(p)
+  local NV = Config.POWERUPS.nova
+  self:areaDamage(p.x, p.y, NV.radius, NV.damage, p.index)
+  self:clearEnemyShots(p.x, p.y, NV.radius)
+  self:ring(p.x, p.y, NV.radius, p.color, 0.45)
+  self:ring(p.x, p.y, NV.radius * 0.7, Config.COLORS.flash, 0.35)
+  Particle.burst(self.particles, 14, p.x, p.y, p.color, 5)
+  Background.pulse(p.x, p.y, 0.8)
+  self:shake(4)
+end
+
+-- A respawn salvo missile going off: its own hit already dealt `dmg`; the
+-- blast hurts everything around.
+function world:salvoBlast(b)
+  local S = RS.salvo
+  self:areaDamage(b.x, b.y, S.blastRadius, S.blastDamage, b.owner)
+  Particle.explosion(self.particles, b.x, b.y, b.color, 3, S.blastRadius * 0.6, 6, 4)
+  self:ring(b.x, b.y, S.blastRadius, b.color, 0.3)
+  self:shake(1.5)
+  Audio.play("salvo_blast")
+end
+
+-- Respawn support (back with lives left): a salvo of homing missiles, each
+-- to a different nearby enemy (the boss counts), fired out in a ring, plus a
+-- weapon power-up dropped close by.
+local salvoTargets = {}
+
+function world:respawnSupport(p)
+  local S = RS.salvo
+  local count = math.min(S.max, S.base + math.floor(Spawner.wave / S.everyWaves))
+
+  -- The `count` nearest distinct targets (small n: repeated nearest search).
+  local n = 0
+  for _ = 1, count do
+    local best, bestD2 = nil, math.huge
+    local pool = self.enemies
+    for i = 1, pool.count do
+      local e = pool.items[i]
+      if not e.dead then
+        local taken = false
+        for k = 1, n do if salvoTargets[k] == e then taken = true; break end end
+        if not taken then
+          local d2 = Util.dist2(p.x, p.y, e.x, e.y)
+          if d2 < bestD2 then best, bestD2 = e, d2 end
+        end
+      end
+    end
+    local boss = self.boss
+    if not boss.dead then
+      local taken = false
+      for k = 1, n do if salvoTargets[k] == boss then taken = true; break end end
+      if not taken and Util.dist2(p.x, p.y, boss.x, boss.y) < bestD2 then best = boss end
+    end
+    if not best then break end
+    n = n + 1
+    salvoTargets[n] = best
+  end
+
+  for i = 1, count do
+    local ang = (i - 1) / count * math.pi * 2 - math.pi / 2
+    local b = self:spawnBullet(p.x, p.y, math.cos(ang), math.sin(ang), S.speed, S.damage,
+      p.index, "salvo", S.life, 4, p.color)
+    if b then b.target = salvoTargets[i] end
+  end
+  for k = 1, n do salvoTargets[k] = nil end
+  Audio.play("salvo_launch")
+  self:ring(p.x, p.y, 40, p.color, 0.3)
+
+  -- Weapon drop close by, kept inside the arena.
+  local a, m = self.arena, Config.POWERUP.dropMargin
+  local ang = math.random() * math.pi * 2
+  local dist = Util.randRange(RS.dropDistMin, RS.dropDistMax)
+  local x = Util.clamp(p.x + math.cos(ang) * dist, a.x + m, a.x + a.w - m)
+  local y = Util.clamp(p.y + math.sin(ang) * dist, a.y + m, a.y + a.h - m)
+  self:dropPowerup(x, y, true, Powerups.pickWeapon())
+end
+
+-- BOLHA: absorbs the hit, pops (pushes the enemies around away), and grants
+-- a short invulnerability.
+local popX, popY, popR, popPush = 0, 0, 0, 0
+
+local function popPushOne(e)
+  if e.dead then return end
+  local dx, dy = e.x - popX, e.y - popY
+  local d2 = dx * dx + dy * dy
+  local rr = popR + e.space
+  if d2 >= rr * rr or d2 <= 0.0001 then return end
+  local d = math.sqrt(d2)
+  e:push(dx / d * popPush, dy / d * popPush)
+end
+
+local function popBubble(self, p)
+  local BB = Config.POWERUPS.bubble
+  Powerups.consume(p, "bubble")
+  p.invuln = math.max(p.invuln, BB.invuln)
+  popX, popY, popR, popPush = p.x, p.y, BB.pushRadius, BB.push
+  Combat.queryCircle(p.x, p.y, BB.pushRadius + Config.ENEMY_SPACING.maxSpace, popPushOne)
+  self:ring(p.x, p.y, BB.pushRadius, { 0.60, 0.95, 1.00 }, 0.35)
+  Particle.burst(self.particles, 10, p.x, p.y, { 0.60, 0.95, 1.00, 1 }, 4)
+  Audio.play("bubble_pop")
+end
+
 -- The boss died: every enemy blows up (no points) and every enemy shot pops.
 -- Enemies leave the pool right away (flagged dead first, so collision
 -- queries this frame skip them); bullets are flagged and swept by Combat, so
@@ -241,6 +497,13 @@ function world:onEnemyKilled(enemy, killerIndex)
 end
 
 function world:onPlayerHit(player)
+  -- One hit per moment: the bubble's invulnerability also covers the other
+  -- collision checks of the same frame.
+  if not player.alive or player.invuln > 0 then return end
+  if player.mods.bubble then
+    popBubble(self, player)
+    return
+  end
   player.alive = false
   player.lives = player.lives - 1
   Combo.breakOn(player)
@@ -254,6 +517,8 @@ function world:onPlayerHit(player)
     player.out = true
   else
     player.respawnTimer = Config.PLAYER.respawnTime
+    player.revived = false
+    player:markDeath()
   end
 
   if Config.SMOKE then require("src.smoke").bump("deaths") end
@@ -289,10 +554,11 @@ function world:onGameOver()
 end
 
 -- Solta um power-up. `guaranteed` = drop de fim de wave (sempre sai); senão
--- passa pelo sorteio de Config.POWERUP.dropChance.
-function world:dropPowerup(x, y, guaranteed)
+-- passa pelo sorteio de Config.POWERUP.dropChance. `def` força qual (o drop
+-- de arma do respawn); sem ele, sorteia.
+function world:dropPowerup(x, y, guaranteed, def)
   if not guaranteed and math.random() > Config.POWERUP.dropChance then return end
-  local def = Powerups.pick()
+  def = def or Powerups.pick()
   if not def then return end
   local p = self.pickups:acquire()
   if not p then return end
@@ -444,6 +710,7 @@ function Game:update(dt)
   while i <= particles.count do
     if particles.items[i]:update(dt) then i = i + 1 else particles:release(i) end
   end
+  updateRings(dt)
   Profiler.stop("particles")
 
   -- No respiro entre waves, todos os relógios de recompensa ficam parados:
@@ -462,7 +729,7 @@ function Game:update(dt)
       for pi = 1, world.playerCount do
         local p = world.players[pi]
         if p.alive and Util.dist2(pk.x, pk.y, p.x, p.y) <= r * r then
-          Powerups.give(p, pk.def)
+          Powerups.give(p, pk.def, world)
           Particle.burst(particles, 6, pk.x, pk.y, pk.def.color, 4)
           if Config.SMOKE then require("src.smoke").bump("pickups") end
           taken = true
@@ -525,6 +792,7 @@ function Game:draw()
   for i = 1, pickups.count do pickups.items[i]:draw() end
   Profiler.start("particles")
   for i = 1, particles.count do particles.items[i]:draw() end
+  drawRings()
   Profiler.stop("particles")
   for i = 1, enemies.count do enemies.items[i]:draw() end
   world.boss:draw()

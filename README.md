@@ -259,7 +259,41 @@ sobre a mira automática.
 
 Entre uma wave e outra (os 3s de respiro), os timers de **power-up** — os
 ativos e os caídos no chão — e de **combo** ficam parados: nada some durante
-a pausa, e dá para carregar tudo para a wave seguinte.
+a pausa, e dá para carregar tudo para a wave seguinte. O power-up garantido do
+fim da wave cai no ponto livre mais longe dos jogadores (e de onde quem está
+morto vai renascer), para ninguém pegar sem ver o que é.
+
+### Power-ups
+
+| Letra | Power-up | Efeito |
+|-------|----------|--------|
+| S | SPREAD | 3 tiros em leque (arma) |
+| R | RAPID FIRE | cadência em dobro (arma) |
+| M | MISSILES | mísseis teleguiados, dano 3 (arma) |
+| V | SPEED BOOTS | 40% mais velocidade |
+| B | BOLHA | segura 1 golpe; ao estourar, empurra os inimigos em volta e dá 1s de invulnerabilidade |
+| D | DRONE | drone que orbita a nave e atira sozinho no inimigo mais próximo |
+| X | DANO X2 | dobra o dano de qualquer arma (e do drone) |
+| N | NOVA | na hora: onda de choque em volta, dano 5 e apaga os tiros inimigos no raio |
+| + | EXTRA LIFE | na hora: +1 vida (máx. 5) |
+
+Armas (S, R, M) se substituem; os outros acumulam. Pegar um que já está ativo
+renova o tempo.
+
+### Morte e respawn
+
+Morrer custa uma vida e todos os power-ups ativos. 1s depois, um **marcador**
+na cor do jogador aparece onde ele morreu: é ali que ele volta quando a
+contagem acabar, a não ser que ele mova o marcador com o analógico esquerdo
+(ou WASD) durante a contagem. Ao renascer, o jogador ganha um **suporte**:
+
+- uma **salva de mísseis** teleguiados, cada um para um inimigo próximo
+  diferente (o boss incluído), com dano no impacto e explosão em área. São 4
+  mísseis, +1 a cada 10 waves (máx. 10);
+- um **power-up de arma** (S, R ou M) que cai perto.
+
+Quem ficou sem vidas e volta no fim da wave não ganha o suporte (não é uma
+morte); ele reaparece no ponto mais seguro da arena.
 
 ### Boss
 
@@ -326,8 +360,10 @@ espalhado em outro arquivo.
 | Distância entre inimigos (folga entre sprites, força do desvio, raio do boss como obstáculo), knockback, tamanho da célula do grid | `Config.ENEMY_SPACING`, `ENEMY_KNOCKBACK`, `GRID_CELL` |
 | Inimigos sem jogador vivo (velocidade e curvas do vaguear) | `Config.ENEMY_WANDER` |
 | Vidas, velocidade, invulnerabilidade, tempo de respawn | `Config.PLAYER` |
-| Cadência, dano, velocidade de bala, spread, míssil, orbes | `Config.WEAPON` |
-| Duração, chance de drop e peso de cada power-up | `Config.POWERUP` e `DEFS` em [src/systems/powerups.lua](src/systems/powerups.lua) |
+| Cadência, dano, velocidade de bala, spread, míssil | `Config.WEAPON` |
+| Duração, peso no sorteio e efeito de cada power-up (multiplicadores, raio e dano da NOVA, drone, bolha) | `Config.POWERUPS` |
+| Chance de drop, vida do pickup no chão, onde cai o drop de fim de wave | `Config.POWERUP` |
+| Respawn: delay e velocidade do marcador, salva de mísseis (quantidade, dano, explosão), drop de arma | `Config.RESPAWN` |
 | Janela do combo, degrau e teto do multiplicador | `Config.COMBO` |
 | Telégrafo das portas, respiro entre waves, bônus | `Config.WAVE` |
 | Boss: frequência, tamanho, HP, velocidade, rajadas, mísseis, fúria, inimigos de apoio, pontos, drops, variantes | `Config.BOSS` (valores `{ base, perBoss, min, max }`, lidos por `Config.bossValue`) |
@@ -350,7 +386,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 
 | O que | Arquivo |
 |-------|---------|
-| Jogador (nave recolorida, contorno, chama, crosshair, orbes, escudo, anel de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
+| Jogador (nave recolorida, contorno, chama, crosshair, bolha, drone, escudo, anel e marcador de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
 | Inimigos (os 4 tipos, flash de dano, barra de HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
 | Boss (nave recolorida, fogo nos bocais de cada nave, flash, pulso de fúria, tremor na morte) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw` |
 | Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
@@ -577,7 +613,8 @@ Decisões que sustentam os 60 FPS em hardware modesto:
 - Sprites, fontes e peças de UI são criados no boot (~30 ms); nada de imagem é
   alocado durante a partida.
 - Power-ups **recalculam** os modificadores do zero em vez de "desfazer" efeito:
-  base + `apply()` de cada ativo. Adicionar power-up é uma entrada em `DEFS`.
+  base + `apply()` de cada ativo. Adicionar power-up é uma entrada em `DEFS`
+  (e os números dele em `Config.POWERUPS`).
 
 ---
 

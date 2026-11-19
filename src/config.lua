@@ -55,7 +55,6 @@ Config.COLORS = {
   doorWarn    = { 1.00, 0.30, 0.30, 1 },
 
   flash       = { 1.00, 1.00, 1.00, 1 },
-  orb         = { 0.60, 0.95, 1.00, 1 },
 }
 
 -- Colors a player can pick in the lobby (left/right cycles, Y picks one at
@@ -125,7 +124,7 @@ Config.ART = {
     playerOutline = { "ss2:spaceShips_002", rot = math.pi / 2, outline = 4 },
     engineFlame1 = { "ss2:spaceEffects_001", rot = -math.pi / 2, grey = true },
     engineFlame2 = { "ss2:spaceEffects_002", rot = -math.pi / 2, grey = true },
-    orb          = { "ss2:spaceParts_080" },
+    drone        = { "ss2:spaceParts_080" },   -- DRONE power-up, tinted with the player color
     shot         = { "ss2:spaceMissiles_012", rot = -math.pi / 2 },
     missile      = { "ss2:spaceMissiles_003", rot = -math.pi / 2 },
     enemyShot    = { "simple:star_small" },
@@ -174,7 +173,8 @@ Config.ART = {
     playerShip = 24,
     engineFlame = 18,         -- outer flame, tinted with the player color
     engineCore = 10,          -- white-hot core drawn over it
-    orb = 10,
+    drone = 9,
+    salvo = 18,               -- respawn support missiles
     shot = 8,
     missile = 15,
     bossMissile = 18,
@@ -414,12 +414,6 @@ Config.WEAPON = {
   missileSpeed = 240,
   missileTurn = math.rad(200), -- correção de rota por segundo
   missileDamage = 3,
-  orbCount = 2,
-  orbRadius = 5,
-  orbDistance = 26,
-  orbSpeed = math.rad(200),
-  orbDamage = 2,
-  orbHitCooldown = 0.3,       -- por inimigo, evita matar tudo no mesmo frame
 }
 
 -- ---------------------------------------------------------------------------
@@ -617,11 +611,52 @@ Config.COMBO = {
 -- Power-ups
 -- ---------------------------------------------------------------------------
 Config.POWERUP = {
-  duration = 12,
   dropChance = 0.08,
   pickupRadius = 9,           -- drawn size lives in Config.ART.size.pickup
   pickupLife = 10,
   blinkAt = 3,                -- começa a piscar nos últimos N segundos
+  -- Wave-end drop: of `dropSamples` random spots (at least dropMargin px
+  -- from the walls), the one farthest from the players and respawn markers.
+  dropSamples = 12,
+  dropMargin = 40,
+}
+
+-- Per power-up numbers (src/systems/powerups.lua holds names, colors and the
+-- logic). `duration` in seconds, `weight` = share in the random drop.
+Config.POWERUPS = {
+  spread   = { duration = 12, weight = 20 },
+  rapid    = { duration = 12, weight = 20, fireMul = 2 },
+  missiles = { duration = 12, weight = 15 },        -- damage: Config.WEAPON.missileDamage
+  boots    = { duration = 12, weight = 18, speedMul = 1.4 },
+  life     = { weight = 6 },
+  -- Absorbs one hit, then pops: pushes enemies within pushRadius out by
+  -- `push` px and grants `invuln` s. Lasts until used or `duration`.
+  bubble   = { duration = 20, weight = 12, pushRadius = 50, push = 28, invuln = 1.0 },
+  -- Instant shockwave around the player: damage within `radius`, enemy
+  -- shots in it are erased.
+  nova     = { weight = 5, radius = 130, damage = 5 },
+  -- Orbiting drone that auto-aims at the nearest visible enemy.
+  drone    = { duration = 12, weight = 12, fireRate = 3, damage = 1, distance = 22, spin = math.rad(160) },
+  damage   = { duration = 10, weight = 12, mul = 2 },
+}
+
+-- Respawn (with lives left; not the comeback at wave end after running out).
+-- `markerDelay` s after the death, a marker shows up where the ship died: it
+-- comes back there, unless the player steers the marker with the move stick
+-- during the countdown. On respawn: a salvo of homing missiles (count =
+-- base + floor(wave / everyWaves), up to max), each to a different nearby
+-- enemy, plus a weapon power-up dropped dropDistMin..dropDistMax px away.
+-- The comeback at wave end (after running out of lives) uses the safest
+-- spot instead: of `samples` random spots, the farthest from any threat.
+Config.RESPAWN = {
+  markerDelay = 1.0,          -- s after the death before the marker shows (and moves)
+  markerSpeed = 260,          -- px/s when the player steers it
+  samples = 16,
+  margin = 40,                -- px from the walls for candidate spots
+  dropDistMin = 50,
+  dropDistMax = 70,
+  salvo = { base = 4, everyWaves = 10, max = 10, speed = 260, turn = math.rad(300),
+            life = 2.5, damage = 6, blastRadius = 40, blastDamage = 4 },
 }
 
 -- ---------------------------------------------------------------------------
@@ -672,6 +707,16 @@ Config.SFX = {
   pickup        = { vol = 0.60, voices = 2, pitchVar = 0.00, minGap = 0.05 },
   pickup_life   = { vol = 0.70, voices = 1, pitchVar = 0.00, minGap = 0.10 },
   powerup_end   = { vol = 0.45, voices = 2, pitchVar = 0.00, minGap = 0.10 },
+  bubble_pop    = { src = "kenney/forceField", variants = 5,
+                    vol = 0.45, voices = 2, pitch = 1.3, pitchVar = 0.05, minGap = 0.10 },
+  nova          = { src = "kenney/lowFrequency_explosion", variants = 2,
+                    vol = 0.70, voices = 1, pitch = 1.2, pitchVar = 0.00, minGap = 0.20 },
+  salvo_launch  = { src = "kenney/laserLarge", variants = 5,
+                    vol = 0.40, voices = 2, pitch = 0.8, pitchVar = 0.04, minGap = 0.10 },
+  salvo_blast   = { src = "kenney/explosionCrunch", variants = 5,
+                    vol = 0.30, voices = 4, pitch = 0.9, pitchVar = 0.10, minGap = 0.04 },
+  drone_shot    = { src = "kenney/laserSmall", variants = 5,
+                    vol = 0.14, voices = 3, pitch = 1.4, pitchVar = 0.06, minGap = 0.05 },
   -- Waves e combo
   door_warn     = { src = "kenney/doorOpen", variants = 3,
                     vol = 0.15, voices = 4, pitchVar = 0.04, minGap = 0.12 },

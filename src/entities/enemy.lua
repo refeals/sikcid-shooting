@@ -33,7 +33,7 @@ function Enemy.new()
     retarget = 0,
     fireTimer = 0,
     wobble = 0,
-    orbHit = 0,         -- cooldown de dano por orbe (power-up Shield)
+    dead = false,       -- flagged on death, swept by Combat at the end of the frame
     angle = 0,          -- drawn facing (visual only)
     space = 10,         -- half the drawn size: spacing between enemies
     wandering = false,  -- no live player: roaming (see wander)
@@ -55,7 +55,7 @@ function Enemy:reset(kind, x, y)
   self.retarget = 0
   self.fireTimer = def.fireInterval and Util.randRange(0.3, def.fireInterval) or 0
   self.wobble = 0
-  self.orbHit = 0
+  self.dead = false
   self.radius = def.radius
   self.color = Config.COLORS[def.color]
   self.angle = math.random() * math.pi * 2
@@ -221,7 +221,6 @@ end
 -- ---------------------------------------------------------------------------
 function Enemy:update(dt, world)
   if self.flash > 0 then self.flash = self.flash - dt end
-  if self.orbHit > 0 then self.orbHit = self.orbHit - dt end
 
   if world:nearestPlayer(self.x, self.y) then
     self.wandering = false
