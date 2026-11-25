@@ -117,11 +117,12 @@ local PAD_BUTTONS = { fire = "a", left = "dpleft", right = "dpright", random = "
 -- --smoketouch: bot 1 is a finger. A button press taps the on-screen button
 -- for that action (pause, color arrows, ABANDONAR) or, for START with no
 -- button, the middle of the screen; actions with no touch form are skipped.
--- The sticks are two more fingers held in the arena.
+-- The move stick is one more finger held in the arena (no aim finger: the
+-- bots leave aiming and firing to the auto-aim).
 local Touch = require("src.touch")
-local TAP, MOVE, AIM = "smk-tap", "smk-move", "smk-aim"
-local MOVE_X, MOVE_Y, AIM_X, AIM_Y = 110, 280, 530, 280
-local moveHeld, aimHeld = false, false
+local TAP, MOVE = "smk-tap", "smk-move"
+local MOVE_X, MOVE_Y = 110, 280
+local moveHeld = false
 
 local function touchPress(action, value)
   if not value then
@@ -135,23 +136,14 @@ local function touchPress(action, value)
   if x then Input.touchPressed(TAP, x, y) end
 end
 
-local function touchAxis(mx, my, ax, ay)
+local function touchAxis(mx, my)
   local r = Config.TOUCH.stickRadius * 0.9
   if not Touch.sticksLive() then
     if moveHeld then Input.touchReleased(MOVE); moveHeld = false end
-    if aimHeld then Input.touchReleased(AIM); aimHeld = false end
     return
   end
   if not moveHeld then Input.touchPressed(MOVE, MOVE_X, MOVE_Y); moveHeld = true end
   Input.touchMoved(MOVE, MOVE_X + mx * r, MOVE_Y + my * r)
-  -- Aim by hand half the time, so the auto-aim also gets its turns.
-  if math.sin(Smoke.t * 0.6) > 0 then
-    if not aimHeld then Input.touchPressed(AIM, AIM_X, AIM_Y); aimHeld = true end
-    Input.touchMoved(AIM, AIM_X + ax * r, AIM_Y + ay * r)
-  elseif aimHeld then
-    Input.touchReleased(AIM)
-    aimHeld = false
-  end
 end
 
 local function press(which, action, value)
@@ -164,14 +156,16 @@ local function press(which, action, value)
   end
 end
 
-local function axis(which, mx, my, ax, ay)
+-- Move stick only: the aim stick stays centered, so the auto-aim picks the
+-- targets and fires on its own (like a player who only steers).
+local function axis(which, mx, my)
   if which == 1 and Config.SMOKE_TOUCH then
-    touchAxis(mx, my, ax, ay)
+    touchAxis(mx, my)
   elseif which == 1 and pad then
     pad.st.axes.leftx, pad.st.axes.lefty = mx, my
-    pad.st.axes.rightx, pad.st.axes.righty = ax, ay
+    pad.st.axes.rightx, pad.st.axes.righty = 0, 0
   else
-    Input.scriptAxis(which, mx, my, ax, ay)
+    Input.scriptAxis(which, mx, my, 0, 0)
   end
 end
 
@@ -181,7 +175,7 @@ function Smoke.reset()
   Smoke.fpsTime, Smoke.fpsFrames = 0, 0
   Smoke.nextEvent = 1
   Smoke.stats = {}
-  Smoke.goTimer, Smoke.goPressed = 0, false
+  Smoke.goTimer, Smoke.goPressed, Smoke.goReleased, Smoke.goReleaseAt = 0, false, false, 0
   Smoke.nextShot = 1
   pad = nil
   if Config.SMOKE_PAD then
@@ -256,16 +250,12 @@ function Smoke.update(dt)
     Smoke.nextShot = Smoke.nextShot + 1
   end
 
-  -- Movimento e mira em círculos de períodos diferentes: cobre todas as
-  -- direções, colisão com parede e troca constante de alvo.
+  -- Movement in circles of different periods: covers every direction and
+  -- wall collisions. No aiming: the auto-aim targets and fires by itself.
   local t = Smoke.t
-  axis(1,
-    math.cos(t * 1.7), math.sin(t * 1.3),
-    math.cos(t * 0.9), math.sin(t * 1.1))
+  axis(1, math.cos(t * 1.7), math.sin(t * 1.3))
   -- O segundo bot anda em contrafase, para os dois não ficarem colados.
-  axis(2,
-    math.cos(t * 1.1 + 2.2), math.sin(t * 1.9 + 1.0),
-    math.cos(t * 1.4 + 0.7), math.sin(t * 0.8 + 2.6))
+  axis(2, math.cos(t * 1.1 + 2.2), math.sin(t * 1.9 + 1.0))
 
   -- No game over, aperta START uma vez para exercitar a volta ao lobby.
   local State = require("src.state")
@@ -286,14 +276,21 @@ function Smoke.update(dt)
     press(1, "start", false)
     Smoke.endReleased = true
   end
+  -- Results screen: START once to go back to the lobby. The release is timed
+  -- from the press, not tied to the screen: START switches to the lobby in
+  -- the same frame, and a release that waited for the results screen would
+  -- never come (START would stay held in the lobby).
   if State.current() == require("src.states.gameover") then
     Smoke.goTimer = (Smoke.goTimer or 0) + dt
     if not Smoke.goPressed and Smoke.goTimer > 1.2 then
       press(1, "start", true)
       Smoke.goPressed = true
-    elseif Smoke.goPressed and Smoke.goTimer > 1.4 then
-      press(1, "start", false)
+      Smoke.goReleaseAt = Smoke.t + 0.1
     end
+  end
+  if Smoke.goPressed and not Smoke.goReleased and Smoke.t >= Smoke.goReleaseAt then
+    press(1, "start", false)
+    Smoke.goReleased = true
   end
 
   if Smoke.t >= (Config.SMOKE_TIME or 15) then

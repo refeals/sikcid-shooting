@@ -978,11 +978,14 @@ love . --smoke 20 --smoketouch # jogador 1 joga só por toques sintéticos
 echo $?                        # 0 = rodou sem erro
 ```
 
+Os bots só andam (em círculos de períodos diferentes): nunca miram. A mira e
+o tiro ficam com o auto-aim, como um jogador que só pilota.
+
 `--smoketouch` faz o jogador 1 tocar na tela para entrar, começar, pausar
-(pelo botão ‖) e voltar, com dois dedos nos analógicos durante a partida
-(com `--shots`, também salva o GAME OVER da arena). Para testar o touch na
-mão sem celular, `love . --touchmouse` faz o mouse valer como um dedo (clicar
-e arrastar).
+(pelo botão ‖) e voltar, com um dedo no analógico de movimento durante a
+partida (com `--shots`, também salva o GAME OVER da arena). Para testar o
+touch na mão sem celular, `love . --touchmouse` faz o mouse valer como um
+dedo (clicar e arrastar).
 
 Ao terminar, imprime um resumo: FPS mínimo (contado em janelas de 1s depois do
 primeiro segundo, sem incluir o tempo de carga), waves, bosses mortos, kills, mortes, pickups,
