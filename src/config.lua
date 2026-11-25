@@ -920,6 +920,22 @@ Config.FX = {
   -- the top left): offset = `offset` x the sprite size (at least `minOffset`
   -- px) along (dirX, dirY); `alpha` = how dark a fully covered spot gets.
   shadow = { alpha = 0.55, dirX = 0.6, dirY = 0.8, offset = 0.2, minOffset = 3 },
+  -- Muzzle flash: a hot core + a halo in the player's color at the ship's
+  -- nose on every shot (lasts PLAYER.muzzleTime); the boss gets a pink one
+  -- on each volley. Sizes are radii in px; `nose` = fraction of the ship
+  -- size ahead of its center.
+  muzzle = { size = 6, coreSize = 2.5, nose = 0.55, bossTime = 0.08, bossSize = 12 },
+  -- Motion trails.
+  --   shot*   -- smear behind player shots (px long / wide)
+  --   ribbon* -- engine ribbon behind the players' ships: a point every
+  --              `ribbonEvery` s, gone after `ribbonLife` s
+  --   echo*   -- runner afterimages: `echoes` copies sampled every
+  --              `echoEvery` s, the nearest at `echoAlpha`
+  trail = {
+    shot = 10, shotWidth = 2.5,
+    ribbonPoints = 14, ribbonEvery = 0.02, ribbonLife = 0.25, ribbonWidth = 6, ribbonAlpha = 0.55,
+    echoes = 3, echoEvery = 0.035, echoAlpha = 0.35,
+  },
   -- Black veil over the sky during a match (lobby and game over keep it
   -- vivid), so the gameplay stands out.
   veil = 0.25,
@@ -950,6 +966,9 @@ Config.FX = {
     hitFlash = 0.35,     -- enemy/boss white hit flash
     rage = 0.6,          -- boss rage red pulse
     bossShield = 0.35,   -- boss entry shield (rim, hex and hit ripples)
+    muzzle = 0.8,        -- muzzle flashes (player and boss)
+    shotTrail = 0.6,     -- smear behind player shots
+    ribbon = 0.5,        -- players' engine ribbon
   },
   -- Shockwaves: a ring that grows to `radius` px over `life` s and bends the
   -- picture behind it by up to `strength` px (fading as it grows); `width`

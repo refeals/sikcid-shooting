@@ -42,6 +42,7 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.vx, self.vy = dirX * speed, dirY * speed
   self.speed = speed
   self.life = life or Config.WEAPON.bulletLife
+  self.maxLife = self.life
   self.dmg = dmg or 1
   self.owner = owner
   self.kind = kind or "single"
@@ -195,12 +196,34 @@ function Bullet:draw()
   end
 end
 
+-- Smear behind a player shot (single, spread, drone): the white texel
+-- stretched back along its velocity, a wide faint stroke under a thin
+-- bright one, in the owner's color. Never longer than the distance flown, so
+-- it doesn't poke out of the ship on the first frame. The CALLER sets the
+-- additive blend; `alphaMul` scales it (glow layer).
+local TR = Config.FX.trail
+function Bullet:drawTrail(alphaMul)
+  local k = self.kind
+  if self.owner == "enemy" or k == "missile" or k == "salvo" or k == "bossMissile" then return end
+  local len = math.min(TR.shot, (self.maxLife - self.life) * self.speed)
+  if len < 1 then return end
+  local c = self.powered and X2.color or self.color
+  local nx, ny = math.cos(self.angle), math.sin(self.angle)
+  local cx, cy = self.x - nx * len * 0.5, self.y - ny * len * 0.5
+  local g = love.graphics
+  g.setColor(c[1], c[2], c[3], 0.35 * alphaMul)
+  g.draw(Assets.white, cx, cy, self.angle, len, TR.shotWidth * 1.8, 0.5, 0.5)
+  g.setColor(c[1], c[2], c[3], 0.8 * alphaMul)
+  g.draw(Assets.white, cx, cy, self.angle, len, TR.shotWidth * 0.6, 0.5, 0.5)
+end
+
 -- Light this bullet adds to the glow layer (src/post.lua): player shots in
 -- the owner's color, enemy stars and boss missiles in their pink. Drawn
 -- between Post.beginGlow/endGlow, already additive.
 function Bullet:drawGlow()
   local g = love.graphics
   local c = self.color
+  self:drawTrail(EMIT.shotTrail)
   if self.kind == "enemy" then
     g.setColor(c[1], c[2], c[3], EMIT.enemyShot)
     g.circle("fill", self.x, self.y, SIZE.enemyShot * 0.6)

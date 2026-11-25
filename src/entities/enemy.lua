@@ -41,6 +41,9 @@ function Enemy.new()
     heading = 0,
     wantHeading = 0,
     wanderTimer = 0,
+    -- Runner afterimages (Config.FX.trail): recent positions, newest first.
+    echoX = {}, echoY = {}, echoA = {},
+    echoN = 0, echoT = 0,
   }, Enemy)
 end
 
@@ -62,6 +65,37 @@ function Enemy:reset(kind, x, y)
   self.angle = math.random() * math.pi * 2
   self.space = (SIZE[kind] or def.size) * 0.5
   self.wandering = false
+  self.echoN, self.echoT = 0, 0
+end
+
+-- Runners: samples the afterimage positions every echoEvery s (newest
+-- first; tiny arrays, shifted).
+function Enemy:sampleEchoes(dt)
+  if self.type ~= "runner" then return end
+  self.echoT = self.echoT - dt
+  if self.echoT > 0 then return end
+  local TR = Config.FX.trail
+  self.echoT = TR.echoEvery
+  local xs, ys, as = self.echoX, self.echoY, self.echoA
+  local n = math.min(self.echoN + 1, TR.echoes)
+  for i = n, 2, -1 do
+    xs[i], ys[i], as[i] = xs[i - 1], ys[i - 1], as[i - 1]
+  end
+  xs[1], ys[1], as[1] = self.x, self.y, self.angle
+  self.echoN = n
+end
+
+-- Runner afterimages: fading copies of the sprite at the sampled positions,
+-- under the live enemies.
+function Enemy:drawEchoes()
+  if self.echoN == 0 then return end
+  local TR = Config.FX.trail
+  local size = SIZE[self.type] or SIZE.grunt
+  local c = self.color
+  for i = 1, self.echoN do
+    love.graphics.setColor(c[1], c[2], c[3], TR.echoAlpha * (1 - (i - 1) / TR.echoes))
+    Assets.draw(self.type, self.echoX[i], self.echoY[i], self.echoA[i], size)
+  end
 end
 
 -- Escolhe (ou troca) o jogador perseguido.
@@ -232,6 +266,7 @@ function Enemy:update(dt, world)
   end
   avoid(self, world)
 
+  self:sampleEchoes(dt)   -- before moving: the echoes trail behind
   self.x = self.x + self.vx * dt
   self.y = self.y + self.vy * dt
 

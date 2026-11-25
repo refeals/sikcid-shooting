@@ -14,6 +14,8 @@ local W = Config.WEAPON
 local R = Config.RESPAWN
 local DR = Config.POWERUPS.drone
 local SIZE = Config.ART.size
+local TR = Config.FX.trail
+local MZ = Config.FX.muzzle
 
 local UP = -math.pi / 2
 local BUBBLE_COLOR = { 0.60, 0.95, 1.00 }
@@ -93,8 +95,15 @@ function Player.new(index, device)
     revived = false,          -- set by the spawner: back after running out (no support)
     mods = {},
     powerups = {},            -- { { def = <DEF>, timeLeft = s }, ... }
+    -- Engine ribbon (Config.FX.trail): the ship's tail sampled every
+    -- ribbonEvery s, newest first; `ribbonN` points in use. Fixed arrays and
+    -- one mesh, reused every frame.
+    ribbonX = {}, ribbonY = {}, ribbonAt = {},
+    ribbonN = 0, ribbonT = 0,
+    ribbonClock = 0,          -- game time, runs while dead too (the ribbon fades)
   }, Player)
   self:resetMods()
+  self.ribbonMesh = love.graphics.newMesh((TR.ribbonPoints + 1) * 2, "strip", "stream")
   return self
 end
 
@@ -133,6 +142,7 @@ function Player:spawn(x, y)
   self.aimX, self.aimY = 0, -1
   self.angle = UP
   self.muzzle = 0
+  self.ribbonN = 0          -- no ribbon from the death spot to here
   self.spawnFx = P.spawnFxTime
   Audio.play("player_spawn")
   -- Morrer custa os power-ups temporários.
@@ -203,7 +213,26 @@ function Player:updateAim(moveX, moveY, world)
   return false
 end
 
+-- Engine ribbon: a new tail point every ribbonEvery s (newest first; the
+-- arrays are shifted, they are tiny). Old points age out in drawRibbon.
+local function sampleRibbon(self, dt)
+  self.ribbonT = self.ribbonT - dt
+  if self.ribbonT > 0 then return end
+  self.ribbonT = TR.ribbonEvery
+  local xs, ys, at = self.ribbonX, self.ribbonY, self.ribbonAt
+  local n = math.min(self.ribbonN + 1, TR.ribbonPoints)
+  for i = n, 2, -1 do
+    xs[i], ys[i], at[i] = xs[i - 1], ys[i - 1], at[i - 1]
+  end
+  local back = SIZE.playerShip * 0.45
+  xs[1] = self.x - math.cos(self.angle) * back
+  ys[1] = self.y - math.sin(self.angle) * back
+  at[1] = self.ribbonClock
+  self.ribbonN = n
+end
+
 function Player:update(dt, world)
+  self.ribbonClock = self.ribbonClock + dt
   if self.invuln > 0 then self.invuln = self.invuln - dt end
   if self.muzzle > 0 then self.muzzle = self.muzzle - dt end
   if self.spawnFx > 0 then self.spawnFx = self.spawnFx - dt end
@@ -262,6 +291,7 @@ function Player:update(dt, world)
     self.muzzle = P.muzzleTime
   end
 
+  sampleRibbon(self, dt)
   self:updateDrone(dt, world)
 end
 
@@ -366,6 +396,70 @@ local function drawEngine(self, alphaMul, coreMul)
   Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineCore, 1, stretch)
 end
 
+-- Engine ribbon geometry: a triangle strip through the live tail (while
+-- alive) and the sampled points younger than ribbonLife, narrowing and
+-- fading with age, in the player's color. Built once per frame in
+-- Player:draw (into the reused mesh); the glow layer draws the same mesh.
+local rpx, rpy, rpa = {}, {}, {}   -- scratch: points and their age (0..1)
+
+local function buildRibbon(self)
+  local m = 0
+  if self.alive then
+    local back = SIZE.playerShip * 0.45
+    m = 1
+    rpx[1] = self.x - math.cos(self.angle) * back
+    rpy[1] = self.y - math.sin(self.angle) * back
+    rpa[1] = 0
+  end
+  for i = 1, self.ribbonN do
+    local age = (self.ribbonClock - self.ribbonAt[i]) / TR.ribbonLife
+    if age >= 1 then break end
+    m = m + 1
+    rpx[m], rpy[m], rpa[m] = self.ribbonX[i], self.ribbonY[i], age
+  end
+  self.ribbonM = m
+  if m < 2 then return end
+  local mesh, c = self.ribbonMesh, self.color
+  for i = 1, m do
+    -- Direction along the strip from the neighbors (ends use one side).
+    local a, b = math.max(1, i - 1), math.min(m, i + 1)
+    local dx, dy = rpx[a] - rpx[b], rpy[a] - rpy[b]
+    local len = math.sqrt(dx * dx + dy * dy)
+    if len < 0.0001 then dx, dy, len = 1, 0, 1 end
+    local k = 1 - rpa[i]
+    local hw = TR.ribbonWidth * 0.5 * k
+    local ox, oy = -dy / len * hw, dx / len * hw
+    local alpha = TR.ribbonAlpha * k * k
+    mesh:setVertex(i * 2 - 1, rpx[i] + ox, rpy[i] + oy, 0, 0, c[1], c[2], c[3], alpha)
+    mesh:setVertex(i * 2, rpx[i] - ox, rpy[i] - oy, 0, 1, c[1], c[2], c[3], alpha)
+  end
+  mesh:setDrawRange(1, m * 2)
+end
+
+-- Draws the ribbon built this frame; additive, the CALLER sets the blend.
+local function drawRibbon(self, alphaMul)
+  if (self.ribbonM or 0) < 2 then return end
+  love.graphics.setColor(1, 1, 1, alphaMul)
+  love.graphics.draw(self.ribbonMesh)
+end
+
+-- Muzzle flash at the gun (ahead of the ship, along the aim) for
+-- PLAYER.muzzleTime after each shot: a halo in the player's color and a hot
+-- core, shrinking. Additive, the CALLER sets the blend; `scale` grows it
+-- (glow layer).
+local function drawMuzzle(self, alphaMul, scale)
+  if self.muzzle <= 0 then return end
+  local k = self.muzzle / P.muzzleTime
+  local d = SIZE.playerShip * MZ.nose
+  local x, y = self.x + self.aimX * d, self.y + self.aimY * d
+  local c = self.color
+  local g = love.graphics
+  g.setColor(c[1], c[2], c[3], k * alphaMul)
+  g.circle("fill", x, y, MZ.size * scale * (0.6 + 0.4 * k))
+  g.setColor(1, 0.97, 0.85, k * alphaMul)
+  g.circle("fill", x, y, MZ.coreSize * scale)
+end
+
 -- Ship hidden this frame by the invulnerability blink.
 local function blinkedOff(self)
   return self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0
@@ -386,6 +480,7 @@ function Player:drawGlow()
   local g = love.graphics
   local c = self.color
   local EMIT = Config.FX.emit
+  drawRibbon(self, EMIT.ribbon)   -- the mesh Player:draw built this frame
   if not self.alive then
     if not self.out and self.markerDelay <= 0 then
       local t = love.timer.getTime()
@@ -412,6 +507,7 @@ function Player:drawGlow()
   g.setColor(c[1], c[2], c[3], EMIT.ship)
   g.circle("fill", self.x, self.y, SIZE.playerShip * 0.55)
   drawEngine(self, EMIT.engine, EMIT.engineCore)
+  drawMuzzle(self, EMIT.muzzle, 1.6)
 
   if self.mods.bubble then
     local bc = BUBBLE_COLOR
@@ -428,12 +524,19 @@ function Player:drawGlow()
 end
 
 function Player:draw()
+  local g = love.graphics
+  -- Engine ribbon under everything of the ship (it also fades out after a
+  -- death, so it is drawn before the dead early-out).
+  buildRibbon(self)
+  g.setBlendMode("add")
+  drawRibbon(self, 1)
+  g.setBlendMode("alpha")
+
   if not self.alive then
     if not self.out then self:drawMarker() end
     return
   end
   local c = self.color
-  local g = love.graphics
 
   -- Respawn ring: a circle in the player's color closing in on the ship.
   if self.spawnFx > 0 then
@@ -478,6 +581,10 @@ function Player:draw()
   g.setBlendMode("alpha")
 
   Player.drawShip(c, self.x, self.y, self.angle, SIZE.playerShip)
+
+  g.setBlendMode("add")
+  drawMuzzle(self, 1, 1)
+  g.setBlendMode("alpha")
 
   -- BOLHA: a wobbling bubble around the ship while it is active.
   if self.mods.bubble then

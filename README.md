@@ -506,6 +506,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
 | Pós-processamento (brilho, sombras, shockwave, aberração, vinheta) | [src/post.lua](src/post.lua) + o `:drawGlow()` / `:drawShadow()` de cada entidade |
 | Véu do céu e marcas de queimado na arena | [src/states/game.lua](src/states/game.lua) → `Game:draw`, `world:scorch` |
+| Clarão no cano, rastro dos tiros, fita do motor, ecos dos runners | `Player:draw` / `Bullet:drawTrail` / `Enemy:drawEchoes` / `Boss:draw` (ver "Tiro e movimento") |
 
 Cores de jogo em `Config.COLORS`; sprites, tamanhos, fontes e ajustes visuais
 em `Config.ART`.
@@ -559,6 +560,21 @@ A arena funciona como um chão abaixo das naves:
   boss) deixam uma marca escura e suave no chão, que some em ~4 s
   (`Config.FX.scorch`). Elas são desenhadas na camada de sombra, então nunca
   ficam mais escuras que uma sombra.
+
+### Tiro e movimento
+
+- **Clarão no cano:** a cada tiro, um clarão curto na frente da nave, na cor
+  do jogador (dura `Config.PLAYER.muzzleTime`). O boss solta um clarão rosa a
+  cada rajada, avisando o perigo. Tamanhos em `Config.FX.muzzle`.
+- **Rastro dos tiros:** tiro simples, spread e drone deixam um rastro curto
+  (~10 px) na cor do dono. Mísseis continuam só com a fumaça.
+- **Fita do motor:** cada nave de jogador arrasta uma fita fina na sua cor,
+  com ~0,25 s de histórico, afinando e sumindo. Com a nave parada, ela
+  recolhe; no respawn, recomeça do zero.
+- **Ecos dos runners:** os inimigos rápidos deixam 3 cópias apagadas do
+  sprite atrás de si.
+- Tudo em `Config.FX.trail`; força no brilho em `Config.FX.emit`
+  (`muzzle`, `shotTrail`, `ribbon`).
 
 ### Pós-processamento
 

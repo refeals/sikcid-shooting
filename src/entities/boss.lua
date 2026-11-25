@@ -45,6 +45,7 @@ function Boss.new()
     hp = 1, maxHp = 1,
     flash = 0,
     sputter = 1,          -- engine alpha this frame (dying sputter), set by draw
+    muzzleFlash = 0,      -- s left of the pink flash at the gun (each volley)
     timer = 0,            -- time left in "warn" / "dying"
     goalX = 0, goalY = 0, pause = 0,
     burstTimer = 0, volleysLeft = 0, volleyTimer = 0, burstTarget = nil,
@@ -242,6 +243,7 @@ end
 
 local function fireVolley(self, world, target)
   local mx, my = muzzle(self)
+  self.muzzleFlash = Config.FX.muzzle.bossTime
   local base = math.atan2(target.y - my, target.x - mx)
   local n = self.s.fan
   local spread = n > 1 and B.burst.fanAngle or 0
@@ -401,6 +403,7 @@ end
 function Boss:update(dt, world)
   if not self.active then return end
   if self.flash > 0 then self.flash = self.flash - dt end
+  if self.muzzleFlash > 0 then self.muzzleFlash = self.muzzleFlash - dt end
   self.engineT = self.engineT + dt
 
   -- Engine flame length: long while sliding in, idle while stopped, cruise
@@ -561,6 +564,23 @@ local function overlays(self)
   return white, red
 end
 
+-- Pink flash at the gun for Config.FX.muzzle.bossTime after each volley:
+-- telegraphs the danger. Additive, the CALLER sets the blend; `scale`
+-- grows it (glow layer).
+local MUZZLE_CORE = { 1, 0.95, 0.97 }
+local function drawMuzzleFlash(self, alphaMul, scale)
+  if self.muzzleFlash <= 0 then return end
+  local MZ = Config.FX.muzzle
+  local k = self.muzzleFlash / MZ.bossTime
+  local mx, my = muzzle(self)
+  local c = Config.COLORS.bulletEnemy
+  local g = love.graphics
+  g.setColor(c[1], c[2], c[3], k * alphaMul)
+  g.circle("fill", mx, my, MZ.bossSize * scale * (0.6 + 0.4 * k))
+  g.setColor(MUZZLE_CORE[1], MUZZLE_CORE[2], MUZZLE_CORE[3], k * alphaMul)
+  g.circle("fill", mx, my, MZ.bossSize * 0.4 * scale)
+end
+
 -- Entry shield over the hull: up while sliding in, then the pop (growing
 -- and fading for B.shield.popTime). `alphaMul` scales it (glow layer).
 local function drawShield(self, x, y, alphaMul)
@@ -615,6 +635,9 @@ function Boss:draw()
     end
     g.setBlendMode("alpha")
   end
+  g.setBlendMode("add")
+  drawMuzzleFlash(self, 1, 1)
+  g.setBlendMode("alpha")
   drawShield(self, x, y, 1)
   g.setColor(1, 1, 1, 1)
 end
@@ -645,6 +668,7 @@ function Boss:drawGlow()
     love.graphics.setColor(1, 1, 1, white * EMIT.hitFlash)
     Assets.draw(role, x, y, self.angle, self.size)
   end
+  drawMuzzleFlash(self, EMIT.muzzle, 1.6)
   drawShield(self, x, y, EMIT.bossShield)
 end
 

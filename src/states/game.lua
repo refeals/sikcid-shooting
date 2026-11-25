@@ -1114,16 +1114,22 @@ function Game:draw(covered)
   drawRings(1)
   love.graphics.setBlendMode("alpha")
   Profiler.stop("particles")
+  -- Runner afterimages under every live enemy, then the enemies.
+  for i = 1, enemies.count do enemies.items[i]:drawEchoes() end
   for i = 1, enemies.count do enemies.items[i]:draw() end
   world.boss:draw()
 
-  -- Bullets grouped by pass: enemy shots plain, then each player's shots
+  -- Bullets grouped by pass: enemy shots plain, then the smear behind every
+  -- player shot (additive, one texture: batched), then each player's shots
   -- under the recolor shader in that player's color (one state switch per
   -- pass instead of one per bullet). Their light is in the glow layer.
   for i = 1, bullets.count do
     local b = bullets.items[i]
     if b.owner == "enemy" then b:draw() end
   end
+  love.graphics.setBlendMode("add")
+  for i = 1, bullets.count do bullets.items[i]:drawTrail(1) end
+  love.graphics.setBlendMode("alpha")
   for p = 1, world.playerCount do
     Shaders.recolor(world.players[p].color)
     for i = 1, bullets.count do
