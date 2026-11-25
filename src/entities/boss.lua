@@ -359,7 +359,8 @@ local function finale(self, world)
   local J = Config.JUICE
   world:explosion(x, y, c, J.explosions.boss, self.size / B.size)
   world:debris(self.variant.sprite, x, y, self.angle, self.size, c, true)
-  world:stagedPops(x, y, c, J.stages.boss)
+  world:stagedPops(x, y, c, J.stages.boss, Config.FX.scorch.bossPop)
+  world:scorch(x, y, Config.FX.scorch.boss)
   world:shake(B.death.shake, true)
   world:hitStop(B.death.hitStop, true)
   Post.shockwave(x, y, Config.FX.shock.boss)
@@ -616,6 +617,14 @@ function Boss:draw()
   end
   drawShield(self, x, y, 1)
   g.setColor(1, 1, 1, 1)
+end
+
+-- Shadow layer (src/post.lua): the hull's silhouette, offset down-right
+-- (farther than a small ship's: the offset scales with the size).
+function Boss:drawShadow()
+  if not self.active or self.state == "done" or self.state == "warn" then return end
+  local dx, dy = Post.shadowOffset(self.size)
+  Assets.draw(self.variant.sprite, self.x + dx, self.y + dy, self.angle, self.size)
 end
 
 -- Glow layer (src/post.lua): engine flames, hit/death flash, rage pulse and

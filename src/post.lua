@@ -109,6 +109,10 @@ local gs = 1        -- glow canvas px per logical px
 local glowTarget    -- canvas active when beginGlow() ran
 local dirBuf = { 0, 0 }
 
+local pass          -- one blur pass (defined with the glow layer, below)
+local sa, sb        -- shadow layer and its blur scratch (glow tight size)
+local shadowTarget  -- canvas active when beginShadow() ran
+
 local scene         -- same size as Screen.canvas, (re)made on demand
 local sceneTarget   -- canvas active when beginScene() ran
 local sceneActive = false
@@ -155,6 +159,8 @@ function Post.load()
   gs = preset.scale
   a = newLevel(VW * gs, VH * gs)
   b = newLevel(VW * gs, VH * gs)
+  sa = newLevel(VW * gs, VH * gs)
+  sb = newLevel(VW * gs, VH * gs)
   if preset.wide then
     wa = newLevel(VW * gs * 0.5, VH * gs * 0.5)
     wb = newLevel(VW * gs * 0.5, VH * gs * 0.5)
@@ -300,6 +306,63 @@ function Post.endScene(arena)
 end
 
 -- ---------------------------------------------------------------------------
+-- Shadow layer
+-- ---------------------------------------------------------------------------
+
+-- Drop shadow offset (px) for a sprite `size` px across (Config.FX.shadow).
+function Post.shadowOffset(size)
+  local S = FX.shadow
+  local d = math.max(S.minOffset, size * S.offset)
+  return S.dirX * d, S.dirY * d
+end
+
+-- Starts the shadow layer: casters draw their silhouettes (already offset,
+-- see Post.shadowOffset) in logical coordinates; the color is set to opaque
+-- black, so overlapping silhouettes don't darken twice. Casters must not
+-- change the color or blend mode.
+function Post.beginShadow()
+  local g = love.graphics
+  Profiler.start("post")
+  shadowTarget = g.getCanvas()
+  g.push("all")
+  g.setCanvas(sa)
+  g.clear(0, 0, 0, 0)
+  g.origin()
+  g.translate(math.floor(Screen.shakeX) * gs, math.floor(Screen.shakeY) * gs)
+  g.scale(gs, gs)
+  g.setShader()
+  g.setBlendMode("alpha")
+  g.setColor(0, 0, 0, 1)
+end
+
+-- Blurs the silhouettes and darkens the canvas below by Config.FX.shadow.alpha
+-- where they cover it.
+function Post.endShadow()
+  local g = love.graphics
+  g.pop()
+  g.push("all")
+  g.origin()
+  g.setColor(1, 1, 1, 1)
+  if Post.blurOk then
+    g.setBlendMode("replace", "premultiplied")
+    g.setShader(blur)
+    pass(sa, sb, 1, 0)
+    pass(sb, sa, 0, 1)
+    g.setShader()
+  end
+  g.setCanvas(shadowTarget)
+  local tw, th
+  if shadowTarget then tw, th = shadowTarget:getDimensions() else tw, th = g.getDimensions() end
+  local s = FX.shadow.alpha
+  g.setBlendMode("alpha", "premultiplied")
+  g.setColor(s, s, s, s)
+  local cw, ch = sa:getDimensions()
+  g.draw(sa, 0, 0, 0, tw / cw, th / ch)
+  g.pop()
+  Profiler.stop("post")
+end
+
+-- ---------------------------------------------------------------------------
 -- Glow layer
 -- ---------------------------------------------------------------------------
 
@@ -322,7 +385,7 @@ function Post.beginGlow()
 end
 
 -- One blur pass: src -> dst (same size, or a downsample), along (dx, dy).
-local function pass(src, dst, dx, dy)
+pass = function(src, dst, dx, dy)
   local g = love.graphics
   g.setCanvas(dst)
   g.clear(0, 0, 0, 0)

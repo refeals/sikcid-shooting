@@ -7,6 +7,7 @@ local Audio   = require("src.audio")
 local Assets  = require("src.assets")
 local Shaders = require("src.shaders")
 local UI      = require("src.ui")
+local Post    = require("src.post")
 
 local P = Config.PLAYER
 local W = Config.WEAPON
@@ -368,6 +369,14 @@ end
 -- Ship hidden this frame by the invulnerability blink.
 local function blinkedOff(self)
   return self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0
+end
+
+-- Shadow layer (src/post.lua): the ship's silhouette, offset down-right.
+-- Same visibility as Player:draw (none while dead, blinks with the ship).
+function Player:drawShadow()
+  if not self.alive or blinkedOff(self) then return end
+  local dx, dy = Post.shadowOffset(SIZE.playerShip)
+  Assets.draw("playerShip", self.x + dx, self.y + dy, self.angle, SIZE.playerShip)
 end
 
 -- Glow layer (src/post.lua): engine flame, a faint aura in the player's

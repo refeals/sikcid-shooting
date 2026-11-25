@@ -25,6 +25,7 @@ local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
 local Post     = require("src.post")
+local Assets   = require("src.assets")
 local Background = require("src.background")
 local UI        = require("src.ui")
 local Music     = require("src.music")
@@ -197,26 +198,28 @@ end
 -- ---------------------------------------------------------------------------
 local LATER_SLOTS = 8
 local later = {}
-for i = 1, LATER_SLOTS do later[i] = { t = 0, x = 0, y = 0, color = nil, preset = nil } end
+for i = 1, LATER_SLOTS do later[i] = { t = 0, x = 0, y = 0, color = nil, preset = nil, scorch = 0 } end
 
-function world:explodeLater(delay, x, y, color, preset)
+-- `scorch` (px, optional) leaves a burn mark there when it goes off.
+function world:explodeLater(delay, x, y, color, preset, scorch)
   for i = 1, LATER_SLOTS do
     local s = later[i]
     if not s.preset then
-      s.t, s.x, s.y, s.color, s.preset = delay, x, y, color, preset
+      s.t, s.x, s.y, s.color, s.preset, s.scorch = delay, x, y, color, preset, scorch or 0
       return
     end
   end
 end
 
--- `count` secondary `small` pops around (x, y), per a Config.JUICE.stages entry.
-function world:stagedPops(x, y, color, stage)
+-- `count` secondary `small` pops around (x, y), per a Config.JUICE.stages
+-- entry; each leaves a `scorch` px burn mark if given.
+function world:stagedPops(x, y, color, stage, scorch)
   local small = J.explosions.small
   for _ = 1, stage.count do
     local a = math.random() * math.pi * 2
     local r = stage.radius * math.sqrt(math.random())
     self:explodeLater(Util.randRange(stage.delayMin, stage.delayMax),
-      x + math.cos(a) * r, y + math.sin(a) * r, color, small)
+      x + math.cos(a) * r, y + math.sin(a) * r, color, small, scorch)
   end
 end
 
@@ -229,6 +232,7 @@ local function updateLater(dt)
         local preset = s.preset
         s.preset = nil
         world:explosion(s.x, s.y, s.color, preset)
+        if s.scorch > 0 then world:scorch(s.x, s.y, s.scorch) end
       end
     end
   end
@@ -263,6 +267,52 @@ local function updateRings(dt)
   end
 end
 
+-- ---------------------------------------------------------------------------
+-- Scorch marks (Config.FX.scorch): dark burns on the arena floor under big
+-- blasts, fading out. Fixed slots, the one closest to its end is reused.
+-- ---------------------------------------------------------------------------
+local SC = Config.FX.scorch
+local SCORCH_PUFFS = { "puff1", "puff2", "puff3", "puff4" }
+local scorches = {}
+for i = 1, SC.slots do scorches[i] = { x = 0, y = 0, size = 0, rot = 0, sprite = "puff1", t = SC.life } end
+
+function world:scorch(x, y, size)
+  local slot, oldest = 1, -1
+  for i = 1, SC.slots do
+    if scorches[i].t > oldest then slot, oldest = i, scorches[i].t end
+  end
+  local s = scorches[slot]
+  s.x, s.y, s.size, s.t = x, y, size, 0
+  s.rot = math.random() * math.pi * 2
+  s.sprite = SCORCH_PUFFS[math.random(#SCORCH_PUFFS)]
+end
+
+local function updateScorches(dt)
+  for i = 1, SC.slots do
+    local s = scorches[i]
+    if s.t < SC.life then s.t = s.t + dt end
+  end
+end
+
+local function clearScorches()
+  for i = 1, SC.slots do scorches[i].t = SC.life end
+end
+
+-- Drawn inside the shadow layer (black, blurred with the shadows), so the
+-- marks get soft edges and never get darker than a shadow. Leaves the
+-- color opaque black for the casters that follow.
+local function drawScorches()
+  for i = 1, SC.slots do
+    local s = scorches[i]
+    if s.t < SC.life then
+      local fade = math.min(1, (SC.life - s.t) / SC.fade)
+      love.graphics.setColor(0, 0, 0, SC.alpha * fade)
+      Assets.draw(s.sprite, s.x, s.y, s.rot, s.size)
+    end
+  end
+  love.graphics.setColor(0, 0, 0, 1)
+end
+
 -- Additive; the CALLER sets the blend. Runs in the arena pass and again in
 -- the glow layer, scaled by `alphaMul`.
 local function drawRings(alphaMul)
@@ -293,6 +343,18 @@ local function drawGlowLayer()
   for i = 1, bullets.count do bullets.items[i]:drawGlow() end
   for i = 1, world.playerCount do world.players[i]:drawGlow() end
   Post.endGlow()
+end
+
+-- Every caster's silhouette into the shadow layer (src/post.lua), which
+-- darkens the floor under them, offset down-right.
+local function drawShadowLayer()
+  Post.beginShadow()
+  drawScorches()
+  for i = 1, pickups.count do pickups.items[i]:drawShadow() end
+  for i = 1, enemies.count do enemies.items[i]:drawShadow() end
+  world.boss:drawShadow()
+  for i = 1, world.playerCount do world.players[i]:drawShadow() end
+  Post.endShadow()
 end
 
 -- ---------------------------------------------------------------------------
@@ -569,6 +631,7 @@ function world:onEnemyKilled(enemy, killerIndex)
   if enemy.type == "tank" then
     self:explosion(enemy.x, enemy.y, enemy.color, J.explosions.tank)
     self:debris("tank", enemy.x, enemy.y, enemy.angle, size, enemy.color, false)
+    self:scorch(enemy.x, enemy.y, Config.FX.scorch.tank)
   else
     -- Small ships: the same preset, scaled by the sprite size (grunt = 1).
     self:explosion(enemy.x, enemy.y, enemy.color, J.explosions.small, size / Config.ART.size.grunt)
@@ -615,6 +678,7 @@ function world:onPlayerHit(player)
   self:debris("playerShip", player.x, player.y, player.angle, Config.ART.size.playerShip,
     player.color, true)
   self:stagedPops(player.x, player.y, player.color, J.stages.player)
+  self:scorch(player.x, player.y, Config.FX.scorch.player)
   Post.shockwave(player.x, player.y, Config.FX.shock.player)
   Post.aberrate(Config.FX.aberration.player)
   Post.hurt(1)
@@ -785,6 +849,7 @@ function Game:enter(devices, count)
   world.boss:clear()
   Post.clear()
   clearLater()
+  clearScorches()
   particles.capacity = Post.particleCap()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
@@ -947,6 +1012,7 @@ function Game:update(dt)
     if particles.items[i]:update(dt) then i = i + 1 else particles:release(i) end
   end
   updateRings(dt)
+  updateScorches(dt)
   Profiler.stop("particles")
   Post.update(dt)   -- game time: waves freeze in hit-stop, slow in the game over
   updateLater(dt)   -- staged explosions, same clock
@@ -1026,6 +1092,9 @@ function Game:draw(covered)
   -- aberration, vignette); banners, texts and the HUD stay out of it.
   Post.beginScene()
   Background.draw()
+  -- The sky steps back during a match (the lobby keeps it vivid).
+  love.graphics.setColor(0, 0, 0, Config.FX.veil)
+  love.graphics.rectangle("fill", 0, 0, Config.VIRTUAL_W, Config.VIRTUAL_H)
   -- Faint grid over the sky: keeps a sense of scale, ripples on big moments.
   Background.drawGrid(arena)
 
@@ -1033,6 +1102,10 @@ function Game:draw(covered)
   love.graphics.rectangle("line", arena.x + 0.5, arena.y + 0.5, arena.w - 1, arena.h - 1)
 
   Spawner.draw()
+
+  -- The floor: burn marks and every caster's shadow (one blurred layer),
+  -- then the ships above.
+  drawShadowLayer()
 
   for i = 1, pickups.count do pickups.items[i]:draw() end
   Profiler.start("particles")

@@ -916,6 +916,21 @@ Config.FX = {
   -- Particle pool size per quality ("off" uses low). Sized for an old i5
   -- (3rd gen): the CPU, not the GPU, is the limit.
   particles = { high = 320, low = 160 },
+  -- Depth. Ships and pickups cast a soft drop shadow down-right (light from
+  -- the top left): offset = `offset` x the sprite size (at least `minOffset`
+  -- px) along (dirX, dirY); `alpha` = how dark a fully covered spot gets.
+  shadow = { alpha = 0.55, dirX = 0.6, dirY = 0.8, offset = 0.2, minOffset = 3 },
+  -- Black veil over the sky during a match (lobby and game over keep it
+  -- vivid), so the gameplay stands out.
+  veil = 0.25,
+  -- Scorch marks on the arena floor under big blasts: fixed slots, each
+  -- lives `life` s and fades out over its last `fade` s. Drawn in the
+  -- shadow layer (soft, at most as dark as a shadow): `alpha` is their
+  -- share of the shadow darkness. Sizes in px.
+  scorch = {
+    slots = 16, life = 4.0, fade = 1.5, alpha = 0.7,
+    tank = 34, player = 40, boss = 110, bossPop = 36,
+  },
   -- Alpha of each emitter in the glow layer (0 = does not glow).
   emit = {
     shot = 0.9,          -- player shots (owner color)

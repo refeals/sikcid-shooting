@@ -3,6 +3,7 @@
 local Config = require("src.config")
 local Assets = require("src.assets")
 local UI     = require("src.ui")
+local Post   = require("src.post")
 
 local PU = Config.POWERUP
 local EMIT = Config.FX.emit
@@ -72,6 +73,15 @@ end
 -- phase would leave it invisible for the whole breather.
 function Pickup:blinkedOff()
   return not self.frozen and self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0
+end
+
+-- Shadow layer (src/post.lua): a disc the size of the badge, offset
+-- down-right (drawIcon sets its own colors, so it can't be the silhouette).
+function Pickup:drawShadow()
+  if self:blinkedOff() then return end
+  local s = Config.ART.size.pickup
+  local dx, dy = Post.shadowOffset(s)
+  love.graphics.circle("fill", self.x + dx, self.y + math.sin(self.bob) * 2 + dy, s * 0.5)
 end
 
 -- Glow layer (src/post.lua): a pulsing halo so drops stand out from enemies

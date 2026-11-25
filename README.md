@@ -504,7 +504,8 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
 | HUD | [src/hud.lua](src/hud.lua) |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
-| Pós-processamento (brilho, shockwave, aberração, vinheta) | [src/post.lua](src/post.lua) + o `:drawGlow()` de cada entidade |
+| Pós-processamento (brilho, sombras, shockwave, aberração, vinheta) | [src/post.lua](src/post.lua) + o `:drawGlow()` / `:drawShadow()` de cada entidade |
+| Véu do céu e marcas de queimado na arena | [src/states/game.lua](src/states/game.lua) → `Game:draw`, `world:scorch` |
 
 Cores de jogo em `Config.COLORS`; sprites, tamanhos, fontes e ajustes visuais
 em `Config.ART`.
@@ -540,6 +541,24 @@ partícula, todos do mesmo pool:
   (`Config.FX.particles`). Fumaça, destroços, faíscas de impacto e rastros de
   míssil são os primeiros a sair quando o pool aperta (`Config.JUICE.poolShare`),
   então as explosões em si nunca ficam sem partícula.
+
+### Profundidade
+
+A arena funciona como um chão abaixo das naves:
+
+- **Sombras:** jogadores, inimigos, boss e pickups projetam uma sombra suave
+  para baixo-direita (luz fixa de cima-esquerda), mais longe quanto maior o
+  sprite. Cada um desenha a silhueta em `:drawShadow()`; todas vão para uma
+  camada pequena borrada (como o brilho), que escurece o que está embaixo.
+  Força, direção e distância em `Config.FX.shadow`. Tiros, partículas e
+  destroços não projetam sombra.
+- **Véu:** durante a partida o céu fica 25% mais escuro (`Config.FX.veil`),
+  para o gameplay se destacar. O lobby e a tela de game over mostram o céu
+  sem véu.
+- **Marcas de queimado:** tank, jogador e boss (e os estouros secundários do
+  boss) deixam uma marca escura e suave no chão, que some em ~4 s
+  (`Config.FX.scorch`). Elas são desenhadas na camada de sombra, então nunca
+  ficam mais escuras que uma sombra.
 
 ### Pós-processamento
 
@@ -804,8 +823,8 @@ Decisões que sustentam os 60 FPS em hardware modesto:
 - Colisão por **círculo com distância ao quadrado** — nenhum `sqrt` no caminho
   quente.
 - O screen shake é só um `love.graphics.translate` no canvas. Shaders: o
-  recolor das peças dos jogadores, o escudo do boss, o blur do brilho e a
-  composição da cena.
+  recolor das peças dos jogadores, o escudo do boss, o blur (brilho e
+  sombras) e a composição da cena.
   O blur roda em canvases pequenos de tamanho fixo (no máximo 320x180), então
   custa o mesmo em 720p e em 1080p. A composição é um único passe em tela
   cheia com 3 leituras de textura por pixel.

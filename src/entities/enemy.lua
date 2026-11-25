@@ -10,6 +10,7 @@ local Audio  = require("src.audio")
 local Assets = require("src.assets")
 local UI     = require("src.ui")
 local Combat = require("src.systems.combat")
+local Post   = require("src.post")
 
 local SIZE = Config.ART.size
 local TURN_RATE = Config.ART.enemyTurnRate
@@ -290,6 +291,13 @@ function Enemy:draw()
     UI.bar(self.color, self.x - w * 0.5, self.y + size * 0.5 + 1, w, self.hp / self.def.hp, 4)
   end
   love.graphics.setColor(1, 1, 1, 1)
+end
+
+-- Shadow layer (src/post.lua): the silhouette, offset down-right.
+function Enemy:drawShadow()
+  local size = SIZE[self.type] or SIZE.grunt
+  local dx, dy = Post.shadowOffset(size)
+  Assets.draw(self.type, self.x + dx, self.y + dy, self.angle, size)
 end
 
 -- Glow layer (src/post.lua): the white hit flash blooms a little.
