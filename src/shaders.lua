@@ -88,6 +88,22 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 }
 ]]
 
+-- Sheen (Config.FX.pickup): redraws an image as pure white only inside a
+-- diagonal band (along uv.x + uv.y, centered on `pos`, `width` wide with
+-- soft edges), masked by the image's own alpha. Drawn additively over the
+-- original, it reads as a glint sweeping across it.
+local SHEEN_SRC = [[
+uniform float pos;
+uniform float width;
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
+{
+    float d = abs((uv.x + uv.y) * 0.5 - pos);
+    float band = 1.0 - smoothstep(width * 0.3, width * 0.5, d);
+    return vec4(1.0, 1.0, 1.0, Texel(tex, uv).a * band * color.a);
+}
+]]
+
 -- Boss energy shield (Config.BOSS.shield), drawn on a 1x1 white image
 -- stretched over the shield's square, so `uv` spans it 0..1. A fresnel rim,
 -- a faint drifting hex grid, and up to 4 impact ripples (`hits`: local x, y
@@ -142,11 +158,21 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 local recolor
 local shield
 local dissolve
+local sheen
 local currentTarget = { -1, -1, -1 }
 local tintBuf = { 1, 1, 1 }
 local edgeBuf, downBuf, targetBuf = { 1, 1, 1 }, { 0, 1 }, { 1, 1, 1 }
 
 function Shaders.load()
+  local okH, h = pcall(love.graphics.newShader, SHEEN_SRC)
+  if okH then
+    h:send("width", Config.FX.pickup.sheenWidth)
+    sheen = h
+  else
+    -- Without it the pickups simply have no glint.
+    print("[shaders] sheen unavailable: " .. tostring(h))
+  end
+
   local okD, d = pcall(love.graphics.newShader, DISSOLVE_SRC)
   if okD then
     local D, p = Config.FX.dissolve, Config.ART.recolor
@@ -206,6 +232,17 @@ function Shaders.dissolve(progress, edge, sweep, downX, downY, target)
   end
   dissolve:send("recolor", target and 1 or 0)
   love.graphics.setShader(dissolve)
+  return true
+end
+
+-- Turns the sheen on (see SHEEN_SRC) with the band at `pos` (0..1 along
+-- the diagonal; a little beyond both ends is fully off the image). Returns
+-- false without the shader (then the caller skips the glint). The CALLER
+-- sets the additive blend; pair with Shaders.reset().
+function Shaders.sheen(pos)
+  if not sheen then return false end
+  sheen:send("pos", pos)
+  love.graphics.setShader(sheen)
   return true
 end
 

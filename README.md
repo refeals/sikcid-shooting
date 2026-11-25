@@ -371,6 +371,16 @@ Um power-up no chão dura 10 s (`Config.POWERUP.pickupLife`). Nos últimos
 3 s ele pisca em **branco**, cada vez mais rápido, e quando o tempo acaba ele
 se desfaz em ~0,3 s. Dá para pegar durante esse desfazer: é a última chance.
 
+Visual dos power-ups no chão (`Config.FX.pickup`):
+
+- **Ao cair:** surge com um "pop" (cresce além do tamanho e volta) e um anel
+  fino na sua cor.
+- **Parado:** uma faixa de luz atravessa o badge a cada ~2 s, cada pickup no
+  seu próprio ritmo.
+- **Ao pegar:** um anel na cor do power-up sai da nave e o nome dele (ex.:
+  "SPREAD") sobe e some sobre ela. O texto é desenhado por cima da arena,
+  nítido, sem as distorções do pós-processamento.
+
 ### Morte e respawn
 
 Morrer custa uma vida e todos os power-ups ativos. 1s depois, um **marcador**

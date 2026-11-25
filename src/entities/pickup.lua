@@ -9,6 +9,7 @@ local Shaders = require("src.shaders")
 local PU = Config.POWERUP
 local EMIT = Config.FX.emit
 local BLINK_ALPHA = 0.75   -- white flash over the badge on each blink
+local FXP = Config.FX.pickup
 
 local Pickup = {}
 Pickup.__index = Pickup
@@ -23,6 +24,8 @@ function Pickup.new()
     frozen = false,     -- wave breather: life is paused, so no blinking
     blinkPhase = 0,     -- white blink clock (cycles), speeds up near the end
     vanish = 0,         -- s left of the dissolve after the life ran out
+    age = 0,            -- s since dropped (drop pop), runs in the breather too
+    sheenT = 0,         -- sheen clock, random phase so pickups glint apart
   }, Pickup)
 end
 
@@ -34,6 +37,19 @@ function Pickup:reset(x, y, def)
   self.dead = false
   self.blinkPhase = 0
   self.vanish = 0
+  self.age = 0
+  self.sheenT = math.random() * FXP.sheenEvery
+end
+
+-- Drop pop: 0 -> popPeak (fast, eased out) -> 1 over popTime, then 1.
+function Pickup:scale()
+  local t = self.age / FXP.popTime
+  if t >= 1 then return 1 end
+  if t < 0.6 then
+    local k = t / 0.6
+    return FXP.popPeak * (1 - (1 - k) * (1 - k))
+  end
+  return FXP.popPeak + (1 - FXP.popPeak) * ((t - 0.6) / 0.4)
 end
 
 -- Devolve false quando some (o pool recolhe). `frozen` = respiro entre
@@ -57,6 +73,8 @@ function Pickup:update(dt, frozen)
     end
   end
   self.bob = self.bob + dt * 4
+  self.age = self.age + dt
+  self.sheenT = self.sheenT + dt
   return (self.life > 0 or self.vanish > 0) and not self.dead
 end
 
@@ -96,29 +114,52 @@ function Pickup:blinkOn()
     and self.blinkPhase % 1 < 0.5
 end
 
+-- Band position (0..1 along the badge diagonal) of the sheen sweeping now,
+-- or nil between sweeps.
+function Pickup:sheenPos()
+  local t = self.sheenT % FXP.sheenEvery
+  if t >= FXP.sheenTime then return nil end
+  return -0.2 + 1.4 * (t / FXP.sheenTime)
+end
+
 function Pickup:draw()
-  -- Gentle float; the halo is in :drawGlow.
+  -- Gentle float; the halo is in :drawGlow. Drawn around the origin so the
+  -- drop pop scales the whole icon (letter included).
+  local g = love.graphics
   local s = Config.ART.size.pickup
-  local y = self.y + math.sin(self.bob) * 2
+  g.push()
+  g.translate(self.x, self.y + math.sin(self.bob) * 2)
+  local sc = self:scale()
+  g.scale(sc, sc)
   local k = self:vanishing()
   if k then
     -- Life over: dissolves away with its color at the front (still pickable).
     if Shaders.dissolve(k, self.def.color) then
-      Pickup.drawIcon(self.def, self.x, y, s)
+      Pickup.drawIcon(self.def, 0, 0, s)
     else
-      Pickup.drawIcon(self.def, self.x, y, s, k)
+      Pickup.drawIcon(self.def, 0, 0, s, k)
     end
     Shaders.reset()
+    g.pop()
     return
   end
-  Pickup.drawIcon(self.def, self.x, y, s)
-  if self:blinkOn() then
-    love.graphics.setBlendMode("add")
-    love.graphics.setColor(1, 1, 1, BLINK_ALPHA)
-    love.graphics.circle("fill", self.x, y, s * 0.5)
-    love.graphics.setBlendMode("alpha")
-    love.graphics.setColor(1, 1, 1, 1)
+  Pickup.drawIcon(self.def, 0, 0, s)
+  -- Sheen: a white band sweeping across the badge (additive, badge-masked).
+  local pos = self:sheenPos()
+  if pos and Shaders.sheen(pos) then
+    g.setBlendMode("add")
+    UI.badge(self.def.color, 0, 0, s, FXP.sheenAlpha)
+    g.setBlendMode("alpha")
+    Shaders.reset()
   end
+  if self:blinkOn() then
+    g.setBlendMode("add")
+    g.setColor(1, 1, 1, BLINK_ALPHA)
+    g.circle("fill", 0, 0, s * 0.5)
+    g.setBlendMode("alpha")
+  end
+  g.setColor(1, 1, 1, 1)
+  g.pop()
 end
 
 -- Shadow layer (src/post.lua): a disc the size of the badge, offset
@@ -126,7 +167,7 @@ end
 -- None while it dissolves.
 function Pickup:drawShadow()
   if self:vanishing() then return end
-  local s = Config.ART.size.pickup
+  local s = Config.ART.size.pickup * self:scale()
   local dx, dy = Post.shadowOffset(s)
   love.graphics.circle("fill", self.x + dx, self.y + math.sin(self.bob) * 2 + dy, s * 0.5)
 end
@@ -140,7 +181,8 @@ function Pickup:drawGlow()
   local k = self:vanishing()
   if k then a = a * k end
   love.graphics.setColor(c[1], c[2], c[3], a)
-  love.graphics.circle("fill", self.x, self.y + math.sin(self.bob) * 2, Config.ART.size.pickup * 0.85)
+  love.graphics.circle("fill", self.x, self.y + math.sin(self.bob) * 2,
+    Config.ART.size.pickup * 0.85 * self:scale())
 end
 
 return Pickup

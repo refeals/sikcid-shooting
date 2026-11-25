@@ -948,6 +948,19 @@ Config.FX = {
   -- opens as the lamp blinks, and a flash when the batch comes out. Sizes
   -- in px (`length` along the wall, `depth` into the arena).
   portal = { length = 42, depth = 16, alpha = 0.4, flashTime = 0.15, flashGrow = 0.6 },
+  -- Pickups on the floor:
+  --   sheen*  -- a diagonal band of light crossing the badge every
+  --              `sheenEvery` s (each pickup on its own phase), in `sheenTime` s
+  --   pop*    -- dropped: scale 0 -> popPeak -> 1 over `popTime` s
+  --   *Ring   -- ring radius (px) on drop / on pickup
+  --   float*  -- the power-up name rising `floatRise` px over the ship for
+  --              `floatTime` s after picking it up
+  pickup = {
+    sheenEvery = 2.0, sheenTime = 0.35, sheenWidth = 0.22, sheenAlpha = 0.75,
+    popTime = 0.25, popPeak = 1.25,
+    dropRing = 18, collectRing = 26,
+    floatTime = 0.8, floatRise = 14,
+  },
   -- Respawn beam: a column of light over the ship while it materializes
   -- (PLAYER.spawnFxTime), `height` px tall.
   beam = { height = 70, width = 10, alpha = 0.7 },

@@ -294,6 +294,64 @@ local function updateScorches(dt)
   end
 end
 
+-- ---------------------------------------------------------------------------
+-- Floating texts (Config.FX.pickup.float*): the name of a power-up rising over
+-- the ship that picked it up. Fixed slots, the oldest is reused; drawn outside
+-- the scene composite so they stay sharp.
+-- ---------------------------------------------------------------------------
+local FXP = Config.FX.pickup
+local FLOAT_SLOTS = 4
+local floats = {}
+for i = 1, FLOAT_SLOTS do floats[i] = { x = 0, y = 0, text = "", color = nil, t = FXP.floatTime } end
+
+function world:floatText(x, y, text, color)
+  local slot, oldest = 1, -1
+  for i = 1, FLOAT_SLOTS do
+    if floats[i].t > oldest then slot, oldest = i, floats[i].t end
+  end
+  local f = floats[slot]
+  f.x, f.y, f.text, f.color, f.t = x, y, text, color, 0
+end
+
+local function updateFloats(dt)
+  for i = 1, FLOAT_SLOTS do
+    local f = floats[i]
+    if f.t < FXP.floatTime then f.t = f.t + dt end
+  end
+end
+
+local function clearFloats()
+  for i = 1, FLOAT_SLOTS do floats[i].t = FXP.floatTime end
+end
+
+-- Rises floatRise px, pops in, fades over its second half; a 1 px dark
+-- shadow keeps it readable over anything.
+local function drawFloats()
+  local font = Assets.font("body")
+  love.graphics.setFont(font)
+  for i = 1, FLOAT_SLOTS do
+    local f = floats[i]
+    if f.t < FXP.floatTime then
+      local k = f.t / FXP.floatTime
+      local a = k < 0.5 and 1 or 1 - (k - 0.5) * 2
+      local sc = 1 + 0.4 * math.max(0, 1 - k * 6)          -- pop in
+      local y = f.y - FXP.floatRise * (1 - (1 - k) * (1 - k))
+      local w = font:getWidth(f.text)
+      love.graphics.push()
+      love.graphics.translate(math.floor(f.x + 0.5), math.floor(y + 0.5))
+      love.graphics.scale(sc, sc)
+      local x0 = -math.floor(w * 0.5)
+      love.graphics.setColor(0, 0, 0, 0.8 * a)
+      love.graphics.print(f.text, x0 + 1, -3)
+      local c = f.color
+      love.graphics.setColor(c[1], c[2], c[3], a)
+      love.graphics.print(f.text, x0, -4)
+      love.graphics.pop()
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 local function clearScorches()
   for i = 1, SC.slots do scorches[i].t = SC.life end
 end
@@ -739,6 +797,7 @@ function world:dropPowerup(x, y, guaranteed, def)
   local p = self.pickups:acquire()
   if not p then return end
   p:reset(x, y, def)
+  self:ring(x, y, Config.FX.pickup.dropRing, def.color, 0.35)   -- drop pop
   return p
 end
 
@@ -850,6 +909,7 @@ function Game:enter(devices, count)
   Post.clear()
   clearLater()
   clearScorches()
+  clearFloats()
   particles.capacity = Post.particleCap()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
@@ -1013,6 +1073,7 @@ function Game:update(dt)
   end
   updateRings(dt)
   updateScorches(dt)
+  updateFloats(dt)
   Profiler.stop("particles")
   Post.update(dt)   -- game time: waves freeze in hit-stop, slow in the game over
   updateLater(dt)   -- staged explosions, same clock
@@ -1037,6 +1098,8 @@ function Game:update(dt)
         if p.alive and Util.dist2(pk.x, pk.y, p.x, p.y) <= r * r then
           Powerups.give(p, pk.def, world)
           Particle.burst(particles, 6, pk.x, pk.y, pk.def.color, 4)
+          world:ring(p.x, p.y, FXP.collectRing, pk.def.color, 0.35)
+          world:floatText(p.x, p.y - 14, pk.def.name, pk.def.color)
           if Config.SMOKE then require("src.smoke").bump("pickups") end
           taken = true
           break
@@ -1149,6 +1212,7 @@ function Game:draw(covered)
 
   drawGlowLayer()
   Post.endScene(arena)
+  drawFloats()   -- picked power-up names: sharp, over the arena
 
   local waveNum = numStr("wave", math.max(1, Spawner.wave), "%d")
   -- Breather countdown, keyed by tenths of a second so its string changes
