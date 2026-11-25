@@ -175,6 +175,13 @@ end
 local DASH_ENEMY, DASH_SHOT = 40, 30
 local dashHeld = { false, false }
 
+-- Upgrade screen: each bot presses "right" 0..2 times, then START (or, on
+-- the touch bot, taps a random card); one press or release per frame.
+local upPlan = {
+  { active = false, rights = 0, done = false, held = nil },
+  { active = false, rights = 0, done = false, held = nil },
+}
+
 local function threatened(world, p)
   if world:nearestEnemy(p.x, p.y, DASH_ENEMY) then return true end
   local bullets = world.bullets
@@ -198,6 +205,8 @@ function Smoke.reset()
   Smoke.goTimer, Smoke.goPressed, Smoke.goReleased, Smoke.goReleaseAt = 0, false, false, 0
   Smoke.nextShot = 1
   dashHeld[1], dashHeld[2] = false, false
+  upPlan[1].active, upPlan[2].active = false, false
+  Smoke.upT = 0
   pad = nil
   if Config.SMOKE_PAD then
     pad = makeFakePad()
@@ -224,11 +233,11 @@ local function finish(code)
   s.devices = Input.count
   print(string.format(
     "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d bosses=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
-    "dashes=%d charges=%d splits=%d snipes=%d launches=%d combo=%d pausas=%d esperas=%d peakEnemies=%d " ..
+    "dashes=%d charges=%d splits=%d snipes=%d launches=%d upgrades=%d combo=%d pausas=%d esperas=%d peakEnemies=%d " ..
     "peakBullets=%d peakParticles=%d denied=%d deniedFx=%d cores=%s",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
     s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0, s.dashes or 0,
-    s.charges or 0, s.splits or 0, s.snipes or 0, s.launches or 0,
+    s.charges or 0, s.splits or 0, s.snipes or 0, s.launches or 0, s.upgrades or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
   -- Both players ending on the same color means the picker's skip rule broke.
@@ -300,6 +309,46 @@ function Smoke.update(dt)
           Smoke.dashShots = { Smoke.t + 0.08, Smoke.t + 0.6 }
         end
       end
+    end
+  end
+
+  -- Upgrade screen: after 0.5s each bot moves its cursor and confirms.
+  local Upgrade = require("src.states.upgrade")
+  if State.current() == Upgrade then
+    Smoke.upT = (Smoke.upT or 0) + dt
+    if Config.SMOKE_SHOTS and not Smoke.upgradeShot and Smoke.upT > 0.45 then
+      love.graphics.captureScreenshot("smoke_upgrade.png")
+      Smoke.upgradeShot = true
+    end
+    local count = Game.world.playerCount
+    for which = 1, count do
+      local plan = upPlan[which]
+      if not plan.active then
+        plan.active, plan.rights, plan.done, plan.held = true, math.random(0, 2), false, nil
+      end
+      if Smoke.upT > 0.5 then
+        if plan.held then
+          press(which, plan.held, false)
+          plan.held = nil
+        elseif which == 1 and Config.SMOKE_TOUCH and not plan.done then
+          plan.held = "card1" .. math.random(1, 3)
+          press(which, plan.held, true)
+          plan.done = true
+        elseif plan.rights > 0 then
+          plan.held, plan.rights = "right", plan.rights - 1
+          press(which, "right", true)
+        elseif not plan.done then
+          plan.held, plan.done = "start", true
+          press(which, "start", true)
+        end
+      end
+    end
+  else
+    Smoke.upT = 0
+    for which = 1, 2 do
+      local plan = upPlan[which]
+      if plan.held then press(which, plan.held, false); plan.held = nil end
+      plan.active = false
     end
   end
   -- --shots: the first debut banner, kamikaze aim line and divisor split.

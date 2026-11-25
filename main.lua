@@ -44,6 +44,9 @@ local function parseArgs(args)
     elseif a == "--wave" then
       Config.SMOKE_WAVE = tonumber(args[i + 1]) or 1   -- começa numa wave alta
       i = i + 1
+    elseif a == "--upgrades" then
+      Config.START_UPGRADES = tonumber(args[i + 1]) or 0   -- start with N random upgrades
+      i = i + 1
     elseif a == "--inputtest" then
       Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
     elseif a == "--mute" then

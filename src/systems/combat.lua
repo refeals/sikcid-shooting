@@ -140,11 +140,18 @@ local function bulletsVsEnemies(world)
     local b = bullets.items[i]
     if b.owner ~= "enemy" and not b.dead then
       queryCircle(b.x, b.y, b.radius + 16, function(e)
-        if e.dead then return end
+        if e.dead or e == b.lastHit then return end
         local rr = b.radius + e.radius
         if Util.dist2(b.x, b.y, e.x, e.y) > rr * rr then return end
 
-        b.dead = true
+        -- PERFURANTE: the shot goes on through `pierce` more enemies (never
+        -- the same one twice in a row).
+        if b.pierce > 0 then
+          b.pierce = b.pierce - 1
+          b.lastHit = e
+        else
+          b.dead = true
+        end
         local killed = e:damage(b.dmg)
         -- O som de morte fica em world:onEnemyKilled (cobre bala e explosão).
         -- A hit that doesn't kill: sparks bouncing back in the shot's color
@@ -166,7 +173,7 @@ local function bulletsVsEnemies(world)
         end
         -- Respawn salvo: the blast hurts everything around the hit.
         if b.kind == "salvo" then world:salvoBlast(b) end
-        return false   -- a bala para no primeiro inimigo
+        return false   -- one enemy per shot per frame
       end)
     end
   end

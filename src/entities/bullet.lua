@@ -55,6 +55,8 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.age = 0
   self.target = nil
   self.powered = false
+  self.pierce = 0       -- PERFURANTE: enemies it may still pass through
+  self.lastHit = nil    -- the enemy it just went through (not hit twice)
 end
 
 -- Boss missile going off: when it burns out or is shot down. Visual only.

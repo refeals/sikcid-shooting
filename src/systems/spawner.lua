@@ -99,6 +99,7 @@ function Spawner.reset(world, startWave)
   Spawner.bossWave = false
   Spawner.introType, Spawner.introName, Spawner.introLeft = nil, nil, 0
   Spawner.introLabel = nil
+  Spawner.upgradeDue = false
   for i = 1, 4 do doors[i].warn, doors[i].portalFlash = 0, 0 end
 end
 
@@ -178,6 +179,9 @@ local function onWaveCleared(world)
   local x, y = world:dropSpot()
   world:dropPowerup(x, y, true)
   Audio.play("wave_clear")
+  -- Every UPGRADES.every waves: the upgrade screen opens in the breather
+  -- (Game:update pushes it and clears the flag).
+  if Spawner.wave % Config.UPGRADES.every == 0 then Spawner.upgradeDue = true end
 end
 
 local function spawnBatch(world)

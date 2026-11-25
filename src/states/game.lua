@@ -16,6 +16,7 @@ local Combat   = require("src.systems.combat")
 local Spawner  = require("src.systems.spawner")
 local Combo    = require("src.systems.combo")
 local Powerups = require("src.systems.powerups")
+local Upgrades = require("src.systems.upgrades")
 local Pickup   = require("src.entities.pickup")
 local Player   = require("src.entities.player")
 local Bullet   = require("src.entities.bullet")
@@ -992,7 +993,7 @@ local function drawDashButton(p)
   local g = love.graphics
   local c = p.color
   local ready = p.dashCd <= 0
-  local k = ready and 1 or 1 - p.dashCd / Config.DASH.cooldown
+  local k = ready and 1 or 1 - p.dashCd / p.dashCdMax
   g.setColor(c[1], c[2], c[3], ready and 0.28 or 0.12)
   g.circle("fill", x, y, r)
   if not ready then
@@ -1044,6 +1045,11 @@ function Game:enter(devices, count)
     p:place(arena.cx + dx, arena.cy)   -- beams in when the briefing closes
     Combo.reset(p)
     world.players[i] = p
+    -- --upgrades N: start with N random picks (normal and boss offers
+    -- alternating), to try builds without playing up to them.
+    for k = 1, Config.START_UPGRADES or 0 do
+      Upgrades.randomTake(p, k % 2 == 0)
+    end
   end
 
   -- A arena já está montada; o briefing fica por cima (tudo congelado) até
@@ -1162,6 +1168,15 @@ function Game:update(dt)
   Spawner.update(dt, world)
   updateBackground(dt)
 
+  -- Upgrade pick (every UPGRADES.every waves): opens openDelay s into the
+  -- breather, over the frozen arena (the breather countdown waits for it).
+  if Spawner.upgradeDue and Spawner.isResting() and not ending
+    and Config.WAVE.restTime - Spawner.timer >= Config.UPGRADES.openDelay then
+    Spawner.upgradeDue = false
+    State.push(require("src.states.upgrade"), world, Spawner.isBossWave(Spawner.wave))
+    return
+  end
+
   -- Grid montado antes das entidades: os mísseis consultam o inimigo mais
   -- próximo por ele (Combat.update remonta depois do movimento).
   Profiler.start("collision")
@@ -1213,6 +1228,21 @@ function Game:update(dt)
     local taken = false
     if pk:update(dt, frozen) then
       local r = Config.POWERUP.pickupRadius + Config.PLAYER.radius
+      -- ÍMÃ: a pickup within a player's magnet radius drifts to the ship.
+      for pi = 1, world.playerCount do
+        local p = world.players[pi]
+        local mr = p.mods.magnet
+        if p.alive and mr > 0 then
+          local dx, dy = p.x - pk.x, p.y - pk.y
+          local d2 = dx * dx + dy * dy
+          if d2 <= mr * mr and d2 > 0.01 then
+            local d = math.sqrt(d2)
+            local step = math.min(d, Config.UPGRADES.magnet.pull * dt)
+            pk.x, pk.y = pk.x + dx / d * step, pk.y + dy / d * step
+            break
+          end
+        end
+      end
       for pi = 1, world.playerCount do
         local p = world.players[pi]
         if p.alive and Util.dist2(pk.x, pk.y, p.x, p.y) <= r * r then
@@ -1453,6 +1483,9 @@ function Game:keypressed(key)
   elseif key == "f4" then
     -- Dropa um power-up aleatório no centro.
     world:dropPowerup(arena.cx, arena.cy, true)
+  elseif key == "f7" then
+    -- Upgrade screen right now (a normal offer; shift = a boss offer).
+    State.push(require("src.states.upgrade"), world, love.keyboard.isDown("lshift", "rshift"))
   elseif key == "f6" then
     -- Test shockwave + aberration at the center (tuning Config.FX).
     Post.shockwave(arena.cx, arena.cy, Config.FX.shock.debug)

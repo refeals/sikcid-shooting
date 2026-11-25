@@ -67,6 +67,7 @@ function UI.load()
   img.trackM = Assets.uiImage("Extra/bar_shadow_round_small_m")
   img.trackR = Assets.uiImage("Extra/bar_shadow_round_small_r")
   img.badge = Assets.uiImage("Grey/bar_round_large_square", true)
+  img.squareBadge = Assets.uiImage("Grey/bar_square_large_square", true)
   img.crosshair = Assets.uiImage("Extra/crosshair_b", true)
 
   for role in pairs(Config.ART.fonts) do
@@ -191,6 +192,14 @@ function UI.badge(color, x, y, size, alpha)
   local k = size / w
   tint(color, alpha)
   love.graphics.draw(img.badge, x, y, 0, k, k, w * 0.5, w * 0.5)
+end
+
+-- Square badge (permanent upgrade icons), same use as UI.badge.
+function UI.squareBadge(color, x, y, size, alpha)
+  local w = img.squareBadge:getWidth()
+  local k = size / w
+  tint(color, alpha)
+  love.graphics.draw(img.squareBadge, x, y, 0, k, k, w * 0.5, img.squareBadge:getHeight() * 0.5)
 end
 
 -- Aiming reticle centered at (x, y).

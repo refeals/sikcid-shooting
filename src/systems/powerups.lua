@@ -91,7 +91,7 @@ Powerups.DEFS = {
     permanent = true, duration = 1, weight = N.life.weight,
     color = { 1.00, 0.45, 0.55, 1 },
     grant = function(p)
-      if p.lives < Config.PLAYER.maxLives then p.lives = p.lives + 1 end
+      if p.lives < p.maxLives then p.lives = p.lives + 1 end
     end,
   },
 }
@@ -159,11 +159,13 @@ function Powerups.give(player, def, world)
   end
 
   local list = player.powerups
+  -- DURAÇÃO (permanent upgrade) stretches every temporary power-up.
+  local duration = def.duration * player.mods.durationMul
 
   -- Mesmo power-up de novo: só reseta o timer.
   for i = 1, #list do
     if list[i].def == def then
-      list[i].timeLeft = def.duration
+      list[i].timeLeft, list[i].duration = duration, duration
       return
     end
   end
@@ -178,7 +180,7 @@ function Powerups.give(player, def, world)
     end
   end
 
-  list[#list + 1] = { def = def, timeLeft = def.duration }
+  list[#list + 1] = { def = def, timeLeft = duration, duration = duration }
   Powerups.recompute(player)
 end
 

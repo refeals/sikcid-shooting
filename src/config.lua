@@ -13,7 +13,7 @@ Config.WEB = love.system.getOS() == "Web"   -- browser build (love.js, itch.io)
 
 Config.VIRTUAL_W = 640
 Config.VIRTUAL_H = 360
-Config.HUD_H = 40             -- faixa de HUD no topo; arena é o resto
+Config.HUD_H = 48             -- faixa de HUD no topo; arena é o resto
 
 -- Limites duros de entidades vivas (tamanho dos pools). Dimensionados para
 -- hardware antigo; o que passar do teto é descartado sem alocar.
@@ -746,6 +746,35 @@ Config.POWERUPS = {
   -- outline pulses in it at `auraRate` Hz.
   damage   = { duration = 10, weight = 12, mul = 2, color = { 1.00, 0.40, 0.30, 1 },
                shotScale = 1.4, glowMul = 1.5, auraRate = 6 },
+}
+
+-- ---------------------------------------------------------------------------
+-- Permanent upgrades (src/systems/upgrades.lua holds names, texts and the
+-- offer rules; src/states/upgrade.lua the picking screen). One pick after
+-- every `every`-th wave is cleared (after the boss on boss waves), kept for
+-- the whole match, applied under the temporary power-ups.
+--   openDelay   -- s into the breather before the screen opens
+--   acceptDelay -- s before START counts (ignores a START already held)
+--   pickPitch   -- the pick sound is pickup_life at this pitch
+-- Per upgrade: `mul` per level (multiplied), `max` levels. Uniques have 3
+-- levels (base, +, ++); their per-level numbers are lists.
+-- ---------------------------------------------------------------------------
+Config.UPGRADES = {
+  every = 5,
+  openDelay = 0.6,
+  acceptDelay = 0.4,
+  pickPitch = 0.85,
+  statColor = { 0.55, 0.80, 1.00, 1 },     -- light blue: stats
+  uniqueColor = { 1.00, 0.80, 0.30, 1 },   -- gold: uniques
+  cadence  = { mul = 1.2,  max = 3 },      -- fire rate
+  motor    = { mul = 1.12, max = 3 },      -- move speed
+  thruster = { mul = 0.8,  max = 2 },      -- dash cooldown
+  duration = { mul = 1.35, max = 2 },      -- temporary power-up time
+  hull     = { max = 2 },                  -- +1 life now and +1 max life
+  magnet   = { max = 1, radius = 50, pull = 180 },   -- px, px/s
+  pierce   = { 1, 2, math.huge },          -- extra enemies a shot passes through
+  rear     = { rates = { 0.5, 1, 1 }, fan = { 1, 1, 3 }, fanAngle = math.rad(30) },
+  loyal    = { rates = { 0.5, 1, 1 }, counts = { 1, 1, 2 } },   -- permanent drones
 }
 
 -- Respawn (with lives left; not the comeback at wave end after running out).

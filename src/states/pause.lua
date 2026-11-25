@@ -32,6 +32,19 @@ function Pause:enter(world, mode, playerIndex)
   if Config.SMOKE then
     require("src.smoke").bump(self.mode == "waiting" and "waits" or "pauses")
   end
+  -- Each player's permanent upgrades, spelled out (built once per pause).
+  local Upgrades = require("src.systems.upgrades")
+  self.upgradeText, self.anyUpgrades = {}, false
+  for i = 1, world.playerCount do
+    local p = world.players[i]
+    local parts = {}
+    for k = 1, #p.upgradeOrder do
+      local id = p.upgradeOrder[k]
+      parts[k] = Upgrades.label(Upgrades.byId(id), p.upgrades[id])
+    end
+    self.upgradeText[i] = #parts > 0 and table.concat(parts, ",  ") or "NENHUM AINDA"
+    if #parts > 0 then self.anyUpgrades = true end
+  end
 end
 
 function Pause:leave()
@@ -166,6 +179,19 @@ function Pause:draw()
   end
 
   UI.exitBar(W * 0.5, py + ph + 10)
+
+  -- Permanent upgrades so far, per player in their color (2P: two columns).
+  if self.anyUpgrades and self.mode ~= "waiting" then
+    local n = self.world.playerCount
+    local uw, uh = 440, 50
+    local ux, uy = math.floor((W - uw) * 0.5), py + ph + 40
+    local utop = UI.window(ux, uy, uw, uh, "UPGRADES")
+    local colW = (uw - 16) / n
+    for i = 1, n do
+      UI.text("body", self.upgradeText[i], ux + 8 + (i - 1) * colW, utop + 6,
+        Config.PLAYER_COLORS[i], colW - 8, n == 1 and "center" or "left")
+    end
+  end
   love.graphics.setColor(1, 1, 1, 1)
 end
 

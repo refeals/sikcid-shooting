@@ -8,6 +8,7 @@ local Assets  = require("src.assets")
 local Shaders = require("src.shaders")
 local UI      = require("src.ui")
 local Post    = require("src.post")
+local Upgrades = require("src.systems.upgrades")
 
 local P = Config.PLAYER
 local W = Config.WEAPON
@@ -31,9 +32,13 @@ end
 
 -- Every player shot goes through here: flags it `powered` under DANO X2, so
 -- it is drawn bigger and hotter and sparks on impact.
+-- PERFURANTE: every player shot carries the pierce count (see Combat).
 local function fire(self, world, x, y, dx, dy, speed, dmg, kind, life, radius)
   local b = world:spawnBullet(x, y, dx, dy, speed, dmg, self.index, kind, life, radius, self.color)
-  if b and self.mods.damageMul > 1 then b.powered = true end
+  if b then
+    if self.mods.damageMul > 1 then b.powered = true end
+    b.pierce = self.mods.pierce
+  end
   return b
 end
 
@@ -86,10 +91,21 @@ function Player.new(index, device)
     target = nil,             -- enemy locked by the auto-aim
     muzzle = 0,               -- clarão curto do cano ao atirar
     spawnFx = 0,              -- anel de respawn
-    droneAngle = 0,           -- DRONE power-up: orbit angle and fire timer
-    droneCooldown = 0,
-    droneAimX = 0, droneAimY = -1,   -- barrel direction (last target)
-    droneFlash = 0,                  -- muzzle flash on each drone shot
+    -- Drones (DRONE power-up + DRONE FIEL upgrade): up to MAX_DRONES spaced
+    -- evenly on one orbit. Per slot: fire timer, barrel direction (last
+    -- target), muzzle flash and fire rate multiplier. Fixed arrays.
+    droneAngle = 0,
+    droneN = 0,
+    droneCd = { 0, 0, 0 },
+    droneAimX = { 0, 0, 0 }, droneAimY = { -1, -1, -1 },
+    droneFlash = { 0, 0, 0 },
+    droneRate = { 1, 1, 1 },
+    -- Permanent upgrades (src/systems/upgrades.lua): id -> level, and the ids
+    -- in the order they were first taken (HUD).
+    upgrades = {},
+    upgradeOrder = {},
+    maxLives = P.maxLives,    -- CASCO raises it
+    rearCooldown = 0,         -- RETAGUARDA fire timer
     -- Respawn marker (while dead with lives left): where the ship comes back.
     markerX = 0, markerY = 0,
     markerDelay = 0,          -- hidden (and still) for this long after the death
@@ -107,6 +123,7 @@ function Player.new(index, device)
     dashT = 0,                -- s of burst left
     dashSafe = 0,             -- s of protection left (burst + grace)
     dashCd = 0,               -- s until the next dash
+    dashCdMax = D.cooldown,   -- the full cooldown of the last dash (PROPULSOR)
     dashBuffer = 0,           -- an early press, still waiting for the cooldown
     dashDX = 0, dashDY = 0,   -- burst direction
     dashLinger = 0,           -- s of protection left to spend inside an enemy
@@ -122,7 +139,8 @@ function Player.new(index, device)
   return self
 end
 
--- Valores base da arma/movimento. Os power-ups reaplicam por cima disto.
+-- Valores base da arma/movimento. The permanent upgrades write their layer
+-- here; the power-ups reapply on top of it.
 function Player:resetMods()
   local m = self.mods
   m.speedMul = 1
@@ -132,6 +150,15 @@ function Player:resetMods()
   m.weapon = "single"
   m.bubble = false
   m.drone = false
+  m.dashCdMul = 1       -- PROPULSOR
+  m.durationMul = 1     -- DURAÇÃO
+  m.magnet = 0          -- ÍMÃ: pull radius (px)
+  m.pierce = 0          -- PERFURANTE: extra enemies a shot passes through
+  m.rearRate = 0        -- RETAGUARDA: rear fire rate (x the main one), 0 = off
+  m.rearFan = 1         -- RETAGUARDA: rear shots per volley
+  m.loyalCount = 0      -- DRONE FIEL: permanent drones
+  m.loyalRate = 0       -- DRONE FIEL: their fire rate (x the power-up drone's)
+  Upgrades.apply(self, m)
 end
 
 -- Respawn marker on death: where the ship died, shown after markerDelay.
@@ -329,7 +356,8 @@ function Player:updateDash(dt, moveX, moveY)
     self.dashT = D.time
     self.dashSafe = D.time + D.grace
     self.dashLinger, self.dashLingering = D.lingerMax, false
-    self.dashCd = D.cooldown
+    self.dashCdMax = D.cooldown * self.mods.dashCdMul
+    self.dashCd = self.dashCdMax
     self.dashBuffer, self.readyFlash = 0, 0
     self.ghostN, self.ghostT = 0, 0
     Audio.play("dash")
@@ -403,36 +431,79 @@ function Player:update(dt, world)
     self.fireCooldown = 1 / (W.fireRate * self.mods.fireRateMul)
     self.muzzle = P.muzzleTime
   end
+  self:updateRear(dt, world, wantsFire)
 
   sampleRibbon(self, dt)
   sampleGhosts(self, dt)
-  self:updateDrone(dt, world)
+  self:updateDrones(dt, world)
 end
 
--- DRONE power-up: orbits the ship and fires on its own at the nearest
--- visible enemy (same rule as the auto-aim), from where it is.
-function Player:droneXY()
-  return self.x + math.cos(self.droneAngle) * DR.distance,
-         self.y + math.sin(self.droneAngle) * DR.distance
+-- RETAGUARDA: plain shots straight back from the aim (a fan of rearFan at
+-- the top level), at rearRate x the main fire rate, whatever the weapon.
+function Player:updateRear(dt, world, wantsFire)
+  local m = self.mods
+  if self.rearCooldown > 0 then self.rearCooldown = self.rearCooldown - dt end
+  if m.rearRate <= 0 or not wantsFire or self.rearCooldown > 0 then return end
+  local base = math.atan2(-self.aimY, -self.aimX)
+  local n = m.rearFan
+  local spread = n > 1 and Config.UPGRADES.rear.fanAngle or 0
+  local step = n > 1 and spread / (n - 1) or 0
+  local dmg = W.damage * m.damageMul
+  for i = 1, n do
+    local a = base - spread * 0.5 + step * (i - 1)
+    fire(self, world, self.x, self.y, math.cos(a), math.sin(a), W.bulletSpeed, dmg, "single")
+  end
+  self.rearCooldown = 1 / (W.fireRate * m.fireRateMul * m.rearRate)
 end
 
-function Player:updateDrone(dt, world)
-  if not self.mods.drone then return end
+-- Drones: the DRONE power-up (slot 1 while active, full rate) plus the
+-- DRONE FIEL upgrade's (loyalCount of them at loyalRate). They share one
+-- orbit, evenly spaced, and each fires on its own at the nearest visible
+-- enemy (the auto-aim rule) from where it is.
+local MAX_DRONES = 3
+
+local function countDrones(self)
+  local m = self.mods
+  local n = 0
+  if m.drone then n = 1; self.droneRate[1] = 1 end
+  for _ = 1, m.loyalCount do
+    if n >= MAX_DRONES then break end
+    n = n + 1
+    self.droneRate[n] = m.loyalRate
+  end
+  return n
+end
+
+function Player:droneXY(i)
+  local a = self.droneAngle + (i - 1) / self.droneN * math.pi * 2
+  return self.x + math.cos(a) * DR.distance, self.y + math.sin(a) * DR.distance
+end
+
+function Player:updateDrones(dt, world)
+  local n = countDrones(self)
+  self.droneN = n
+  if n == 0 then return end
   self.droneAngle = (self.droneAngle + DR.spin * dt) % (math.pi * 2)
-  if self.droneFlash > 0 then self.droneFlash = self.droneFlash - dt end
-  if self.droneCooldown > 0 then self.droneCooldown = self.droneCooldown - dt end
-  local dx, dy = self:droneXY()
-  local t = world:nearestVisibleEnemy(dx, dy)
-  if not t then return end
-  local nx, ny, len = Util.normalize(t.x - dx, t.y - dy)
-  if len <= 0 then return end
-  self.droneAimX, self.droneAimY = nx, ny   -- the barrel tracks every frame
-  if self.droneCooldown > 0 then return end
-  self.droneFlash = DR.flashTime
-  fire(self, world, dx + nx * DR.barrel, dy + ny * DR.barrel, nx, ny, W.bulletSpeed,
-    DR.damage * self.mods.damageMul, "drone")
-  self.droneCooldown = 1 / DR.fireRate
-  Audio.play("drone_shot")
+  local cd, flash = self.droneCd, self.droneFlash
+  for i = 1, n do
+    if flash[i] > 0 then flash[i] = flash[i] - dt end
+    if cd[i] > 0 then cd[i] = cd[i] - dt end
+    local dx, dy = self:droneXY(i)
+    local t = world:nearestVisibleEnemy(dx, dy)
+    if t then
+      local nx, ny, len = Util.normalize(t.x - dx, t.y - dy)
+      if len > 0 then
+        self.droneAimX[i], self.droneAimY[i] = nx, ny   -- the barrel tracks every frame
+        if cd[i] <= 0 then
+          flash[i] = DR.flashTime
+          fire(self, world, dx + nx * DR.barrel, dy + ny * DR.barrel, nx, ny, W.bulletSpeed,
+            DR.damage * self.mods.damageMul, "drone")
+          cd[i] = 1 / (DR.fireRate * self.droneRate[i])
+          Audio.play("drone_shot")
+        end
+      end
+    end
+  end
 end
 
 -- Respawn marker: stays where the ship died; after markerDelay the player
@@ -631,7 +702,7 @@ local function drawDashRing(self, alphaMul)
   local r = SIZE.playerShip * D.ring.radius
   g.setLineWidth(D.ring.width)
   if self.dashCd > 0 then
-    local k = 1 - self.dashCd / D.cooldown
+    local k = 1 - self.dashCd / self.dashCdMax
     g.setColor(c[1], c[2], c[3], D.ring.alpha * alphaMul)
     g.arc("line", "open", self.x, self.y, r, -math.pi / 2, -math.pi / 2 + k * math.pi * 2, 24)
   elseif self.readyFlash > 0 then
@@ -700,10 +771,12 @@ function Player:drawGlow()
     g.circle("line", self.x, self.y, SIZE.playerShip * 0.72 + math.sin(self.engineT * 5) * 1.2)
     g.setLineWidth(1)
   end
-  if self.mods.drone and self.droneFlash > 0 then
-    local dx, dy = self:droneXY()
-    g.setColor(1, 1, 1, 1)
-    g.circle("fill", dx + self.droneAimX * DR.barrel, dy + self.droneAimY * DR.barrel, 3)
+  for i = 1, self.droneN do
+    if self.droneFlash[i] > 0 then
+      local dx, dy = self:droneXY(i)
+      g.setColor(1, 1, 1, 1)
+      g.circle("fill", dx + self.droneAimX[i] * DR.barrel, dy + self.droneAimY[i] * DR.barrel, 3)
+    end
   end
 end
 
@@ -815,17 +888,17 @@ function Player:draw()
     g.setLineWidth(1)
   end
 
-  -- DRONE orbiting the ship, in the player's color.
+  -- Drones orbiting the ship, in the player's color.
   -- The sprite is a plain disc, so a short barrel shows where it aims.
-  if self.mods.drone then
-    local dx, dy = self:droneXY()
-    local tx, ty = dx + self.droneAimX * DR.barrel, dy + self.droneAimY * DR.barrel
+  for i = 1, self.droneN do
+    local dx, dy = self:droneXY(i)
+    local tx, ty = dx + self.droneAimX[i] * DR.barrel, dy + self.droneAimY[i] * DR.barrel
     g.setColor(c[1], c[2], c[3], 1)
     g.setLineWidth(2)
     g.line(dx, dy, tx, ty)
     g.setLineWidth(1)
     Assets.draw("drone", dx, dy, self.droneAngle * 2, SIZE.drone)
-    if self.droneFlash > 0 then
+    if self.droneFlash[i] > 0 then
       g.setColor(1, 1, 1, 1)
       g.circle("fill", tx, ty, 2)
     end

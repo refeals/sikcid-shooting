@@ -1,8 +1,9 @@
--- HUD strip at the top (40px).
+-- HUD strip at the top (Config.HUD_H).
 --
 -- One glass panel per player (P1 left, P2 right, same inner layout):
 --   row 1: colored "Pn" tab, score, lives as mini ships;
---   row 2: combo count + multiplier with its timer bar, active power-ups.
+--   row 2: combo count + multiplier with its timer bar, active power-ups;
+--   row 3: permanent upgrades (square icons, level pips under them).
 -- Center: wave number and enemies left (or the countdown between waves, or
 -- the boss's name and HP bar on boss waves).
 
@@ -12,15 +13,18 @@ local Assets = require("src.assets")
 local UI     = require("src.ui")
 local Player = require("src.entities.player")
 local Pickup = require("src.entities.pickup")
+local Upgrades = require("src.systems.upgrades")
 
 local Hud = {}
 
-local PANEL_W, PANEL_H = 200, 36
+local PANEL_W, PANEL_H = 200, 44
 local PAD = 4
 local LIFE_GAP = 10           -- center-to-center spacing of the life ships
 local COMBO_BAR_W = 92
 local ICON = 11               -- power-up badge size
 local ICON_GAP = 3
+local UP_ICON = 9               -- permanent upgrade icon size (row 3)
+local UP_GAP = 3
 local PLAYER_TAGS = { "P1", "P2" }   -- built once: no string concat per frame
 local BOSS_BAR_W = 150
 local HC = Config.FX.hud
@@ -74,12 +78,32 @@ local function drawPowerups(p, x, y)
     local cx = x + (i - 1) * (ICON + ICON_GAP) + ICON * 0.5
     Pickup.drawIcon(pu.def, cx, y + ICON * 0.5, ICON)
     -- Time left as a thin bar under the badge.
-    local frac = pu.timeLeft / pu.def.duration
+    local frac = pu.timeLeft / (pu.duration or pu.def.duration)
     love.graphics.setColor(Config.COLORS.hudLine)
     love.graphics.rectangle("fill", cx - ICON * 0.5, y + ICON + 1, ICON, 2)
     love.graphics.setColor(pu.def.color)
     love.graphics.rectangle("fill", cx - ICON * 0.5, y + ICON + 1, ICON * frac, 2)
   end
+end
+
+-- Row 3: permanent upgrades in the order they were taken, centered on `cy`;
+-- one 1px pip under the icon per level above the first.
+local function drawUpgrades(p, x, cy)
+  local order = p.upgradeOrder
+  if not order then return end
+  local g = love.graphics
+  for i = 1, #order do
+    local id = order[i]
+    local def = Upgrades.byId(id)
+    local lvl = p.upgrades[id] or 1
+    local ix = x + (i - 1) * (UP_ICON + UP_GAP) + UP_ICON * 0.5
+    Upgrades.drawIcon(def, 1, ix, cy, UP_ICON)
+    g.setColor(1, 1, 1, 0.9)
+    for k = 2, lvl do
+      g.rectangle("fill", math.floor(ix - (lvl - 1) * 1.5 + (k - 2) * 3), cy + UP_ICON * 0.5 + 1, 1, 1)
+    end
+  end
+  g.setColor(1, 1, 1, 1)
 end
 
 local function drawPlayerPanel(p, x, y)
@@ -160,6 +184,7 @@ local function drawPlayerPanel(p, x, y)
     end
   end
   drawPowerups(p, x + PAD + COMBO_BAR_W + 10, ry - 1)
+  drawUpgrades(p, x + PAD + 1, y + 37)
 end
 
 function Hud.draw(players, playerCount, info)

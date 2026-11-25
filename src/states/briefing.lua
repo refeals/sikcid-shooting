@@ -34,6 +34,7 @@ end
 
 local WEAPON_LETTERS = lettersWhere(function(d) return d.weapon end)
 local STACK_LETTERS  = lettersWhere(function(d) return not d.weapon and not d.permanent end)
+local UPGRADE_LINE = string.format("A CADA %d WAVES: UPGRADE PERMANENTE", Config.UPGRADES.every)
 
 -- Dash button per device kind (the smoke bots read as a pad).
 local DASH_KEYS = { gamepad = "RB / LB / B", scripted = "RB / LB / B",
@@ -107,7 +108,7 @@ function Briefing:draw()
   -- Window: tab + subtitle + the power-ups in columns + the stacking rule.
   local rows = math.ceil(#defs / COLS)
   local pw = COLS * COL_W + 20
-  local ph = Config.ART.ui.tabH + 64 + rows * ROW_H   -- +12: the dash line
+  local ph = Config.ART.ui.tabH + 76 + rows * ROW_H   -- +24: the dash and upgrade lines
   local px = math.floor((W - pw) * 0.5)
   local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5) - 12
   local top = UI.window(px, py, pw, ph, "POWER-UPS")
@@ -133,6 +134,8 @@ function Briefing:draw()
     WEAPON_LETTERS, STACK_LETTERS), px, y + 4, C.textDim, pw, "center")
   -- The dash, with the button of each player's device.
   UI.text("body", self.dashText, px, y + 16, C.text, pw, "center")
+  -- Permanent upgrades (src/states/upgrade.lua).
+  UI.text("body", UPGRADE_LINE, px, y + 28, Config.UPGRADES.uniqueColor, pw, "center")
 
   -- Pulsing call to start.
   local ready = self.timer >= ACCEPT_DELAY
