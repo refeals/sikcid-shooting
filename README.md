@@ -367,6 +367,10 @@ morto vai renascer), para ninguém pegar sem ver o que é.
 Armas (S, R, M) se substituem; os outros acumulam. Pegar um que já está ativo
 renova o tempo.
 
+Um power-up no chão dura 10 s (`Config.POWERUP.pickupLife`). Nos últimos
+3 s ele pisca em **branco**, cada vez mais rápido, e quando o tempo acaba ele
+se desfaz em ~0,3 s. Dá para pegar durante esse desfazer: é a última chance.
+
 ### Morte e respawn
 
 Morrer custa uma vida e todos os power-ups ativos. 1s depois, um **marcador**
@@ -575,6 +579,28 @@ A arena funciona como um chão abaixo das naves:
   sprite atrás de si.
 - Tudo em `Config.FX.trail`; força no brilho em `Config.FX.emit`
   (`muzzle`, `shotTrail`, `ribbon`).
+
+### Surgir e sumir
+
+Um shader de dissolve ([src/shaders.lua](src/shaders.lua), `Shaders.dissolve`)
+faz as coisas se formarem ou se desfazerem atrás de uma frente brilhante, com
+ruído gerado no próprio shader (sem textura).
+
+- **Portal:** durante os 0,4 s em que a porta pisca, uma elipse vermelha
+  abre na boca da porta. Quando o lote sai, ela fecha com um flash
+  (`Config.FX.portal`).
+- **Inimigos:** saem da porta se materializando em ~0,3 s, com a borda no
+  vermelho do aviso. É só visual: desde o primeiro frame eles já colidem,
+  ferem e podem ser mortos.
+- **Respawn:** um feixe de luz na cor do jogador desce sobre o marcador e a
+  nave se monta de cima para baixo (`Config.FX.beam`). O jogador já controla
+  a nave, e a invulnerabilidade é a de sempre. No início da partida as naves
+  ficam escondidas durante o briefing e descem no feixe quando alguém aperta
+  START.
+- **Pickups:** piscam em branco no fim da vida e se desfazem na cor do
+  power-up (ver "Power-ups").
+- Sem o shader, tudo isso vira um fade simples. Tempos em
+  `Config.FX.dissolve`.
 
 ### Pós-processamento
 

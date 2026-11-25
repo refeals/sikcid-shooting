@@ -4,9 +4,11 @@ local Config = require("src.config")
 local Assets = require("src.assets")
 local UI     = require("src.ui")
 local Post   = require("src.post")
+local Shaders = require("src.shaders")
 
 local PU = Config.POWERUP
 local EMIT = Config.FX.emit
+local BLINK_ALPHA = 0.75   -- white flash over the badge on each blink
 
 local Pickup = {}
 Pickup.__index = Pickup
@@ -19,6 +21,8 @@ function Pickup.new()
     bob = 0,
     dead = false,
     frozen = false,     -- wave breather: life is paused, so no blinking
+    blinkPhase = 0,     -- white blink clock (cycles), speeds up near the end
+    vanish = 0,         -- s left of the dissolve after the life ran out
   }, Pickup)
 end
 
@@ -28,15 +32,32 @@ function Pickup:reset(x, y, def)
   self.life = PU.pickupLife
   self.bob = math.random() * math.pi * 2
   self.dead = false
+  self.blinkPhase = 0
+  self.vanish = 0
 end
 
--- Devolve false quando expira (o pool recolhe). `frozen` = respiro entre
+-- Devolve false quando some (o pool recolhe). `frozen` = respiro entre
 -- waves: o pickup continua flutuando, mas o tempo de vida não corre.
+-- When the life runs out it dissolves for Config.FX.dissolve.pickupVanish s
+-- and can still be picked up meanwhile (a last chance).
 function Pickup:update(dt, frozen)
   self.frozen = frozen and true or false
-  if not frozen then self.life = self.life - dt end
+  if not frozen then
+    if self.life > 0 then
+      self.life = self.life - dt
+      if self.life <= 0 then
+        self.vanish = Config.FX.dissolve.pickupVanish
+      elseif self.life < PU.blinkAt then
+        -- Blink rate: blinkRateMin when it starts, blinkRateMax at the end.
+        local k = self.life / PU.blinkAt
+        self.blinkPhase = self.blinkPhase + dt * (PU.blinkRateMax + (PU.blinkRateMin - PU.blinkRateMax) * k)
+      end
+    else
+      self.vanish = self.vanish - dt
+    end
+  end
   self.bob = self.bob + dt * 4
-  return self.life > 0 and not self.dead
+  return (self.life > 0 or self.vanish > 0) and not self.dead
 end
 
 -- Power-up icon centered at (x, y), `s` px wide: a UIPack badge in the
@@ -62,34 +83,63 @@ function Pickup.drawIcon(def, x, y, s, alpha)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
-function Pickup:draw()
-  if self:blinkedOff() then return end
-  -- Gentle float; the halo is in :drawGlow.
-  Pickup.drawIcon(self.def, self.x, self.y + math.sin(self.bob) * 2, Config.ART.size.pickup)
+-- 0..1 left of the final dissolve (1 = whole), or nil while still alive.
+function Pickup:vanishing()
+  if self.life > 0 then return nil end
+  return math.max(0, self.vanish / Config.FX.dissolve.pickupVanish)
 end
 
--- Blinks in its last seconds as a warning it is about to vanish. Not while
--- frozen: the blink phase comes from `life`, and a life paused in an "off"
--- phase would leave it invisible for the whole breather.
-function Pickup:blinkedOff()
-  return not self.frozen and self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0
+-- In its last seconds it flashes white (never disappears, so it can't be
+-- lost in the chaos), faster as the end nears. Not while frozen.
+function Pickup:blinkOn()
+  return not self.frozen and self.life > 0 and self.life < PU.blinkAt
+    and self.blinkPhase % 1 < 0.5
+end
+
+function Pickup:draw()
+  -- Gentle float; the halo is in :drawGlow.
+  local s = Config.ART.size.pickup
+  local y = self.y + math.sin(self.bob) * 2
+  local k = self:vanishing()
+  if k then
+    -- Life over: dissolves away with its color at the front (still pickable).
+    if Shaders.dissolve(k, self.def.color) then
+      Pickup.drawIcon(self.def, self.x, y, s)
+    else
+      Pickup.drawIcon(self.def, self.x, y, s, k)
+    end
+    Shaders.reset()
+    return
+  end
+  Pickup.drawIcon(self.def, self.x, y, s)
+  if self:blinkOn() then
+    love.graphics.setBlendMode("add")
+    love.graphics.setColor(1, 1, 1, BLINK_ALPHA)
+    love.graphics.circle("fill", self.x, y, s * 0.5)
+    love.graphics.setBlendMode("alpha")
+    love.graphics.setColor(1, 1, 1, 1)
+  end
 end
 
 -- Shadow layer (src/post.lua): a disc the size of the badge, offset
 -- down-right (drawIcon sets its own colors, so it can't be the silhouette).
+-- None while it dissolves.
 function Pickup:drawShadow()
-  if self:blinkedOff() then return end
+  if self:vanishing() then return end
   local s = Config.ART.size.pickup
   local dx, dy = Post.shadowOffset(s)
   love.graphics.circle("fill", self.x + dx, self.y + math.sin(self.bob) * 2 + dy, s * 0.5)
 end
 
 -- Glow layer (src/post.lua): a pulsing halo so drops stand out from enemies
--- and debris.
+-- and debris; stronger on each white blink, fading with the dissolve.
 function Pickup:drawGlow()
-  if self:blinkedOff() then return end
   local c = self.def.color
-  love.graphics.setColor(c[1], c[2], c[3], EMIT.pickup * (0.75 + 0.25 * math.sin(self.bob * 1.5)))
+  local a = EMIT.pickup * (0.75 + 0.25 * math.sin(self.bob * 1.5))
+  if self:blinkOn() then a = math.min(1, a * 1.8) end
+  local k = self:vanishing()
+  if k then a = a * k end
+  love.graphics.setColor(c[1], c[2], c[3], a)
   love.graphics.circle("fill", self.x, self.y + math.sin(self.bob) * 2, Config.ART.size.pickup * 0.85)
 end
 

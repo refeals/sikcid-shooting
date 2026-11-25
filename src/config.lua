@@ -624,6 +624,10 @@ Config.POWERUP = {
   pickupRadius = 9,           -- drawn size lives in Config.ART.size.pickup
   pickupLife = 10,
   blinkAt = 3,                -- começa a piscar nos últimos N segundos
+  -- The blink (a white flash, the pickup never disappears) speeds up from
+  -- blinkRateMin to blinkRateMax Hz as its life runs out.
+  blinkRateMin = 3,
+  blinkRateMax = 10,
   -- Wave-end drop: of `dropSamples` random spots (at least dropMargin px
   -- from the walls), the one farthest from the players and respawn markers.
   dropSamples = 12,
@@ -936,6 +940,17 @@ Config.FX = {
     ribbonPoints = 14, ribbonEvery = 0.02, ribbonLife = 0.25, ribbonWidth = 6, ribbonAlpha = 0.55,
     echoes = 3, echoEvery = 0.035, echoAlpha = 0.35,
   },
+  -- Dissolve (src/shaders.lua): things appearing and vanishing. `edgeWidth`
+  -- = glowing band at the dissolve front (0..1 of the noise range);
+  -- `noiseScale` = noise cells across a sprite.
+  dissolve = { spawnTime = 0.3, edgeWidth = 0.12, noiseScale = 7, pickupVanish = 0.3 },
+  -- Door portal during the spawn telegraph: an ellipse along the wall that
+  -- opens as the lamp blinks, and a flash when the batch comes out. Sizes
+  -- in px (`length` along the wall, `depth` into the arena).
+  portal = { length = 42, depth = 16, alpha = 0.4, flashTime = 0.15, flashGrow = 0.6 },
+  -- Respawn beam: a column of light over the ship while it materializes
+  -- (PLAYER.spawnFxTime), `height` px tall.
+  beam = { height = 70, width = 10, alpha = 0.7 },
   -- Black veil over the sky during a match (lobby and game over keep it
   -- vivid), so the gameplay stands out.
   veil = 0.25,

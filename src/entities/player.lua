@@ -101,6 +101,7 @@ function Player.new(index, device)
     ribbonX = {}, ribbonY = {}, ribbonAt = {},
     ribbonN = 0, ribbonT = 0,
     ribbonClock = 0,          -- game time, runs while dead too (the ribbon fades)
+    hidden = false,           -- match start: not drawn until :arrive (briefing)
   }, Player)
   self:resetMods()
   self.ribbonMesh = love.graphics.newMesh((TR.ribbonPoints + 1) * 2, "strip", "stream")
@@ -131,7 +132,24 @@ function Player:placeMarker(world)
   self.markerDelay = 0
 end
 
-function Player:spawn(x, y)
+-- Match start: the ship is placed but hidden while the briefing is up
+-- (the game is frozen under it), then beams in with Player:arrive().
+function Player:place(x, y)
+  self:spawn(x, y, true)
+  self.hidden = true
+  self.spawnFx = 0
+end
+
+function Player:arrive()
+  if not self.hidden then return end
+  self.hidden = false
+  self.spawnFx = P.spawnFxTime
+  Audio.play("player_spawn")
+end
+
+-- `quiet`: no spawn sound (the match start plays it on arrival).
+function Player:spawn(x, y, quiet)
+  self.hidden = false
   self.x, self.y = x, y
   self.vx, self.vy = 0, 0
   self.alive = true
@@ -144,7 +162,7 @@ function Player:spawn(x, y)
   self.muzzle = 0
   self.ribbonN = 0          -- no ribbon from the death spot to here
   self.spawnFx = P.spawnFxTime
-  Audio.play("player_spawn")
+  if not quiet then Audio.play("player_spawn") end
   -- Morrer custa os power-ups temporários.
   require("src.systems.powerups").clear(self)
 end
@@ -460,15 +478,43 @@ local function drawMuzzle(self, alphaMul, scale)
   g.circle("fill", x, y, MZ.coreSize * scale)
 end
 
+-- Respawn materialize: 0 = just spawned, 1 = whole (spawnFx is done).
+local RESPAWN_DETAILS = 0.7            -- outline/flame/muzzle show from here
+local BEAM_EDGE = { 1, 0.95, 0.8 }     -- hot white front of the build
+
+local function spawnProgress(self)
+  if self.spawnFx <= 0 then return 1 end
+  return 1 - self.spawnFx / P.spawnFxTime
+end
+
+-- Teleport beam (Config.FX.beam): a column of light coming down onto the
+-- ship while it materializes, a wide faint layer under a thin bright core,
+-- fading as the ship completes. Additive, the CALLER sets the blend.
+local function drawBeam(self, alphaMul)
+  if self.spawnFx <= 0 then return end
+  local BM = Config.FX.beam
+  local a = math.min(1, (1 - spawnProgress(self)) * 2.5) * BM.alpha * alphaMul
+  local c = self.color
+  local g = love.graphics
+  local cy = self.y - BM.height * 0.5
+  g.setColor(c[1], c[2], c[3], a * 0.45)
+  g.draw(Assets.white, self.x, cy, 0, BM.width * 1.8, BM.height, 0.5, 0.5)
+  g.setColor(c[1] + (1 - c[1]) * 0.6, c[2] + (1 - c[2]) * 0.6, c[3] + (1 - c[3]) * 0.6, a)
+  g.draw(Assets.white, self.x, cy, 0, BM.width * 0.45, BM.height, 0.5, 0.5)
+end
+
 -- Ship hidden this frame by the invulnerability blink.
+-- Not while it materializes: the build must be seen whole.
 local function blinkedOff(self)
+  if self.spawnFx > 0 then return false end
   return self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0
 end
 
 -- Shadow layer (src/post.lua): the ship's silhouette, offset down-right.
 -- Same visibility as Player:draw (none while dead, blinks with the ship).
 function Player:drawShadow()
-  if not self.alive or blinkedOff(self) then return end
+  if self.hidden or not self.alive or blinkedOff(self) then return end
+  if spawnProgress(self) < RESPAWN_DETAILS then return end   -- still materializing
   local dx, dy = Post.shadowOffset(SIZE.playerShip)
   Assets.draw("playerShip", self.x + dx, self.y + dy, self.angle, SIZE.playerShip)
 end
@@ -477,6 +523,7 @@ end
 -- color, and the shield/bubble/respawn rings. Mirrors Player:draw's
 -- visibility rules (marker while dead, blink while invulnerable).
 function Player:drawGlow()
+  if self.hidden then return end   -- match start, under the briefing
   local g = love.graphics
   local c = self.color
   local EMIT = Config.FX.emit
@@ -497,6 +544,7 @@ function Player:drawGlow()
     g.setLineWidth(2)
     g.circle("line", self.x, self.y, SIZE.playerShip * 0.5 + 20 * t)
     g.setLineWidth(1)
+    drawBeam(self, EMIT.shield)
   end
   if self.invuln > 0 then
     g.setColor(c[1], c[2], c[3], EMIT.shield * (0.6 + 0.2 * math.sin(self.invuln * 14)))
@@ -504,10 +552,12 @@ function Player:drawGlow()
   end
   if blinkedOff(self) then return end
 
-  g.setColor(c[1], c[2], c[3], EMIT.ship)
+  g.setColor(c[1], c[2], c[3], EMIT.ship * spawnProgress(self))
   g.circle("fill", self.x, self.y, SIZE.playerShip * 0.55)
-  drawEngine(self, EMIT.engine, EMIT.engineCore)
-  drawMuzzle(self, EMIT.muzzle, 1.6)
+  if spawnProgress(self) >= RESPAWN_DETAILS then
+    drawEngine(self, EMIT.engine, EMIT.engineCore)
+    drawMuzzle(self, EMIT.muzzle, 1.6)
+  end
 
   if self.mods.bubble then
     local bc = BUBBLE_COLOR
@@ -524,6 +574,7 @@ function Player:drawGlow()
 end
 
 function Player:draw()
+  if self.hidden then return end   -- match start, under the briefing (see :place)
   local g = love.graphics
   -- Engine ribbon under everything of the ship (it also fades out after a
   -- death, so it is drawn before the dead early-out).
@@ -557,34 +608,61 @@ function Player:draw()
     g.circle("line", self.x, self.y, SIZE.playerShip * 0.62)
   end
 
+  -- Respawn beam over the ship while it materializes.
+  g.setBlendMode("add")
+  drawBeam(self, 1)
+  g.setBlendMode("alpha")
+
   -- Blink during invulnerability.
   if blinkedOff(self) then return end
+
+  -- Materializing (respawn): the outline, flame and muzzle wait until the
+  -- ship is mostly built, so they don't float around nothing.
+  local built = spawnProgress(self)
+  local whole = built >= RESPAWN_DETAILS
 
   -- Outline: a lightened, gently pulsing silhouette under the flame and the
   -- ship, so each player finds their own ship in the chaos. Arena only
   -- (drawShip, used by the lobby and HUD, stays clean). Blinks with the ship
   -- (drawn after the invulnerability early-out above).
   -- Under DANO X2 the outline takes the power-up color and pulses faster.
-  local O = Config.ART.outline
-  local l = O.lighten
-  local oc, rate = c, O.pulseRate
-  if self.mods.damageMul > 1 then
-    local X2 = Config.POWERUPS.damage
-    oc, rate = X2.color, X2.auraRate
+  if whole then
+    local O = Config.ART.outline
+    local l = O.lighten
+    local oc, rate = c, O.pulseRate
+    if self.mods.damageMul > 1 then
+      local X2 = Config.POWERUPS.damage
+      oc, rate = X2.color, X2.auraRate
+    end
+    g.setColor(oc[1] + (1 - oc[1]) * l, oc[2] + (1 - oc[2]) * l, oc[3] + (1 - oc[3]) * l,
+      O.alpha + O.pulseAmp * math.sin(self.engineT * rate * math.pi * 2))
+    Assets.draw("playerOutline", self.x, self.y, self.angle, SIZE.playerShip)
+
+    g.setBlendMode("add")
+    drawEngine(self, 1, 1)
+    g.setBlendMode("alpha")
   end
-  g.setColor(oc[1] + (1 - oc[1]) * l, oc[2] + (1 - oc[2]) * l, oc[3] + (1 - oc[3]) * l,
-    O.alpha + O.pulseAmp * math.sin(self.engineT * rate * math.pi * 2))
-  Assets.draw("playerOutline", self.x, self.y, self.angle, SIZE.playerShip)
 
-  g.setBlendMode("add")
-  drawEngine(self, 1, 1)
-  g.setBlendMode("alpha")
+  if built < 1 then
+    -- Built top to bottom (in screen space) with a hot white front, in the
+    -- player's color.
+    local dx, dy = Shaders.spriteDown("playerShip", self.angle)
+    if Shaders.dissolve(built, BEAM_EDGE, true, dx, dy, c) then
+      g.setColor(1, 1, 1, 1)
+    else
+      g.setColor(1, 1, 1, built)
+    end
+    Assets.draw("playerShip", self.x, self.y, self.angle, SIZE.playerShip)
+    Shaders.reset()
+  else
+    Player.drawShip(c, self.x, self.y, self.angle, SIZE.playerShip)
+  end
 
-  Player.drawShip(c, self.x, self.y, self.angle, SIZE.playerShip)
-
-  g.setBlendMode("add")
-  drawMuzzle(self, 1, 1)
-  g.setBlendMode("alpha")
+  if whole then
+    g.setBlendMode("add")
+    drawMuzzle(self, 1, 1)
+    g.setBlendMode("alpha")
+  end
 
   -- BOLHA: a wobbling bubble around the ship while it is active.
   if self.mods.bubble then

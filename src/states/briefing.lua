@@ -45,6 +45,8 @@ function Briefing:leave()
   -- A partida começa. (Se o briefing foi fechado voltando ao lobby, o lobby
   -- pede a música de menu logo em seguida.)
   Music.play("game")
+  -- The ships beam in (they were placed hidden under the briefing).
+  for i = 1, self.world.playerCount do self.world.players[i]:arrive() end
   if Config.SMOKE then
     require("src.smoke").note("state", "game/" .. self.world.playerCount .. "p")
   end

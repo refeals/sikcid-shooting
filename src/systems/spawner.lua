@@ -57,6 +57,7 @@ function Spawner.load(arena)
     local d = doors[i]
     local w = wall[d.side]
     d.warn = 0
+    d.portalFlash = 0
     d.wx, d.wy, d.inward = w[1], w[2], w[3]
   end
 end
@@ -96,7 +97,7 @@ function Spawner.reset(world, startWave)
   Spawner.door = nil
   Spawner.banner = 0
   Spawner.bossWave = false
-  for i = 1, 4 do doors[i].warn = 0 end
+  for i = 1, 4 do doors[i].warn, doors[i].portalFlash = 0, 0 end
 end
 
 function Spawner.isBossWave(n)
@@ -178,14 +179,17 @@ local function spawnBatch(world)
       Spawner.spawned = Spawner.spawned + 1
       -- "Pop" de partículas na porta: o inimigo não aparece do nada.
       world:burst(4, x, y, e.color, 3)
+      e.materialize = Config.FX.dissolve.spawnTime   -- builds itself (visual only)
     end
   end
+  d.portalFlash = Config.FX.portal.flashTime   -- the portal closes with a flash
   Spawner.door = nil
 end
 
 function Spawner.update(dt, world)
   for i = 1, 4 do
     if doors[i].warn > 0 then doors[i].warn = doors[i].warn - dt end
+    if doors[i].portalFlash > 0 then doors[i].portalFlash = doors[i].portalFlash - dt end
   end
   if Spawner.banner > 0 then Spawner.banner = Spawner.banner - dt end
 
@@ -272,7 +276,7 @@ end
 function Spawner.stop()
   Spawner.phase = "over"
   Spawner.door = nil
-  for i = 1, 4 do doors[i].warn = 0 end
+  for i = 1, 4 do doors[i].warn, doors[i].portalFlash = 0, 0 end
 end
 
 -- ---------------------------------------------------------------------------
@@ -287,6 +291,43 @@ end
 
 local function lampOn(d)
   return d.warn > 0 and math.floor(d.warn * 16) % 2 == 0
+end
+
+-- Portal (Config.FX.portal): an ellipse along the wall at the spawn point
+-- that opens during the telegraph (filled, outlined, with an inner ring
+-- pulsing), then a flash growing out when the batch comes through.
+-- Additive; the CALLER sets the blend. `alphaMul` scales it (glow layer).
+local function drawPortal(d, alphaMul)
+  local PO = Config.FX.portal
+  local c = Config.COLORS.doorWarn
+  local g = love.graphics
+  local open, a = 0, 0
+  if d.warn > 0 then
+    local k = 1 - d.warn / Config.WAVE.telegraphTime
+    open = 1 - (1 - k) * (1 - k)
+    a = 1
+  elseif d.portalFlash > 0 then
+    local f = d.portalFlash / PO.flashTime
+    open = 1 + PO.flashGrow * (1 - f)
+    a = f
+  end
+  if a <= 0 then return end
+  local rx, ry = PO.length * 0.5 * open, PO.depth * 0.5 * open
+  g.push()
+  g.translate(d.sx, d.sy)
+  g.rotate(d.inward + math.pi / 2)
+  g.setColor(c[1], c[2], c[3], PO.alpha * a * alphaMul)
+  g.ellipse("fill", 0, 0, rx, ry)
+  g.setColor(c[1], c[2], c[3], 0.9 * a * alphaMul)
+  g.setLineWidth(1.5)
+  g.ellipse("line", 0, 0, rx, ry)
+  if d.warn > 0 then
+    local p = 0.55 + 0.2 * math.sin(d.warn * 40)
+    g.setColor(1, 0.75, 0.7, 0.6 * alphaMul)
+    g.ellipse("line", 0, 0, rx * p, ry * p)
+  end
+  g.setLineWidth(1)
+  g.pop()
 end
 
 function Spawner.draw()
@@ -311,15 +352,20 @@ function Spawner.draw()
     end
     Assets.draw("doorLight", lx, ly, 0, D.light)
   end
+  -- Portals over the hatches (they open in front of them, into the arena).
+  g.setBlendMode("add")
+  for i = 1, 4 do drawPortal(doors[i], 1) end
+  g.setBlendMode("alpha")
   g.setColor(1, 1, 1, 1)
 end
 
--- Glow layer (src/post.lua): the blinking door lamps light up.
+-- Glow layer (src/post.lua): the blinking door lamps and the portals.
 function Spawner.drawGlow()
   local C = Config.COLORS
   local r = Config.ART.door.light * 1.6
   for i = 1, 4 do
     local d = doors[i]
+    drawPortal(d, Config.FX.emit.door)
     if lampOn(d) then
       local lx, ly = doorLamp(d)
       love.graphics.setColor(C.doorWarn[1], C.doorWarn[2], C.doorWarn[3], Config.FX.emit.door)

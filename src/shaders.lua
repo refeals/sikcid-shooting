@@ -29,6 +29,65 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 }
 ]]
 
+-- Dissolve (Config.FX.dissolve): a sprite appearing (or vanishing) through
+-- a threshold on a pattern, with a glowing `edge` color at the front.
+-- `progress` 0 = gone, 1 = whole. The pattern (0..1 per texel) is:
+--   mode 0 -- value noise over the sprite's UV (each sprite is its own
+--             image, so UV 0..1 is the sprite);
+--   mode 1 -- a sweep along `down`, the world's "down" written in the
+--             sprite's UV space, so a rotated ship still builds top to bottom.
+-- `recolor` > 0.5 also applies the player palette swap (same math as
+-- RECOLOR_SRC) so a player ship keeps its color while it builds.
+local DISSOLVE_SRC = [[
+uniform float progress;
+uniform vec3 edge;
+uniform float edgeWidth;
+uniform float noiseScale;
+uniform float mode;
+uniform vec2 down;
+uniform float recolor;
+uniform vec3 target;
+uniform float redMin;
+uniform float redMax;
+uniform float baseRed;
+
+float hash(vec2 p)
+{
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float vnoise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
+{
+    vec4 t = Texel(tex, uv);
+    if (recolor > 0.5) {
+        float redness = t.r - max(t.g, t.b);
+        float w = smoothstep(redMin, redMax, redness);
+        t.rgb = mix(t.rgb, clamp(target * (t.r / baseRed), 0.0, 1.0), w);
+    }
+    t *= color;
+    float n;
+    if (mode < 0.5) {
+        n = vnoise(uv * noiseScale) * 0.65 + vnoise(uv * noiseScale * 2.7) * 0.35;
+    } else {
+        n = clamp(dot(uv - 0.5, down) * 0.85 + 0.5, 0.0, 1.0);
+    }
+    // The threshold runs a bit past both ends so 0 and 1 are fully off/on.
+    float thr = progress * (1.0 + edgeWidth);
+    if (n > thr) return vec4(0.0);
+    float e = smoothstep(thr - edgeWidth, thr, n) * step(progress, 0.999);
+    return vec4(mix(t.rgb, edge, e), t.a);
+}
+]]
+
 -- Boss energy shield (Config.BOSS.shield), drawn on a 1x1 white image
 -- stretched over the shield's square, so `uv` spans it 0..1. A fresnel rim,
 -- a faint drifting hex grid, and up to 4 impact ripples (`hits`: local x, y
@@ -82,10 +141,26 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 
 local recolor
 local shield
+local dissolve
 local currentTarget = { -1, -1, -1 }
 local tintBuf = { 1, 1, 1 }
+local edgeBuf, downBuf, targetBuf = { 1, 1, 1 }, { 0, 1 }, { 1, 1, 1 }
 
 function Shaders.load()
+  local okD, d = pcall(love.graphics.newShader, DISSOLVE_SRC)
+  if okD then
+    local D, p = Config.FX.dissolve, Config.ART.recolor
+    d:send("edgeWidth", D.edgeWidth)
+    d:send("noiseScale", D.noiseScale)
+    d:send("redMin", p.redMin)
+    d:send("redMax", p.redMax)
+    d:send("baseRed", p.baseRed)
+    dissolve = d
+  else
+    -- Without it, appearing/vanishing things just fade.
+    print("[shaders] dissolve unavailable: " .. tostring(d))
+  end
+
   local okS, s = pcall(love.graphics.newShader, SHIELD_SRC)
   if okS then
     local S = Config.BOSS.shield
@@ -108,6 +183,38 @@ function Shaders.load()
   shader:send("redMax", p.redMax)
   shader:send("baseRed", p.baseRed)
   recolor = shader
+end
+
+-- Turns the dissolve on for the next draws (see DISSOLVE_SRC): `progress`
+-- 0..1, glowing `edge` color, `sweep` = build along (downX, downY) instead
+-- of noise, `target` = player color to palette-swap to (nil = none).
+-- Returns false when the shader is unavailable: the caller then fades its
+-- draw with alpha = progress instead. Pair with Shaders.reset().
+function Shaders.dissolve(progress, edge, sweep, downX, downY, target)
+  if not dissolve then return false end
+  dissolve:send("progress", progress)
+  edgeBuf[1], edgeBuf[2], edgeBuf[3] = edge[1], edge[2], edge[3]
+  dissolve:send("edge", edgeBuf)
+  dissolve:send("mode", sweep and 1 or 0)
+  if sweep then
+    downBuf[1], downBuf[2] = downX, downY
+    dissolve:send("down", downBuf)
+  end
+  if target then
+    targetBuf[1], targetBuf[2], targetBuf[3] = target[1], target[2], target[3]
+    dissolve:send("target", targetBuf)
+  end
+  dissolve:send("recolor", target and 1 or 0)
+  love.graphics.setShader(dissolve)
+  return true
+end
+
+-- The sprite-space direction of the world's "down" for a sprite drawn by
+-- Assets.draw at `angle` (the draw rotates by angle - sprite.rot).
+function Shaders.spriteDown(role, angle)
+  local s = Assets.sprite(role)
+  local r = angle - (s and s.rot or 0)
+  return math.sin(r), math.cos(r)
 end
 
 -- Boss shield of radius `r` at (x, y), in `color` ({r, g, b}), faded by

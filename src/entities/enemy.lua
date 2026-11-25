@@ -11,6 +11,7 @@ local Assets = require("src.assets")
 local UI     = require("src.ui")
 local Combat = require("src.systems.combat")
 local Post   = require("src.post")
+local Shaders = require("src.shaders")
 
 local SIZE = Config.ART.size
 local TURN_RATE = Config.ART.enemyTurnRate
@@ -44,6 +45,7 @@ function Enemy.new()
     -- Runner afterimages (Config.FX.trail): recent positions, newest first.
     echoX = {}, echoY = {}, echoA = {},
     echoN = 0, echoT = 0,
+    materialize = 0,    -- s left of the spawn dissolve (set by the spawner)
   }, Enemy)
 end
 
@@ -66,6 +68,7 @@ function Enemy:reset(kind, x, y)
   self.space = (SIZE[kind] or def.size) * 0.5
   self.wandering = false
   self.echoN, self.echoT = 0, 0
+  self.materialize = 0
 end
 
 -- Runners: samples the afterimage positions every echoEvery s (newest
@@ -256,6 +259,7 @@ end
 -- ---------------------------------------------------------------------------
 function Enemy:update(dt, world)
   if self.flash > 0 then self.flash = self.flash - dt end
+  if self.materialize > 0 then self.materialize = self.materialize - dt end
 
   if world:nearestPlayer(self.x, self.y) then
     self.wandering = false
@@ -313,12 +317,22 @@ end
 -- type color is just the draw tint; the hit flash draws them untinted.
 function Enemy:draw()
   local size = SIZE[self.type] or SIZE.grunt
-  if self.flash > 0 then
-    love.graphics.setColor(Config.COLORS.flash)
+  local c = self.flash > 0 and Config.COLORS.flash or self.color
+  if self.materialize > 0 then
+    -- Coming out of the door: noise dissolve with the door-warning red at
+    -- the front (visual only: it already collides and can be shot).
+    local k = 1 - self.materialize / Config.FX.dissolve.spawnTime
+    if Shaders.dissolve(k, Config.COLORS.doorWarn) then
+      love.graphics.setColor(c)
+    else
+      love.graphics.setColor(c[1], c[2], c[3], k)
+    end
+    Assets.draw(self.type, self.x, self.y, self.angle, size)
+    Shaders.reset()
   else
-    love.graphics.setColor(self.color)
+    love.graphics.setColor(c)
+    Assets.draw(self.type, self.x, self.y, self.angle, size)
   end
-  Assets.draw(self.type, self.x, self.y, self.angle, size)
 
   -- Tank HP bar, only once it has taken damage.
   if self.type == "tank" and self.hp < self.def.hp then
@@ -330,6 +344,7 @@ end
 
 -- Shadow layer (src/post.lua): the silhouette, offset down-right.
 function Enemy:drawShadow()
+  if self.materialize > 0 then return end   -- no full shadow under a half-formed ship
   local size = SIZE[self.type] or SIZE.grunt
   local dx, dy = Post.shadowOffset(size)
   Assets.draw(self.type, self.x + dx, self.y + dy, self.angle, size)

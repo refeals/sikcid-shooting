@@ -861,7 +861,7 @@ function Game:enter(devices, count)
   for i = 1, world.playerCount do
     local p = Player.new(i, devices[i])
     local dx = world.playerCount == 1 and 0 or (i == 1 and -30 or 30)
-    p:spawn(arena.cx + dx, arena.cy)
+    p:place(arena.cx + dx, arena.cy)   -- beams in when the briefing closes
     Combo.reset(p)
     world.players[i] = p
   end
