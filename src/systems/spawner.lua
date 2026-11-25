@@ -17,6 +17,7 @@ local Config = require("src.config")
 local Util   = require("src.util")
 local Audio  = require("src.audio")
 local Assets = require("src.assets")
+local RunLog = require("src.runlog")
 
 local Spawner = {}
 
@@ -68,8 +69,7 @@ local function buildMix(wave)
   for i = 1, #Config.ENEMY_MIX do
     local m = Config.ENEMY_MIX[i]
     if wave >= m.from then
-      local w = m.base + m.perWave * wave
-      if w < m.min then w = m.min end
+      local w = Config.mixWeight(m, wave)
       if w > 0 then
         mixCount = mixCount + 1
         mixBuf[mixCount].type = m.type
@@ -132,6 +132,8 @@ function Spawner.startWave(n)
   buildMix(n)
   setDebut(n)
   if Config.SMOKE then require("src.smoke").note("waves", n) end
+  RunLog.waveStart(n)
+  local players = Spawner.world.playerCount
 
   Spawner.bossWave = Spawner.isBossWave(n)
   if Spawner.bossWave then
@@ -140,15 +142,16 @@ function Spawner.startWave(n)
     -- No quota: adds keep coming until the boss dies (or none at all for the
     -- first bosses). The ALERTA banner replaces the "WAVE N" one.
     Spawner.quota = bossN >= A.fromBoss and math.huge or 0
-    Spawner.maxAlive = math.min(Config.MAX_ENEMIES, math.floor(Config.bossValue(A.maxAlive, bossN)))
+    local coop = players >= 2 and Config.WAVE.coopAlive or 1
+    Spawner.maxAlive = math.min(Config.MAX_ENEMIES, math.floor(Config.bossValue(A.maxAlive, bossN) * coop))
     Spawner.interval = Config.bossValue(A.interval, bossN)
     Spawner.banner = 0
     Spawner.world.boss:begin(Spawner.world, bossN, n)
     return
   end
 
-  Spawner.quota = Config.waveQuota(n)
-  Spawner.maxAlive = Config.waveMaxAlive(n)
+  Spawner.quota = Config.waveQuota(n, players)
+  Spawner.maxAlive = Config.waveMaxAlive(n, players)
   Spawner.interval = Config.waveSpawnInterval(n)
   Spawner.banner = Config.WAVE.bannerTime
   Audio.play("wave_start")
@@ -157,6 +160,8 @@ end
 -- Recompensas ao limpar a wave: bônus, vida de volta para quem estava fora e
 -- um power-up garantido num ponto vazio.
 local function onWaveCleared(world)
+  -- Run log row first: lives as the wave ended, before the refill below.
+  RunLog.waveEnd(world)
   -- Shots still flying must not kill anyone during the breather.
   world:clearEnemyShots()
   local bonus = Spawner.wave * Config.WAVE.clearBonus
@@ -212,6 +217,7 @@ local function spawnBatch(world)
       -- "Pop" de partículas na porta: o inimigo não aparece do nada.
       world:burst(4, x, y, e.color, 3)
       e.materialize = Config.FX.dissolve.spawnTime   -- builds itself (visual only)
+      if math.random() < Config.eliteChance(Spawner.wave) then e:makeElite() end
     end
   end
   d.portalFlash = Config.FX.portal.flashTime   -- the portal closes with a flash

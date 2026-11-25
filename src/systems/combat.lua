@@ -299,7 +299,7 @@ local function enemiesVsPlayers(world)
         if p.dashLingering then
           p.dashTouched = true
         else
-          world:onPlayerHit(p)
+          world:onPlayerHit(p, e.type)
         end
         return false
       end)
@@ -309,7 +309,7 @@ local function enemiesVsPlayers(world)
           if p.dashLingering then
             p.dashTouched = true
           else
-            world:onPlayerHit(p)
+            world:onPlayerHit(p, "boss")
           end
         end
       end
@@ -330,7 +330,7 @@ local function enemyBulletsVsPlayers(world)
           local rr = P.radius + b.radius
           if Util.dist2(b.x, b.y, p.x, p.y) <= rr * rr then
             b.dead = true
-            world:onPlayerHit(p)
+            world:onPlayerHit(p, b.src or b.kind)
             break
           end
         end

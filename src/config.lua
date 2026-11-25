@@ -18,7 +18,7 @@ Config.HUD_H = 48             -- faixa de HUD no topo; arena é o resto
 -- Limites duros de entidades vivas (tamanho dos pools). Dimensionados para
 -- hardware antigo; o que passar do teto é descartado sem alocar.
 Config.MAX_ENEMIES = 100
-Config.MAX_BULLETS = 200
+Config.MAX_BULLETS = 320
 -- (Particles: the pool size depends on the FX quality, Config.FX.particles.)
 Config.MAX_PICKUPS = 24
 
@@ -555,18 +555,53 @@ Config.WAVE = {
   batchMin = 1,
   batchMax = 3,               -- inimigos por spawn de porta
   debutCount = 3,             -- a new type's debut wave: its first batch brings this many
+  -- The curve (see the functions below; `love . --curve` prints it). It
+  -- grows by density and mix, not by length: the total per wave is linear.
+  quotaBase = 12, quotaPerWave = 4,           -- enemies per wave
+  aliveBase = 10, alivePerWave = 1.6,         -- alive at once
+  intervalBase = 0.95, intervalPerWave = 0.03, intervalMin = 0.25,   -- s between batches
+  coopQuota = 1.5,            -- 2 players: x the total ...
+  coopAlive = 1.35,           -- ... and x the alive cap (also the boss adds)
 }
 
-function Config.waveQuota(w)
-  return math.floor(6 + 3 * w + 0.35 * w * w)
+local function coop(players, mul)
+  return (players or 1) >= 2 and mul or 1
 end
 
-function Config.waveMaxAlive(w)
-  return math.min(Config.MAX_ENEMIES, 8 + 2 * w)
+function Config.waveQuota(w, players)
+  local W = Config.WAVE
+  return math.floor((W.quotaBase + W.quotaPerWave * w) * coop(players, W.coopQuota))
+end
+
+function Config.waveMaxAlive(w, players)
+  local W = Config.WAVE
+  return math.min(Config.MAX_ENEMIES,
+    math.floor((W.aliveBase + W.alivePerWave * w) * coop(players, W.coopAlive)))
 end
 
 function Config.waveSpawnInterval(w)
-  return math.max(0.22, 1.10 - 0.045 * w)
+  local W = Config.WAVE
+  return math.max(W.intervalMin, W.intervalBase - W.intervalPerWave * w)
+end
+
+-- Elites (from ELITE.from on): any enemy out of a door may come out elite,
+-- with more HP, a bit faster, worth more and outlined in gold. The chance
+-- grows perWave per wave up to `max`. The endless lever once every type is in.
+Config.ELITE = {
+  from = 20, perWave = 0.015, max = 0.30,
+  hpMul = 2, speedMul = 1.15, pointsMul = 2,
+  color = { 1.00, 0.82, 0.30, 1 },
+  outline = 5,       -- px the gold outline sprite is drawn bigger
+  ring = 0.7,        -- gold ring around it (radius x its drawn size), 1.5px
+  alpha = 0.55,      -- outline alpha (pulses around it)
+  pulse = 4,         -- Hz
+  glow = 0.25,       -- halo in the glow layer
+}
+
+function Config.eliteChance(w)
+  local E = Config.ELITE
+  if w < E.from then return 0 end
+  return math.min(E.max, (w - E.from + 1) * E.perWave)
 end
 
 -- Quantos inimigos saem por porta de cada vez. Cresce com a wave, senão o
@@ -602,7 +637,8 @@ Config.BOSS = {
   margin = 24,                -- px kept between the hull and the walls while roaming
   pauseMin = 0.6,             -- s it stops at each roaming point
   pauseMax = 1.6,
-  hp     = { base = 260, perBoss = 180 },
+  hp     = { base = 300, perBoss = 260 },
+  coopHp = 1.6,               -- 2 players: x the boss HP
   speed  = { base = 22, perBoss = 3, max = 40 },          -- px/s while roaming
   points = { base = 5000, perBoss = 2500 },                -- split by each player's damage
   drops  = { base = 2, perBoss = 0.5, max = 4 },           -- power-ups out of the wreck
@@ -679,18 +715,30 @@ function Config.bossValue(spec, n)
 end
 
 -- Pesos do mix de inimigos por wave; tipo só entra a partir de `from`.
+-- Each weight ramps up from `from` and levels off at `max` (the grunt goes
+-- down to its `min` instead: it is the filler that keeps the rhythm, never
+-- below ~15%).
 Config.ENEMY_MIX = {
-  { type = "grunt",   from = 1, base = 100, perWave = -4,  min = 25 },
-  { type = "runner",  from = 2, base = 15,  perWave = 5,   min = 0 },
-  { type = "shooter", from = 3, base = 10,  perWave = 4,   min = 0 },
-  { type = "tank",    from = 5, base = 8,   perWave = 3,   min = 0 },
+  { type = "grunt",    from = 1,  base = 100, perWave = -3,  min = 45 },
+  { type = "runner",   from = 1,  base = 5,   perWave = 6,   min = 0, max = 60 },
+  { type = "shooter",  from = 2,  base = 4,   perWave = 5,   min = 0, max = 45 },
+  { type = "tank",     from = 4,  base = -4,  perWave = 4,   min = 0, max = 35 },
   -- New types (`debut`: their first wave shows "NOVO: <name>" and opens with
-  -- WAVE.debutCount of them). Placeholder weights, tuned with the curve later.
-  { type = "kamikaze", from = 7, base = -12, perWave = 4,  min = 0, debut = true },
-  { type = "divisor",  from = 9, base = -18, perWave = 4,  min = 0, debut = true },
-  { type = "sniper",   from = 12, base = -26, perWave = 3, min = 0, debut = true },
-  { type = "carrier",  from = 15, base = -35, perWave = 3, min = 0, debut = true },
+  -- WAVE.debutCount of them).
+  { type = "kamikaze", from = 7,  base = -16, perWave = 4,   min = 0, max = 35, debut = true },
+  { type = "divisor",  from = 9,  base = -24, perWave = 4,   min = 0, max = 30, debut = true },
+  { type = "sniper",   from = 12, base = -30, perWave = 3.5, min = 0, max = 20, debut = true },
+  { type = "carrier",  from = 15, base = -40, perWave = 3.5, min = 0, max = 15, debut = true },
 }
+
+-- Weight of mix entry `m` at wave `w` (0 before it comes in).
+function Config.mixWeight(m, w)
+  if w < m.from then return 0 end
+  local v = m.base + m.perWave * w
+  if m.min and v < m.min then v = m.min end
+  if m.max and v > m.max then v = m.max end
+  return math.max(0, v)
+end
 
 -- ---------------------------------------------------------------------------
 -- Combo
@@ -707,7 +755,7 @@ Config.COMBO = {
 -- Power-ups
 -- ---------------------------------------------------------------------------
 Config.POWERUP = {
-  dropChance = 0.08,
+  dropChance = 0.10,
   pickupRadius = 9,           -- drawn size lives in Config.ART.size.pickup
   pickupLife = 10,
   blinkAt = 3,                -- começa a piscar nos últimos N segundos

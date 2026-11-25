@@ -60,6 +60,7 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.bounces = 0      -- RICOCHETE: wall bounces left
   self.bounceHoming = false   -- RICOCHETE++: homes in once it has bounced
   self.homing = false
+  self.src = nil        -- enemy shots: who fired it (run log death cause)
 end
 
 -- RICOCHETE: a player shot crossing a wall is reflected back in (the smear

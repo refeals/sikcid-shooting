@@ -12,6 +12,7 @@ local Pool     = require("src.pool")
 local Hud      = require("src.hud")
 local Audio    = require("src.audio")
 local Save     = require("src.save")
+local RunLog   = require("src.runlog")
 local Combat   = require("src.systems.combat")
 local Spawner  = require("src.systems.spawner")
 local Combo    = require("src.systems.combo")
@@ -765,7 +766,8 @@ function world:onEnemyKilled(enemy, killerIndex)
         -- Multiplier up: "xN!" rises over the ship.
         self:floatText(killer.x, killer.y - 14, MULT_TEXT[Combo.mult(killer)], Config.COLORS.textWarn)
       end
-      self:addScore(killerIndex, enemy.def.points * Combo.mult(killer))
+      local pts = enemy.def.points * (enemy.elite and Config.ELITE.pointsMul or 1)
+      self:addScore(killerIndex, pts * Combo.mult(killer))
     end
   end
 
@@ -787,7 +789,7 @@ function world:onEnemyKilled(enemy, killerIndex)
   if Config.SMOKE then require("src.smoke").bump("kills") end
 end
 
-function world:onPlayerHit(player)
+function world:onPlayerHit(player, cause)
   -- One hit per moment: the bubble's invulnerability also covers the other
   -- collision checks of the same frame.
   if not player.alive or player.invuln > 0 or player:dashGuarded() then return end
@@ -796,6 +798,7 @@ function world:onPlayerHit(player)
     return
   end
   player.alive = false
+  RunLog.death(player, cause)
   player.lives = player.lives - 1
   Combo.breakOn(player)
   -- Staged: the big blast, the ship in pieces, then a few secondary pops.
@@ -1070,6 +1073,7 @@ function Game:enter(devices, count)
 
   -- A arena já está montada; o briefing fica por cima (tudo congelado) até
   -- alguém apertar START.
+  RunLog.begin(world)
   State.push(require("src.states.briefing"), world)
 end
 
@@ -1114,6 +1118,7 @@ end
 
 local function beginGameOver()
   world.endT = 0
+  RunLog.finish(world, "fim")
   world.endJingle = false
   Spawner.stop()
   Music.stop()             -- fades out
@@ -1142,6 +1147,12 @@ function Game:focus(focused)
   State.push(require("src.states.pause"), world, "paused")
 end
 
+-- Leaving the arena: to the results (the run log already closed the match
+-- at the last death) or quitting from the pause menu (closes it as quit).
+function Game:leave()
+  RunLog.finish(world, "abandono")
+end
+
 function Game:update(dt)
   local ending = world.endT >= 0
   if ending then
@@ -1151,6 +1162,8 @@ function Game:update(dt)
       Audio.play("game_over")
     end
     dt = dt * gameOverTimeScale(world.endT)
+  else
+    RunLog.tick(dt)   -- match time (no pause, no overlay: they skip this update)
   end
 
   for i = 1, world.playerCount do

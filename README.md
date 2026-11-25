@@ -472,8 +472,10 @@ espalhado em outro arquivo.
 
 | O que | Onde |
 |-------|------|
-| Curva de waves (cota, inimigos vivos, cadência, tamanho do lote) | `Config.waveQuota` / `waveMaxAlive` / `waveSpawnInterval` / `waveBatch` |
-| Quando cada tipo de inimigo entra e com que frequência | `Config.ENEMY_MIX` (`from`, `base`, `perWave`, `min`) |
+| Curva de waves (cota, inimigos vivos, cadência, tamanho do lote, multiplicadores de 2 jogadores) | coeficientes em `Config.WAVE` (`quota*`, `alive*`, `interval*`, `coop*`), lidos por `Config.waveQuota` / `waveMaxAlive` / `waveSpawnInterval` / `waveBatch` |
+| Quando cada tipo de inimigo entra e com que frequência | `Config.ENEMY_MIX` (`from`, `base`, `perWave`, `min`, `max`) |
+| Inimigos de elite (a partir de que wave, chance, vida, velocidade, pontos, visual) | `Config.ELITE` |
+| Upgrades permanentes (a cada quantas waves, números de cada um) | `Config.UPGRADES` |
 | HP, velocidade, tamanho e pontos de cada inimigo | `Config.ENEMIES` |
 | Distância entre inimigos (folga entre sprites, força do desvio, raio do boss como obstáculo), knockback, tamanho da célula do grid | `Config.ENEMY_SPACING`, `ENEMY_KNOCKBACK`, `GRID_CELL` |
 | Inimigos sem jogador vivo (velocidade e curvas do vaguear) | `Config.ENEMY_WANDER` |
@@ -488,13 +490,37 @@ espalhado em outro arquivo.
 | Screen shake (com fadiga e multiplicador global `shakeScale`), hit-stop (com cooldown), explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
 | Controles touch: raio dos analógicos, deadzone, fantasmas, botões | `Config.TOUCH` |
 | Sequência de game over: câmera lenta, tempos, escurecimento | `Config.GAME_OVER` |
-| Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 24 pickups) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PICKUPS` |
+| Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 320 balas, 24 pickups) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PICKUPS` |
 | Teto de partículas por qualidade (hoje 320 em high, 160 em low/off) | `Config.FX.particles` |
 | Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
 
-As fórmulas de wave são funções, não tabela: a curva é infinita. Para deixar o
-jogo mais fácil, o mais direto é reduzir o coeficiente quadrático de
-`waveQuota` (`0.35 * w * w`) e subir `waveSpawnInterval`.
+As fórmulas de wave são funções, não tabela: a curva é infinita. Ela cresce
+pela densidade (inimigos vivos ao mesmo tempo) e pela composição (tipos novos,
+elites), não pelo tamanho: o total por wave é linear. Para ver a curva inteira
+sem jogar:
+
+```sh
+love . --curve    # tabela no console: total, vivos, intervalo, elites e % de cada tipo por wave
+```
+
+### Registro de partidas (runs.csv)
+
+Toda partida grava `runs.csv` na pasta de save do LÖVE, junto do
+`highscores.dat`: uma linha por wave (tempo, mortes e o que matou, vidas,
+upgrades, pontos) e um resumo por partida (wave final, duração, upgrades,
+última morte, se terminou em game over, abandono ou fechando o jogo). As
+colunas estão descritas no topo de [src/runlog.lua](src/runlog.lua). Abre em
+qualquer planilha.
+
+| Onde | Arquivo |
+|------|---------|
+| Windows | `%APPDATA%\LOVE\sikcid-shootin\runs.csv` |
+| Linux | `~/.local/share/love/sikcid-shootin/runs.csv` |
+| Batocera | `/userdata/system/.local/share/love/sikcid-shootin/runs.csv`; traga para o PC com `./build.sh --pull-runs` (vira `dist/runs-batocera.csv`) |
+| Navegador | gravado no IndexedDB, sem como baixar |
+
+O teste automatizado não grava nada aí (com `--smokelog` ele grava num
+arquivo à parte, `runs-smoke.csv`).
 
 Os bosses seguem a mesma ideia: cada valor que escala é `base + perBoss * (n - 1)`
 (n = 1 na wave 10, 2 na wave 20...), com `min`/`max` opcionais. Para testar um
@@ -975,8 +1001,15 @@ love . --smoke 20 --smokegod   # bots invencíveis (mede FPS sem game over)
 love . --smoke 20 --wave 30    # começa numa wave alta
 love . --smoke 13 --smoke2p --shots   # salva screenshots de cada tela
 love . --smoke 20 --smoketouch # jogador 1 joga só por toques sintéticos
+love . --smoke 60 --upgrades 12 --wave 15   # começa com 12 upgrades aleatórios
+love . --smoke 60 --smokelog   # grava o registro de partidas em runs-smoke.csv
 echo $?                        # 0 = rodou sem erro
 ```
+
+`--upgrades N` e `--wave N` também valem fora do smoke, para jogar uma build
+pronta. Com `--debug`, F7 abre a tela de upgrade na hora (Shift+F7 = a de
+recompensa de boss). Os bots escolhem cartas sozinhos e dão dash quando um
+inimigo ou tiro chega perto.
 
 Os bots só andam (em círculos de períodos diferentes): nunca miram. A mira e
 o tiro ficam com o auto-aim, como um jogador que só pilota.

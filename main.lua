@@ -64,6 +64,10 @@ local function parseArgs(args)
       if args[i + 1] then Config.FX.quality = args[i + 1]; i = i + 1 end
     elseif a == "--media" then
       Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
+    elseif a == "--smokelog" then
+      Config.SMOKE_LOG = true    -- smoke writes the run log too (runs-smoke.csv)
+    elseif a == "--curve" then
+      Config.CURVE = true        -- prints the wave curve table and quits (src/curve.lua)
     end
     i = i + 1
   end
@@ -84,6 +88,12 @@ function love.load(args)
       return
     end
     Media.run()
+    love.event.quit(0)
+    return
+  end
+  -- Wave curve table (tuning Config.WAVE / ENEMY_MIX / ELITE / BOSS).
+  if Config.CURVE then
+    require("src.curve").print()
     love.event.quit(0)
     return
   end
@@ -204,6 +214,12 @@ function love.mousereleased(_, _, button, istouch)
   if Config.TOUCH_MOUSE and button == 1 and not istouch then
     Input.touchReleased("mouse")
   end
+end
+
+-- Closing the game mid-match still closes its run log entry ("saiu").
+function love.quit()
+  require("src.runlog").quit()
+  return false
 end
 
 function love.focus(focused)

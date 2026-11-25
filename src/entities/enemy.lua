@@ -57,6 +57,8 @@ function Enemy.new()
     goalX = 0, goalY = 0, hasGoal = false, repickT = 0,
     launchT = 0,        -- carrier: s until the next drone launch
     parent = nil,       -- carrier drone: the carrier that launched it
+    elite = false,      -- Config.ELITE: more HP, faster, gold outline
+    speedMul = 1,
   }, Enemy)
 end
 
@@ -67,6 +69,7 @@ function Enemy:reset(kind, x, y)
   self.x, self.y = x, y
   self.vx, self.vy = 0, 0
   self.hp = def.hp
+  self.maxHp = def.hp
   self.flash = 0
   self.target = nil
   self.retarget = 0
@@ -87,6 +90,7 @@ function Enemy:reset(kind, x, y)
   self.hasGoal, self.repickT = false, 0
   self.launchT = def.launchInterval and Util.randRange(1.5, def.launchInterval) or 0
   self.parent = nil
+  self.elite, self.speedMul = false, 1
 end
 
 -- Runners: samples the afterimage positions every echoEvery s (newest
@@ -184,8 +188,9 @@ BEHAVIORS.shooter = function(self, dt, world)
   self.fireTimer = self.fireTimer - dt
   if self.fireTimer <= 0 then
     self.fireTimer = self.def.fireInterval
-    world:spawnBullet(self.x, self.y, nx, ny, self.def.bulletSpeed, 1,
+    local b = world:spawnBullet(self.x, self.y, nx, ny, self.def.bulletSpeed, 1,
       "enemy", "enemy", self.def.bulletLife)
+    if b then b.src = "shooter" end   -- run log: what killed the player
     Audio.play("shot_enemy")
   end
 end
@@ -503,6 +508,8 @@ function Enemy:update(dt, world)
     wander(self, dt, world)
   end
   avoid(self, world)
+  -- Elites move a bit faster, whatever their behavior does.
+  if self.speedMul ~= 1 then self.vx, self.vy = self.vx * self.speedMul, self.vy * self.speedMul end
 
   self:sampleEchoes(dt)   -- before moving: the echoes trail behind
   self.x = self.x + self.vx * dt
@@ -551,6 +558,16 @@ function Enemy:update(dt, world)
   return true
 end
 
+-- Elite (Config.ELITE, rolled by the spawner): more HP, a bit faster
+-- (applied in update), worth more points (Game) and outlined in gold.
+function Enemy:makeElite()
+  local E = Config.ELITE
+  self.elite = true
+  self.hp = self.hp * E.hpMul
+  self.maxHp = self.hp
+  self.speedMul = E.speedMul
+end
+
 -- Aplica dano; devolve true se morreu agora.
 function Enemy:damage(amount)
   self.hp = self.hp - amount
@@ -569,6 +586,19 @@ end
 function Enemy:draw()
   local size = SIZE[self.type] or SIZE.grunt
   local c = self.flash > 0 and Config.COLORS.flash or self.color
+  -- Elite: the same sprite a bit bigger in gold behind it, pulsing (a rim).
+  if self.elite and self.materialize <= 0 then
+    local E = Config.ELITE
+    local ec = E.color
+    local pulse = math.sin(love.timer.getTime() * E.pulse * math.pi * 2)
+    love.graphics.setColor(ec[1], ec[2], ec[3], E.alpha + 0.25 * pulse)
+    Assets.draw(self.type, self.x, self.y, self.angle, size + E.outline)
+    -- And a pulsing gold ring, readable even on yellow ships.
+    love.graphics.setColor(ec[1], ec[2], ec[3], 0.6 + 0.3 * pulse)
+    love.graphics.setLineWidth(1.5)
+    love.graphics.circle("line", self.x, self.y, size * E.ring + pulse)
+    love.graphics.setLineWidth(1)
+  end
   if self.materialize > 0 then
     -- Coming out of the door: noise dissolve with the door-warning red at
     -- the front (visual only: it already collides and can be shot).
@@ -586,9 +616,9 @@ function Enemy:draw()
   end
 
   -- HP bar (tank, carrier), only once it has taken damage.
-  if self.def.hpBar and self.hp < self.def.hp then
+  if self.def.hpBar and self.hp < self.maxHp then
     local w = size * 0.7
-    UI.bar(self.color, self.x - w * 0.5, self.y + size * 0.5 + 1, w, self.hp / self.def.hp, 4)
+    UI.bar(self.color, self.x - w * 0.5, self.y + size * 0.5 + 1, w, self.hp / self.maxHp, 4)
   end
   self:drawHatches(1)
   love.graphics.setColor(1, 1, 1, 1)
@@ -645,6 +675,11 @@ end
 -- Glow layer (src/post.lua): the white hit flash blooms a little.
 function Enemy:drawGlow()
   self:drawHatches(Config.FX.emit.door)
+  if self.elite then
+    local ec = Config.ELITE.color
+    love.graphics.setColor(ec[1], ec[2], ec[3], Config.ELITE.glow)
+    love.graphics.circle("fill", self.x, self.y, (SIZE[self.type] or SIZE.grunt) * 0.6)
+  end
   if self.flash <= 0 then return end
   love.graphics.setColor(1, 1, 1, Config.FX.emit.hitFlash)
   Assets.draw(self.type, self.x, self.y, self.angle, SIZE[self.type] or SIZE.grunt)

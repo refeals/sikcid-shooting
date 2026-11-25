@@ -184,7 +184,7 @@ function Boss:begin(world, n, wave)
   self.radius = self.size * B.radiusFrac
 
   local s = self.s
-  s.hp = floor(V(B.hp, n))
+  s.hp = floor(V(B.hp, n) * (world.playerCount >= 2 and B.coopHp or 1))
   s.speed = V(B.speed, n)
   s.points = floor(V(B.points, n))
   s.drops = floor(V(B.drops, n))
@@ -251,8 +251,9 @@ local function fireVolley(self, world, target)
   local start = base - spread * 0.5
   for i = 1, n do
     local a = start + step * (i - 1)
-    world:spawnBullet(mx, my, math.cos(a), math.sin(a), self.s.bulletSpeed, 1,
+    local b = world:spawnBullet(mx, my, math.cos(a), math.sin(a), self.s.bulletSpeed, 1,
       "enemy", "enemy", B.burst.bulletLife)
+    if b then b.src = "boss" end   -- run log: what killed the player
   end
   Audio.play("boss_shot")
 end

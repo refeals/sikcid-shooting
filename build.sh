@@ -41,11 +41,14 @@ Uso:  ./build.sh                  gera o dist/
       ./build.sh --web            gera a versao web (dist/web/ + zip p/ itch.io)
       ./build.sh --web --run      gera e serve em http://localhost:8000/
       ./build.sh --web --compat   versao web sem threads (sem SharedArrayBuffer)
+      ./build.sh --pull-runs [host]  traz o runs.csv (registro de partidas)
+                                     do Batocera para dist/runs-batocera.csv
 EOF
 }
 
 RUN=0
 DEPLOY=0
+PULL=0
 WEB=0
 COMPAT=0
 HOST="${BATOCERA_HOST:-root@batocera.local}"
@@ -59,11 +62,36 @@ while [ $# -gt 0 ]; do
       # Host opcional logo depois (qualquer coisa que não seja outra opção).
       if [ -n "${2:-}" ] && [ "${2#--}" = "$2" ]; then HOST="$2"; shift; fi
       ;;
+    --pull-runs)
+      PULL=1
+      if [ -n "${2:-}" ] && [ "${2#--}" = "$2" ]; then HOST="$2"; shift; fi
+      ;;
     -h|--help) usage; exit 0 ;;
     *) echo "opcao desconhecida: $1"; usage; exit 1 ;;
   esac
   shift
 done
+
+# Run log (src/runlog.lua): copies the Batocera's runs.csv here, nothing is
+# built. LÖVE keeps it in $HOME/.local/share/love/sikcid-shootin/; if it is
+# not there (another HOME/XDG setup), it is searched for under /userdata.
+if [ "$PULL" = 1 ]; then
+  mkdir -p dist
+  OUT="dist/runs-batocera.csv"
+  echo "Trazendo o registro de partidas de ${HOST}..."
+  if ! "${SSH:-ssh}" -o ConnectTimeout=8 "$HOST" \
+      'f="$HOME/.local/share/love/sikcid-shootin/runs.csv"
+       [ -f "$f" ] || f=$(find /userdata -name runs.csv -path "*sikcid-shootin*" 2>/dev/null | head -n 1)
+       [ -n "$f" ] && [ -f "$f" ] && cat "$f"' > "${OUT}.tmp"; then
+    rm -f "${OUT}.tmp"
+    echo "ERRO: nao achei o runs.csv em ${HOST} (ou nao consegui conectar)."
+    echo "      O jogo ja foi jogado la depois desta versao? Teste com: ssh ${HOST}"
+    exit 1
+  fi
+  mv -f "${OUT}.tmp" "$OUT"
+  echo "OK: ${OUT} ($(($(wc -l < "$OUT") - 1)) linhas)"
+  exit 0
+fi
 
 if [ "$WEB" = 1 ] && [ "$DEPLOY" = 1 ]; then
   echo "--web e --deploy nao combinam: o deploy e so para o Batocera."; exit 1
