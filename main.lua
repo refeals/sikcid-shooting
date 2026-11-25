@@ -12,6 +12,7 @@ local Profiler = require("src.profiler")
 local Assets  = require("src.assets")
 local Shaders = require("src.shaders")
 local Post    = require("src.post")
+local Transition = require("src.transition")
 local Background = require("src.background")
 local UI      = require("src.ui")
 local Touch   = require("src.touch")
@@ -98,6 +99,7 @@ function love.load(args)
   Assets.load()
   Shaders.load()
   Post.load()
+  Transition.load()
   Background.load()
   UI.load()
   love.graphics.setFont(Assets.font("body"))
@@ -128,6 +130,9 @@ function love.update(dt)
     return
   end
 
+  -- Before the states: a wipe started by a switch this frame shows its
+  -- first frame at t = 0.
+  Transition.update(dt)
   State.update(dt)
   Music.update(dt)   -- fades andam em qualquer tela, inclusive na pausa
 end
@@ -136,6 +141,7 @@ function love.draw()
   Screen.beginDraw()
   Touch.beginFrame()   -- the screens re-register their touch buttons as they draw
   State.draw()
+  Transition.draw()    -- the still of the previous screen, wiping away
   Screen.endDraw()
   -- Fecha a medição antes do present (a espera do vsync não entra na conta).
   Profiler.endFrame()

@@ -772,6 +772,9 @@ Config.SFX = {
                     vol = 0.12, voices = 3, pitch = 1.6, pitchVar = 0.10, minGap = 0.06 },
   shield_break  = { src = "kenney/forceField", variants = 5,
                     vol = 0.60, voices = 1, pitch = 0.6, pitchVar = 0.00, minGap = 0.50 },
+  -- Screen transition wipe: a soft, short whoosh.
+  transition    = { src = "kenney/forceField", variants = 5,
+                    vol = 0.20, voices = 1, pitch = 1.8, pitchVar = 0.05, minGap = 0.30 },
 }
 
 -- ---------------------------------------------------------------------------
@@ -976,6 +979,10 @@ Config.FX = {
     bannerPop = 0.22, bannerPopScale = 1.6, sweepStart = 0.12, sweepTime = 0.45, sweepWidth = 26,
     bonusCount = 0.6, lostShake = 3, lostDrop = 5,
   },
+  -- Screen transitions (src/transition.lua): a diagonal wipe over `time` s
+  -- with a band of `edge` color `edgeWidth` wide at the front and a `glow`
+  -- wide fade of it behind (fractions of the screen diagonal).
+  transition = { time = 0.35, edge = { 0.75, 0.85, 1.0 }, edgeWidth = 0.025, glow = 0.06 },
   -- Respawn beam: a column of light over the ship while it materializes
   -- (PLAYER.spawnFxTime), `height` px tall.
   beam = { height = 70, width = 10, alpha = 0.7 },

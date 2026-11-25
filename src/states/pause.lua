@@ -62,6 +62,7 @@ function Pause:update(dt)
     -- Com o controle fora, só resta desistir: BACK de qualquer device.
     local quitter = Input.find(function(d) return d:pressed("back") and not d:isDown("start") end)
     if quitter and self.timer > RESUME_DEBOUNCE then
+      require("src.transition").start()   -- wipe back to the lobby
       State.reset(require("src.states.lobby"))
     end
     return
@@ -92,6 +93,7 @@ function Pause:update(dt)
       elseif d:pressed("back") and not d:isDown("start") then
         if self.confirmQuit then
           Audio.play("menu_confirm")
+          require("src.transition").start()   -- wipe back to the lobby
           State.reset(require("src.states.lobby"))
         else
           self.confirmQuit = true

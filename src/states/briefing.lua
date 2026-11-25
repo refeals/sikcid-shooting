@@ -45,8 +45,6 @@ function Briefing:leave()
   -- A partida começa. (Se o briefing foi fechado voltando ao lobby, o lobby
   -- pede a música de menu logo em seguida.)
   Music.play("game")
-  -- The ships beam in (they were placed hidden under the briefing).
-  for i = 1, self.world.playerCount do self.world.players[i]:arrive() end
   if Config.SMOKE then
     require("src.smoke").note("state", "game/" .. self.world.playerCount .. "p")
   end
@@ -62,11 +60,15 @@ function Briefing:update(dt)
     if d and d.connected then
       if d:pressed("start") then
         Audio.play("menu_confirm")
+        -- The match starts: the ships beam in (they were placed hidden
+        -- under the briefing). Not on BACK, which leaves for the lobby.
+        for k = 1, world.playerCount do world.players[k]:arrive() end
         State.pop()
         return
       elseif d:pressed("back") and not d:isDown("start") then
         -- A partida ainda não começou: voltar é só desistir do menu.
         Audio.play("menu_cancel")
+        require("src.transition").start()   -- wipe back to the lobby
         State.reset(require("src.states.lobby"))
         return
       end

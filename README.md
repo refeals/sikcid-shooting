@@ -604,6 +604,28 @@ A arena funciona como um chão abaixo das naves:
   espaço de tela, `Shaders.sheenAt`). O BÔNUS conta de 0 até o valor.
 - Tempos e escalas em `Config.FX.hud`.
 
+### Transições de tela
+
+As trocas grandes de tela têm uma varredura diagonal de 0,35 s (de
+cima-esquerda para baixo-direita): uma "foto" da tela anterior se desfaz atrás
+de uma frente branco-azulada brilhante, revelando a nova, com um whoosh
+suave. Isso vale para:
+
+- lobby → partida;
+- partida → resultados;
+- resultados → lobby;
+- BACK no briefing → lobby;
+- abandonar pela pausa → lobby.
+
+Pausa, fechar o briefing e a tela de teste de input continuam com corte seco.
+
+A transição é **só visual**: a troca de estado acontece na hora (o input e o
+roteiro do smoke test não esperam nada). [src/transition.lua](src/transition.lua)
+copia o último frame (o canvas da tela ainda o guarda no instante da troca) e
+o desenha por cima da tela nova através de um shader. Sem o shader, a foto
+some num fade simples. Tempo e cores em `Config.FX.transition`; o som é
+`transition` em `Config.SFX`.
+
 ### Surgir e sumir
 
 Um shader de dissolve ([src/shaders.lua](src/shaders.lua), `Shaders.dissolve`)
@@ -859,6 +881,7 @@ src/shaders.lua       -- recolor (vermelho da Kenney -> cor do jogador), escudo 
 src/ui.lua            -- janela, aba, barra, badge, crosshair e texto (UIPack)
 src/background.lua    -- céu animado (seed + relógio), paleta por wave, grade com ondas
 src/post.lua          -- pós-processamento: brilho, shockwave, aberração, vinheta
+src/transition.lua    -- varredura diagonal entre telas (só visual)
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest

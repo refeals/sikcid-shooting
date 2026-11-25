@@ -52,6 +52,7 @@ function GameOver:update(dt)
   for i = 1, s.playerCount do
     local d = s.devices[i]
     if d and d.connected and d:pressed("start") and not d:isDown("back") then
+      require("src.transition").start()   -- wipe back to the lobby
       State.switch(require("src.states.lobby"))
       return
     end

@@ -790,6 +790,7 @@ function world:onGameOver()
   -- Shake is only updated by the arena: clear it or the next screen inherits
   -- the last frame's offset.
   Screen.setShake(0, 0)
+  require("src.transition").start()   -- wipe into the results
   State.switch(require("src.states.gameover"), summary)
 end
 

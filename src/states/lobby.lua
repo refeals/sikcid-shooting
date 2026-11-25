@@ -134,6 +134,7 @@ local function startGame()
     if c1 == c2 then Smoke.bump("colorClash") end
   end
   Audio.play("menu_confirm")
+  require("src.transition").start()   -- wipe into the match
   State.switch(require("src.states.game"), devices, n)
 end
 
