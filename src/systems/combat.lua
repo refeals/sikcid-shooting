@@ -173,9 +173,40 @@ end
 -- Boss: outside the grid (see src/entities/boss.lua), so it is tested
 -- directly: one circle against every player bullet.
 -- ---------------------------------------------------------------------------
+
+-- While sliding in, the boss's shield blocks player shots: they die on its
+-- surface (no damage) and a salvo goes off there.
+local function bulletsVsBossShield(world, boss)
+  local R = boss:shieldRadius()
+  local bullets = world.bullets
+  for i = 1, bullets.count do
+    local b = bullets.items[i]
+    if b.owner ~= "enemy" and not b.dead then
+      local rr = b.radius + R
+      local dx, dy = b.x - boss.x, b.y - boss.y
+      local d2 = dx * dx + dy * dy
+      if d2 <= rr * rr then
+        b.dead = true
+        local d = math.sqrt(d2)
+        if d > 0.0001 then
+          boss:shieldHit(boss.x + dx / d * R, boss.y + dy / d * R, world)
+        else
+          boss:shieldHit(b.x, b.y, world)
+        end
+        if b.kind == "salvo" then world:salvoBlast(b) end
+      end
+    end
+  end
+end
+
 local function bulletsVsBoss(world)
   local boss = world.boss
-  if not boss or not boss:isFighting() then return end
+  if not boss then return end
+  if boss:hasShield() then
+    bulletsVsBossShield(world, boss)
+    return
+  end
+  if not boss:isFighting() then return end
   local bullets = world.bullets
   for i = 1, bullets.count do
     local b = bullets.items[i]

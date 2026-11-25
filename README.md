@@ -400,6 +400,12 @@ A cada 10 waves (10, 20, 30...) a wave é de **boss**:
 - O fundo fica vermelho, um banner **ALERTA** pisca com o nome do boss e ele
   entra de fora da tela por um lado sorteado. Enquanto entra, não atira e não
   toma dano; encostar nele mata, como nos outros inimigos.
+- Durante a entrada ele fica dentro de um **escudo de energia** (hexágonos na
+  cor dele). Tiros dos jogadores morrem no escudo, com uma ondulação no ponto
+  do impacto e um "tink", e não passam para os inimigos atrás. O salvo detona
+  ali. Quando a luta começa, o escudo **estoura** (shockwave, faíscas, som
+  grave) junto com a entrada da música do boss. Tuning em
+  `Config.BOSS.shield`; sons `shield_hit` e `shield_break` em `Config.SFX`.
 - Ele anda devagar pela arena, atira **rajadas miradas** (que viram leque nos
   bosses seguintes) e lança **mísseis teleguiados**: o míssil persegue um
   jogador por alguns segundos, depois falha (pisca, solta fumaça, perde
@@ -488,7 +494,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 |-------|---------|
 | Jogador (nave recolorida, contorno, chama, crosshair, bolha, drone, escudo, anel e marcador de respawn) | [src/entities/player.lua](src/entities/player.lua) → `Player:draw` / `Player.drawShip` |
 | Inimigos (os 4 tipos, flash de dano, barra de HP do Tank) | [src/entities/enemy.lua](src/entities/enemy.lua) → `Enemy:draw` |
-| Boss (nave recolorida, fogo nos bocais de cada nave, flash, pulso de fúria, tremor na morte) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw` |
+| Boss (nave recolorida, fogo nos bocais de cada nave, flash, pulso de fúria, tremor na morte, escudo da entrada) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw`; shader do escudo em [src/shaders.lua](src/shaders.lua) |
 | Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
 | Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
 | Explosões (fumaça + faíscas) e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua) |
@@ -738,7 +744,7 @@ src/audio.lua         -- efeitos sonoros: variações Kenney, pool de vozes
 src/music.lua         -- música de fundo: crossfade, pausa abafada
 src/hud.lua           -- faixa de HUD
 src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
-src/shaders.lua       -- recolor: vermelho da Kenney -> cor do jogador
+src/shaders.lua       -- recolor (vermelho da Kenney -> cor do jogador), escudo do boss
 src/ui.lua            -- janela, aba, barra, badge, crosshair e texto (UIPack)
 src/background.lua    -- céu animado (seed + relógio), paleta por wave, grade com ondas
 src/post.lua          -- pós-processamento: brilho, shockwave, aberração, vinheta
@@ -772,7 +778,8 @@ Decisões que sustentam os 60 FPS em hardware modesto:
 - Colisão por **círculo com distância ao quadrado** — nenhum `sqrt` no caminho
   quente.
 - O screen shake é só um `love.graphics.translate` no canvas. Shaders: o
-  recolor das peças dos jogadores, o blur do brilho e a composição da cena.
+  recolor das peças dos jogadores, o escudo do boss, o blur do brilho e a
+  composição da cena.
   O blur roda em canvases pequenos de tamanho fixo (no máximo 320x180), então
   custa o mesmo em 720p e em 1080p. A composição é um único passe em tela
   cheia com 3 leituras de textura por pixel.

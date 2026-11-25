@@ -508,6 +508,15 @@ Config.BOSS = {
   growPerCycle = 0.12,        -- extra size each time the variant list starts over
   warnTime = 2.0,             -- s of "ALERTA" banner before the entrance
   enterSpeed = 55,            -- px/s while sliding in (invulnerable, holding fire)
+  -- Energy shield while sliding in: player shots die on it (with a ripple
+  -- where they hit) and it pops when the fight starts. `radiusFrac` of the
+  -- boss size; color = variant color lightened by `lighten`. `hexScale` =
+  -- hex cells per shield radius. `popTime`/`popGrow`: the burst at the end.
+  shield = {
+    radiusFrac = 0.55, fadeIn = 0.3, lighten = 0.35,
+    rimAlpha = 0.6, hexAlpha = 0.35, fillAlpha = 0.06, hexScale = 7,
+    hitLife = 0.45, popTime = 0.25, popGrow = 0.35, breakShake = 3, sparks = 14,
+  },
   turnRate = 2.0,             -- how fast the sprite turns toward its target (visual)
   margin = 24,                -- px kept between the hull and the walls while roaming
   pauseMin = 0.6,             -- s it stops at each roaming point
@@ -753,6 +762,12 @@ Config.SFX = {
                     vol = 0.35, voices = 4, pitch = 0.7, pitchVar = 0.12, minGap = 0.06 },
   boss_die      = { src = "kenney/lowFrequency_explosion", variants = 2,
                     vol = 0.85, voices = 1, pitch = 0.6, pitchVar = 0.00, minGap = 0.50 },
+  -- Boss entry shield: a high metallic tink per blocked shot, a deep force
+  -- field burst when it pops.
+  shield_hit    = { src = "kenney/impactMetal", variants = 5,
+                    vol = 0.12, voices = 3, pitch = 1.6, pitchVar = 0.10, minGap = 0.06 },
+  shield_break  = { src = "kenney/forceField", variants = 5,
+                    vol = 0.60, voices = 1, pitch = 0.6, pitchVar = 0.00, minGap = 0.50 },
 }
 
 -- ---------------------------------------------------------------------------
@@ -890,6 +905,7 @@ Config.FX = {
     door = 0.5,          -- blinking door lamp
     hitFlash = 0.35,     -- enemy/boss white hit flash
     rage = 0.6,          -- boss rage red pulse
+    bossShield = 0.35,   -- boss entry shield (rim, hex and hit ripples)
   },
   -- Shockwaves: a ring that grows to `radius` px over `life` s and bends the
   -- picture behind it by up to `strength` px (fading as it grows); `width`
@@ -902,6 +918,7 @@ Config.FX = {
     nova   = { radius = 130, strength = 6,  width = 16, life = 0.45 },
     player = { radius = 110, strength = 7,  width = 16, life = 0.50 },
     boss   = { radius = 300, strength = 10, width = 28, life = 0.90 },
+    shield = { radius = 140, strength = 7,  width = 18, life = 0.50 },   -- boss shield pops
     debug  = { radius = 160, strength = 8,  width = 20, life = 0.60 },
   },
   -- Chromatic aberration pulses: RGB split in px at the arena's side edges

@@ -55,15 +55,79 @@ function Boss.new()
     thrust = 0,           -- engine flame length factor, eased (see B.engine)
     engineT = 0,          -- drives the flame flicker
     damageBy = { 0, 0 },
+    -- Entry shield (B.shield): fade-in alpha, hex drift clock, the pop
+    -- burst left (1 -> 0) and 4 impact ripples {local x, y, age, strength}
+    -- (age >= 1 = idle; the tables go straight to the shader).
+    shieldA = 0, shieldT = 0, shieldPop = 0,
+    shieldHits = { { 0, 0, 1, 0 }, { 0, 0, 1, 0 }, { 0, 0, 1, 0 }, { 0, 0, 1, 0 } },
+    shieldColor = { 1, 1, 1, 1 },
     -- Values for boss n, resolved once in begin().
     s = {},
   }, Boss)
+end
+
+local function resetShield(self)
+  self.shieldA, self.shieldT, self.shieldPop = 0, 0, 0
+  for i = 1, #self.shieldHits do self.shieldHits[i][3] = 1 end
 end
 
 function Boss:clear()
   self.active = false
   self.state = "idle"
   self.dead = true
+  resetShield(self)
+end
+
+-- The entry shield is up while the boss slides in: it blocks player shots.
+function Boss:hasShield()
+  return self.state == "enter"
+end
+
+function Boss:shieldRadius()
+  return self.size * B.shield.radiusFrac
+end
+
+-- Shield color: the variant color, lightened. Resolved once per boss in
+-- begin(): sparks and rings keep a reference to this table, so it must not
+-- change while they live (the next boss is waves away).
+local function updateShieldColor(self)
+  local c, l, out = self.variant.color, B.shield.lighten, self.shieldColor
+  out[1] = c[1] + (1 - c[1]) * l
+  out[2] = c[2] + (1 - c[2]) * l
+  out[3] = c[3] + (1 - c[3]) * l
+end
+
+-- A player shot hit the shield at (x, y), on its surface: a ripple there
+-- (in the oldest slot), a few sparks and a tink.
+function Boss:shieldHit(x, y, world)
+  local R = self:shieldRadius()
+  local slot, oldest = 1, -1
+  for i = 1, #self.shieldHits do
+    local age = self.shieldHits[i][3]
+    if age > oldest then slot, oldest = i, age end
+  end
+  local h = self.shieldHits[slot]
+  h[1], h[2], h[3], h[4] = (x - self.x) / R, (y - self.y) / R, 0, 1
+  world:burst(3, x, y, self.shieldColor, 3)
+  Audio.play("shield_hit")
+end
+
+-- The fight starts: the shield bursts (flash, rings, sparks around it, a
+-- shockwave) and fades out over B.shield.popTime while growing.
+local function breakShield(self, world)
+  local S = B.shield
+  local R = self:shieldRadius()
+  local color = self.shieldColor
+  world:ring(self.x, self.y, R * 1.4, color, 0.45)
+  world:ring(self.x, self.y, R, Config.COLORS.flash, 0.3)
+  for i = 1, S.sparks do
+    local a = (i / S.sparks) * math.pi * 2
+    world:burst(1, self.x + math.cos(a) * R, self.y + math.sin(a) * R, color, 4)
+  end
+  Post.shockwave(self.x, self.y, Config.FX.shock.shield)
+  world:shake(S.breakShake)
+  Audio.play("shield_break")
+  self.shieldPop = 1
 end
 
 function Boss:isFighting()
@@ -142,6 +206,8 @@ function Boss:begin(world, n, wave)
   self.burstTimer = s.burstInterval * 0.5
   self.missileTimer = s.missileInterval * 0.6
   self.lookAt = nil
+  resetShield(self)
+  updateShieldColor(self)
 
   -- Entrance: the middle of a random side, fully outside. The goal is the
   -- first point where the whole hull is inside the roaming area.
@@ -343,6 +409,19 @@ function Boss:update(dt, world)
   end
   self.thrust = self.thrust + (thrustWant - self.thrust) * math.min(1, E.ease * dt)
 
+  -- Entry shield: fades in while sliding in, ripples age, the pop fades.
+  local S = B.shield
+  if self.state == "enter" then
+    self.shieldA = math.min(1, self.shieldA + dt / S.fadeIn)
+    self.shieldT = self.shieldT + dt
+    for i = 1, #self.shieldHits do
+      local h = self.shieldHits[i]
+      if h[3] < 1 then h[3] = math.min(1, h[3] + dt / S.hitLife) end
+    end
+  elseif self.shieldPop > 0 then
+    self.shieldPop = math.max(0, self.shieldPop - dt / S.popTime)
+  end
+
   local st = self.state
   if st == "warn" then
     self.timer = self.timer - dt
@@ -356,6 +435,7 @@ function Boss:update(dt, world)
       self.x, self.y = self.goalX, self.goalY
       self.state = "fight"
       self.dead = false
+      breakShield(self, world)
       -- The wave music plays through ALERTA and the entrance; the boss track
       -- fades in (Config.MUSIC.tracks.boss.fadeIn) only when the fight starts.
       Music.play("boss")
@@ -476,6 +556,21 @@ local function overlays(self)
   return white, red
 end
 
+-- Entry shield over the hull: up while sliding in, then the pop (growing
+-- and fading for B.shield.popTime). `alphaMul` scales it (glow layer).
+local function drawShield(self, x, y, alphaMul)
+  local S = B.shield
+  local a, r = 0, self:shieldRadius()
+  if self.state == "enter" then
+    a = self.shieldA
+  elseif self.shieldPop > 0 then
+    a = self.shieldPop
+    r = r * (1 + S.popGrow * (1 - self.shieldPop))
+  end
+  if a <= 0 then return end
+  Shaders.drawShield(x, y, r, self.shieldColor, a * alphaMul, self.shieldT, self.shieldHits)
+end
+
 function Boss:draw()
   if not self.active or self.state == "done" or self.state == "warn" then return end
   local g = love.graphics
@@ -515,11 +610,13 @@ function Boss:draw()
     end
     g.setBlendMode("alpha")
   end
+  drawShield(self, x, y, 1)
   g.setColor(1, 1, 1, 1)
 end
 
--- Glow layer (src/post.lua): engine flames, hit/death flash and rage pulse.
--- Uses the position Boss:draw picked this frame (dying jitter included).
+-- Glow layer (src/post.lua): engine flames, hit/death flash, rage pulse and
+-- the entry shield. Uses the position Boss:draw picked this frame (dying
+-- jitter included).
 function Boss:drawGlow()
   if not self.active or self.state == "done" or self.state == "warn" then return end
   local EMIT = Config.FX.emit
@@ -535,6 +632,7 @@ function Boss:drawGlow()
     love.graphics.setColor(1, 1, 1, white * EMIT.hitFlash)
     Assets.draw(role, x, y, self.angle, self.size)
   end
+  drawShield(self, x, y, EMIT.bossShield)
 end
 
 function Boss:drawDebug()
