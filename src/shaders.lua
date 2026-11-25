@@ -95,11 +95,20 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 local SHEEN_SRC = [[
 uniform float pos;
 uniform float width;
+uniform float screenMode;   // 1 = band in screen px (texts: glyph UVs are atlas UVs)
+uniform float center;       // screenMode: band center along screen.x + screen.y * 0.4
+uniform float bandPx;       // screenMode: band width in px
 
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 {
-    float d = abs((uv.x + uv.y) * 0.5 - pos);
-    float band = 1.0 - smoothstep(width * 0.3, width * 0.5, d);
+    float band;
+    if (screenMode > 0.5) {
+        float d = abs(screen.x + screen.y * 0.4 - center);
+        band = 1.0 - smoothstep(bandPx * 0.3, bandPx * 0.5, d);
+    } else {
+        float d = abs((uv.x + uv.y) * 0.5 - pos);
+        band = 1.0 - smoothstep(width * 0.3, width * 0.5, d);
+    }
     return vec4(1.0, 1.0, 1.0, Texel(tex, uv).a * band * color.a);
 }
 ]]
@@ -241,7 +250,24 @@ end
 -- sets the additive blend; pair with Shaders.reset().
 function Shaders.sheen(pos)
   if not sheen then return false end
+  sheen:send("screenMode", 0)
   sheen:send("pos", pos)
+  love.graphics.setShader(sheen)
+  return true
+end
+
+-- Same glint in screen space, for texts (their glyph UVs are font-atlas
+-- UVs): a diagonal band `widthPx` wide centered on screen point (x, y),
+-- given in the CURRENT transform's coordinates. Same contract as
+-- Shaders.sheen.
+function Shaders.sheenAt(x, y, widthPx)
+  if not sheen then return false end
+  local sx, sy = love.graphics.transformPoint(x, y)
+  local _, k = love.graphics.transformPoint(0, 1)
+  local _, k0 = love.graphics.transformPoint(0, 0)
+  sheen:send("screenMode", 1)
+  sheen:send("center", sx + sy * 0.4)
+  sheen:send("bandPx", widthPx * math.abs(k - k0))
   love.graphics.setShader(sheen)
   return true
 end

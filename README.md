@@ -516,7 +516,8 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Portas e telégrafo | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw` |
 | Fundo: nebulosa, estrelas em camadas, objetos distantes, brilhos, estrelas cadentes, paleta por bloco de waves entre bosses (vermelha na wave de boss) e grade com ondas | [src/background.lua](src/background.lua) (tuning em `Config.ART.background`) |
 | Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
-| HUD | [src/hud.lua](src/hud.lua) |
+| HUD (score contando, socos no score e no combo, COMBO PERDIDO caindo) | [src/hud.lua](src/hud.lua) → `Hud.update` / `Hud.draw` (ver "Juice da interface") |
+| Banners de wave (entrada, faixa de luz, bônus contando) | [src/states/game.lua](src/states/game.lua) → `drawBannerText` |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
 | Pós-processamento (brilho, sombras, shockwave, aberração, vinheta) | [src/post.lua](src/post.lua) + o `:drawGlow()` / `:drawShadow()` de cada entidade |
 | Véu do céu e marcas de queimado na arena | [src/states/game.lua](src/states/game.lua) → `Game:draw`, `world:scorch` |
@@ -589,6 +590,19 @@ A arena funciona como um chão abaixo das naves:
   sprite atrás de si.
 - Tudo em `Config.FX.trail`; força no brilho em `Config.FX.emit`
   (`muzzle`, `shotTrail`, `ribbon`).
+
+### Juice da interface
+
+- **Score:** o número do HUD corre até o valor real em ~0,4 s e dá um soco
+  (cresce e clareia) a cada ganho. Ganhos de 1000 ou mais socam mais forte.
+  É só exibição: o resumo do game over e os recordes usam o valor real.
+- **Combo:** cada kill dá um soco no texto. Quando o multiplicador sobe, o
+  soco é maior, a barra brilha e um "x2!", "x3!"... sobe sobre a nave.
+  "COMBO PERDIDO" treme e escorrega para baixo enquanto some.
+- **Banners de wave:** "WAVE N" e "WAVE N COMPLETA" entram grandes e
+  assentam, e uma faixa de luz atravessa as letras (o shader de sheen em
+  espaço de tela, `Shaders.sheenAt`). O BÔNUS conta de 0 até o valor.
+- Tempos e escalas em `Config.FX.hud`.
 
 ### Surgir e sumir
 

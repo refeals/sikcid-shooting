@@ -300,6 +300,9 @@ end
 -- the scene composite so they stay sharp.
 -- ---------------------------------------------------------------------------
 local FXP = Config.FX.pickup
+-- "x2!" ... "xN!" callouts, built once (no string concat per kill).
+local MULT_TEXT = {}
+for m = 1, Config.COMBO.maxMult do MULT_TEXT[m] = "x" .. m .. "!" end
 local FLOAT_SLOTS = 4
 local floats = {}
 for i = 1, FLOAT_SLOTS do floats[i] = { x = 0, y = 0, text = "", color = nil, t = FXP.floatTime } end
@@ -699,7 +702,10 @@ function world:onEnemyKilled(enemy, killerIndex)
   if type(killerIndex) == "number" then
     local killer = self.players[killerIndex]
     if killer then
-      Combo.add(killer)
+      if Combo.add(killer) and killer.alive then
+        -- Multiplier up: "xN!" rises over the ship.
+        self:floatText(killer.x, killer.y - 14, MULT_TEXT[Combo.mult(killer)], Config.COLORS.textWarn)
+      end
       self:addScore(killerIndex, enemy.def.points * Combo.mult(killer))
     end
   end
@@ -825,6 +831,43 @@ local function numStr(slot, value, fmt)
     c.s = string.format(fmt, value)
   end
   return c.s
+end
+
+-- Wave banners (Config.FX.hud): centered label+number text that pops in
+-- (from bannerPopScale down to 1 over bannerPop s, eased out) around its
+-- center, `half` px below `y`, and gets a light band sweeping it left to
+-- right between sweepStart and sweepStart + sweepTime (the same glyphs
+-- redrawn additively through the sheen shader). `age` = s since it appeared.
+local bannerColor = { 1, 1, 1, 1 }
+local sweepColor = { 1, 1, 1, 1 }
+
+local function drawBannerText(fontRole, digitRole, label, num, suffix, y, half, age, color)
+  local HC = Config.FX.hud
+  local g = love.graphics
+  local k = math.min(1, age / HC.bannerPop)
+  local sc = 1 + (HC.bannerPopScale - 1) * (1 - k) * (1 - k)
+  local cx, cy = arena.cx, y + half
+  g.push()
+  g.translate(cx, cy)
+  g.scale(sc, sc)
+  UI.textNumber(fontRole, digitRole, label, num, suffix, -160, -half, color, 320, "center")
+  g.pop()
+  local s = (age - HC.sweepStart) / HC.sweepTime
+  if s > 0 and s < 1 then
+    local w = UI.textNumberWidth(fontRole, digitRole, label, num, suffix)
+    local bx = cx - w * 0.5 - 20 + (w + 40) * s
+    if Shaders.sheenAt(bx, cy, HC.sweepWidth) then
+      sweepColor[4] = color[4] or 1
+      g.setBlendMode("add")
+      g.push()
+      g.translate(cx, cy)
+      g.scale(sc, sc)
+      UI.textNumber(fontRole, digitRole, label, num, suffix, -160, -half, sweepColor, 320, "center")
+      g.pop()
+      g.setBlendMode("alpha")
+      Shaders.reset()
+    end
+  end
 end
 
 -- Game over over the still-running arena: dims it, then GAME OVER, the wave
@@ -1117,6 +1160,7 @@ function Game:update(dt)
   Combat.update(dt, world)
   Profiler.stop("collision")
   Combo.update(dt, world, frozen)
+  Hud.update(dt, world.players, world.playerCount)   -- score run-up, punches
 
   -- Screen shake: decai rápido e é aplicado no canvas inteiro.
   if world.shakeFatigue > 0 then
@@ -1219,12 +1263,15 @@ function Game:draw(covered)
   -- 10x/s, not every frame. Shared by the HUD and the wave cleared notice.
   local restNum = numStr("rest", math.floor(math.max(0, Spawner.timer) * 10 + 0.5) / 10, "%.1f")
 
-  -- "WAVE N" banner when a wave starts, rising and fading out.
+  -- "WAVE N" banner when a wave starts: pops in, a light band sweeps it,
+  -- then it rises and fades out.
   if Spawner.banner > 0 then
     local t = Spawner.banner / Config.WAVE.bannerTime
-    UI.textNumber("big", "digitsBig", "WAVE ", waveNum, nil,
-      arena.cx - 160, arena.cy - 70 - (1 - t) * 10,
-      { C.text[1], C.text[2], C.text[3], math.min(1, t * 2) }, 320, "center")
+    local age = Config.WAVE.bannerTime - Spawner.banner
+    local by = arena.cy - 70 - (1 - t) * 10
+    local tint = Config.FX.hud.bannerTint
+    bannerColor[1], bannerColor[2], bannerColor[3], bannerColor[4] = tint[1], tint[2], tint[3], math.min(1, t * 2)
+    drawBannerText("big", "digitsBig", "WAVE ", waveNum, nil, by, 12, age, bannerColor)
   end
 
   -- Boss alert: blinking ALERTA and the boss name while it is still offscreen.
@@ -1238,11 +1285,14 @@ function Game:draw(covered)
 
   -- Wave cleared notice during the breather.
   if Spawner.isResting() and Spawner.wave >= 1 then
-    UI.textNumber("title", "digits", "WAVE ", waveNum, " COMPLETA",
-      arena.cx - 160, arena.cy - 58, C.textWarn, 320, "center")
+    local age = Config.WAVE.restTime - Spawner.timer
+    drawBannerText("title", "digits", "WAVE ", waveNum, " COMPLETA", arena.cy - 58, 8, age, C.textWarn)
     -- Two numbers on one centered line: measured first, then drawn in two
-    -- label+number blocks.
-    local bonusNum = numStr("bonus", Spawner.wave * Config.WAVE.clearBonus, "%d")
+    -- label+number blocks. The bonus counts up from 0.
+    local HC = Config.FX.hud
+    local kb = math.min(1, age / HC.bonusCount)
+    kb = 1 - (1 - kb) * (1 - kb)
+    local bonusNum = numStr("bonus", math.floor(Spawner.wave * Config.WAVE.clearBonus * kb + 0.5), "%d")
     local w1 = UI.textNumberWidth("body", "digitsSmall", "BÔNUS ", bonusNum, "   -   ")
     local w2 = UI.textNumberWidth("body", "digitsSmall", "PRÓXIMA EM ", restNum)
     local lx = arena.cx - (w1 + w2) * 0.5

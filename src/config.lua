@@ -961,6 +961,21 @@ Config.FX = {
     dropRing = 18, collectRing = 26,
     floatTime = 0.8, floatRise = 14,
   },
+  -- HUD and banner juice (src/hud.lua, Game:draw):
+  --   scoreCatchUp -- s for the shown score to reach the real one
+  --   *Kick        -- s of the punch on a score gain / combo step; *Scale =
+  --                   its peak size (big = gains >= bigGain or a multiplier up)
+  --   banner*      -- WAVE banners pop from bannerPopScale over bannerPop s; a
+  --                   light band sweeps them from sweepStart for sweepTime s
+  --   bonusCount   -- s for the wave bonus to count up from 0
+  --   lost*        -- COMBO PERDIDO: px of shake and of the fall
+  hud = {
+    scoreCatchUp = 0.4, scoreKick = 0.14, bigGain = 1000,
+    kickScale = 1.06, bigKickScale = 1.12, comboKick = 0.12,
+    bannerTint = { 0.78, 0.84, 0.96 },   -- WAVE N: off-white, so the light band reads
+    bannerPop = 0.22, bannerPopScale = 1.6, sweepStart = 0.12, sweepTime = 0.45, sweepWidth = 26,
+    bonusCount = 0.6, lostShake = 3, lostDrop = 5,
+  },
   -- Respawn beam: a column of light over the ship while it materializes
   -- (PLAYER.spawnFxTime), `height` px tall.
   beam = { height = 70, width = 10, alpha = 0.7 },

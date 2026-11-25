@@ -23,6 +23,48 @@ local ICON = 11               -- power-up badge size
 local ICON_GAP = 3
 local PLAYER_TAGS = { "P1", "P2" }   -- built once: no string concat per frame
 local BOSS_BAR_W = 150
+local HC = Config.FX.hud
+local scoreColor = { 1, 1, 1, 1 }    -- reused color buffers (no per-frame tables)
+local lostColor = { 1, 1, 1, 1 }
+
+-- Display state for each player (p.hud, made on first use): the score shown
+-- running up to the real one, and the punch timers of the score and combo.
+-- Runs on game time (Game:update); visual only, p.score is never touched.
+function Hud.update(dt, players, count)
+  for i = 1, count do
+    local p = players[i]
+    local h = p.hud
+    if not h then
+      h = { shown = p.score, last = p.score, kick = 0, kickBig = false,
+            combo = p.combo or 0, comboKick = 0, comboBig = false, pulseWas = 0 }
+      p.hud = h
+    end
+    -- Score: a gain starts a punch (bigger for big gains); the shown value
+    -- runs after the real one, ~scoreCatchUp s, never slower than 400/s.
+    if p.score > h.last then
+      local gain = p.score - h.last
+      h.kick = HC.scoreKick
+      h.kickBig = gain >= HC.bigGain
+      h.last = p.score
+    elseif p.score < h.last then
+      h.last, h.shown = p.score, p.score
+    end
+    local diff = p.score - h.shown
+    if diff > 0 then
+      local step = math.max(diff * (1 - math.exp(-dt * 3 / HC.scoreCatchUp)), 400 * dt)
+      h.shown = math.min(p.score, h.shown + step)
+    end
+    if h.kick > 0 then h.kick = math.max(0, h.kick - dt) end
+    -- Combo: a small punch per step, a big one when the multiplier pulse starts.
+    local combo = p.combo or 0
+    if combo > h.combo then h.comboKick, h.comboBig = HC.comboKick, false end
+    h.combo = combo
+    local pulse = p.comboPulse or 0
+    if pulse > h.pulseWas then h.comboKick, h.comboBig = HC.comboKick * 1.5, true end
+    h.pulseWas = pulse
+    if h.comboKick > 0 then h.comboKick = math.max(0, h.comboKick - dt) end
+  end
+end
 
 local function drawPowerups(p, x, y)
   local list = p.powerups
@@ -49,9 +91,26 @@ local function drawPlayerPanel(p, x, y)
   local tab = Config.ART.ui.hudTab
   UI.tab(p.color, PLAYER_TAGS[p.index], x + PAD, y + PAD, tab.w, tab.h)
   local font = Assets.font("digits")
-  local score = string.format("%07d", p.score)
+  local h = p.hud
+  local score = string.format("%07d", h and math.floor(h.shown) or p.score)
   local sx = x + PAD + tab.w + 6
-  local sw = UI.digits("digits", score, sx, y + PAD + tab.h - font:getAscent(), p.out and C.textDim or C.text)
+  local sy = y + PAD + tab.h - font:getAscent()
+  local sw = UI.digitsWidth("digits", score)
+  -- Punch on each gain: grows around its center and goes toward white.
+  local kick = h and h.kick / HC.scoreKick or 0
+  local peak = (h and h.kickBig) and HC.bigKickScale or HC.kickScale
+  local sc = 1 + (peak - 1) * kick
+  local base = p.out and C.textDim or C.text
+  local k = kick * 0.8
+  scoreColor[1] = base[1] + (1 - base[1]) * k
+  scoreColor[2] = base[2] + (1 - base[2]) * k
+  scoreColor[3] = base[3] + (1 - base[3]) * k
+  local fh = font:getHeight()
+  love.graphics.push()
+  love.graphics.translate(sx + sw * 0.5, sy + fh * 0.5)
+  love.graphics.scale(sc, sc)
+  UI.digits("digits", score, -sw * 0.5, -fh * 0.5, scoreColor)
+  love.graphics.pop()
 
   local lx = sx + sw + 10
   local midY = y + PAD + tab.h * 0.5
@@ -65,15 +124,40 @@ local function drawPlayerPanel(p, x, y)
 
   -- Row 2: combo text + bar on the left, power-ups on the right.
   local ry = y + 18
+  local body = Assets.font("body")
   if p.comboLost and p.comboLost > 0 and p.combo == 0 then
-    if math.floor(p.comboLost * 10) % 2 == 0 then
-      UI.text("body", "COMBO PERDIDO", x + PAD + 2, ry, C.doorWarn)
-    end
+    -- Lost: shakes sideways (calming down) and slides down as it fades.
+    local t = p.comboLost / Config.COMBO.lostMsgTime          -- 1 -> 0
+    local jx = math.sin(p.comboLost * 70) * HC.lostShake * t
+    local w = C.doorWarn
+    lostColor[1], lostColor[2], lostColor[3], lostColor[4] = w[1], w[2], w[3], math.min(1, t * 2)
+    UI.text("body", "COMBO PERDIDO", x + PAD + 2 + jx, ry + HC.lostDrop * (1 - t), lostColor)
   elseif p.combo and p.combo > 0 then
     local mult = Combo.mult(p)
-    local color = (p.comboPulse or 0) > 0 and C.flash or (mult > 1 and C.textWarn or C.textDim)
-    UI.text("body", string.format("COMBO %d  x%d", p.combo, mult), x + PAD + 2, ry, color)
-    UI.bar(mult > 1 and C.textWarn or p.color, x + PAD, ry + 10, COMBO_BAR_W, Combo.fraction(p), 4)
+    local pulse = (p.comboPulse or 0) > 0
+    local color = pulse and C.flash or (mult > 1 and C.textWarn or C.textDim)
+    local text = string.format("COMBO %d  x%d", p.combo, mult)
+    -- Punch on each step, bigger on a multiplier up.
+    local ck = h and h.comboKick / HC.comboKick or 0
+    local cpeak = (h and h.comboBig) and HC.bigKickScale or HC.kickScale
+    local csc = 1 + (cpeak - 1) * math.min(1, ck)
+    -- Grows from its left edge, so it never leaves the panel.
+    local th = body:getHeight()
+    love.graphics.push()
+    love.graphics.translate(x + PAD + 2, ry + th * 0.5)
+    love.graphics.scale(csc, csc)
+    UI.text("body", text, 0, -th * 0.5, color)
+    love.graphics.pop()
+    local barColor = mult > 1 and C.textWarn or p.color
+    UI.bar(barColor, x + PAD, ry + 10, COMBO_BAR_W, Combo.fraction(p), 4)
+    if pulse then
+      -- The bar flares while the new multiplier is highlighted.
+      local a = p.comboPulse / Config.COMBO.pulseTime
+      love.graphics.setBlendMode("add")
+      love.graphics.setColor(1, 1, 1, 0.5 * a)
+      love.graphics.rectangle("fill", x + PAD, ry + 10, COMBO_BAR_W * Combo.fraction(p), 4)
+      love.graphics.setBlendMode("alpha")
+    end
   end
   drawPowerups(p, x + PAD + COMBO_BAR_W + 10, ry - 1)
 end

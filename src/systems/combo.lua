@@ -22,6 +22,8 @@ function Combo.reset(player)
   player.comboPulse = 0    -- tempo restante do destaque do multiplicador
 end
 
+-- Returns true when the multiplier went up a step (the caller shows the
+-- "xN!" callout over the ship).
 function Combo.add(player)
   local before = Combo.mult(player)
   player.combo = player.combo + 1
@@ -31,7 +33,9 @@ function Combo.add(player)
   if Combo.mult(player) > before then
     player.comboPulse = C.pulseTime
     Audio.play("combo_up")
+    return true
   end
+  return false
 end
 
 -- Keeps a running combo alive without adding to it (hits on the boss: the
