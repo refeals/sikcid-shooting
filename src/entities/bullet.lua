@@ -24,7 +24,7 @@ function Bullet.new()
     life = 0,
     dmg = 1,
     owner = 0,          -- 1 ou 2 = jogador; "enemy" = inimigo
-    kind = "single",    -- "single" | "spread" | "missile" | "drone" | "salvo" | "enemy" | "bossMissile"
+    kind = "single",    -- "single" | "spread" | "missile" | "drone" | "salvo" | "enemy" | "bossMissile" | "sniper"
     radius = Config.WEAPON.bulletRadius,
     angle = 0,
     trailT = 0,         -- missile smoke trail countdown
@@ -167,6 +167,10 @@ function Bullet:draw()
   if self.kind == "enemy" then
     love.graphics.setColor(self.color)
     Assets.draw("enemyShot", self.x, self.y, self.life * Config.ART.enemyShotSpin, SIZE.enemyShot)
+  elseif self.kind == "sniper" then
+    -- A thin white streak along its flight (its red comes from the glow).
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(Assets.white, self.x, self.y, self.angle, SIZE.sniperShot, 2, 0.5, 0.5)
   elseif self.kind == "bossMissile" then
     -- Enemy-shot pink. Once it starts failing it flickers and shakes.
     local x, y, a = self.x, self.y, 1
@@ -227,6 +231,11 @@ function Bullet:drawGlow()
   if self.kind == "enemy" then
     g.setColor(c[1], c[2], c[3], EMIT.enemyShot)
     g.circle("fill", self.x, self.y, SIZE.enemyShot * 0.6)
+    return
+  elseif self.kind == "sniper" then
+    -- Red halo: a wider, longer streak around the white core.
+    g.setColor(c[1], c[2], c[3], EMIT.sniperShot)
+    g.draw(Assets.white, self.x, self.y, self.angle, SIZE.sniperShot * 1.5, 6, 0.5, 0.5)
     return
   elseif self.kind == "bossMissile" then
     local a = EMIT.bossMissile

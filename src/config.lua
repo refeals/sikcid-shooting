@@ -50,12 +50,18 @@ Config.COLORS = {
   runner      = { 1.00, 0.55, 0.15, 1 },
   tank        = { 0.65, 0.35, 0.85, 1 },
   shooter     = { 0.95, 0.85, 0.30, 1 },
+  kamikaze    = { 0.85, 0.12, 0.32, 1 },   -- crimson (not the enemy-shot pink)
+  divisor     = { 0.20, 0.85, 0.70, 1 },   -- aqua (its fragments too)
+  sniper      = { 0.55, 0.68, 0.90, 1 },   -- steel blue
+  carrier     = { 0.92, 0.88, 0.76, 1 },   -- ivory (its scouts too)
 
   door        = { 0.30, 0.30, 0.40, 1 },
   doorWarn    = { 1.00, 0.30, 0.30, 1 },
 
   flash       = { 1.00, 1.00, 1.00, 1 },
 }
+-- The sniper's streak glows in the danger red of the aim lines.
+Config.COLORS.sniperShot = Config.COLORS.doorWarn
 
 -- Colors a player can pick in the lobby (left/right cycles, Y picks one at
 -- random). Kept clear of the enemy-shot pink. `name` is shown in the lobby.
@@ -132,6 +138,12 @@ Config.ART = {
     runner       = { "simple:ship_B", rot = -math.pi / 2 },
     shooter      = { "simple:enemy_D", rot = -math.pi / 2 },
     tank         = { "simple:station_C" },
+    kamikaze     = { "simple:ship_G", rot = -math.pi / 2 },   -- a sharp dart
+    divisor      = { "simple:enemy_E", rot = -math.pi / 2 },  -- a cluster of pods
+    fragment     = { "simple:ship_A", rot = -math.pi / 2 },
+    sniper       = { "simple:ship_I", rot = -math.pi / 2 },   -- long and thin
+    carrier      = { "simple:ship_sidesB", rot = -math.pi / 2 },  -- wide, side pods
+    scout        = { "simple:ship_D", rot = -math.pi / 2 },   -- carrier drones
     puff1        = { "ss2:spaceEffects_009" },
     puff2        = { "ss2:spaceEffects_011" },
     puff3        = { "ss2:spaceEffects_013" },
@@ -183,6 +195,13 @@ Config.ART = {
     runner = 17,
     shooter = 22,
     tank = 38,
+    kamikaze = 18,
+    divisor = 22,
+    fragment = 10,
+    sniper = 18,
+    carrier = 32,
+    scout = 9,
+    sniperShot = 14,        -- length of the sniper's streak
     pickup = 14,
     hudLife = 9,
   },
@@ -447,9 +466,47 @@ Config.ENEMIES = {
   runner  = { hp = 1, speed = 105, size = 10, radius = 5,  points = 150, color = "runner",  contactDamage = true,
               retargetMin = 0.6, retargetMax = 1.6, wobble = math.rad(50) },
   tank    = { hp = 6, speed = 32,  size = 22, radius = 11, points = 500, color = "tank",    contactDamage = true,
-              push = 3.0 },
+              push = 3.0, hpBar = true },
   shooter = { hp = 2, speed = 42,  size = 13, radius = 6,  points = 300, color = "shooter", contactDamage = true,
               keepDistance = 120, fireInterval = 1.8, bulletSpeed = 110, bulletLife = 4.0 },
+  -- Chases (slower than a grunt) to `aimRange` px, stops and aims for
+  -- `aimTime` s along a red line (it follows the target until the last
+  -- `lockTime` s, then freezes), then charges at `chargeSpeed` for up to
+  -- `chargeTime` s through the other enemies. Hitting a wall stuns it for
+  -- `stunTime` s (spinning at `stunSpin` rad/s). `name` = debut banner.
+  kamikaze = { hp = 2, speed = 48, size = 12, radius = 6, points = 200, color = "kamikaze", contactDamage = true,
+               name = "KAMIKAZE", aimRange = 150, aimTime = 0.5, lockTime = 0.15,
+               chargeSpeed = 320, chargeTime = 0.9, reach = 288, stunTime = 1.0, stunSpin = 12,
+               lineAlpha = 0.55, lineWidth = 1.5, sparkEvery = 0.15 },
+  -- Dies into `splitCount` `splitInto` enemies fanned out at `splitSpeed`.
+  divisor  = { hp = 3, speed = 45, size = 16, radius = 8, points = 250, color = "divisor", contactDamage = true,
+               name = "DIVISOR", splitInto = "fragment", splitCount = 3, splitSpeed = 110 },
+  -- The divisor's pieces: fly out harmless for `harmlessTime` s, then act
+  -- like small runners. Spawned outside the wave quota; never split again.
+  fragment = { hp = 1, speed = 120, size = 8, radius = 4, points = 50, color = "divisor", contactDamage = true,
+               harmlessTime = 0.3, retargetMin = 0.6, retargetMax = 1.6, wobble = math.rad(40) },
+  -- Takes a spot `wallInset` px from a wall, at least `minRange` px from its
+  -- target (best of `spotSamples` random spots: the closest valid one), aims
+  -- a thin red line for `aimTime` s (locked the last `lockTime` s) and fires
+  -- one fast shot, then moves to a new spot; `fireInterval` s from a shot to
+  -- the next aim. A target closer than `fleeRange` cancels the aim: it runs.
+  sniper   = { hp = 2, speed = 60, size = 12, radius = 6, points = 300, color = "sniper", contactDamage = true,
+               name = "SNIPER", wallInset = 30, minRange = 180, fleeRange = 100, spotSamples = 10,
+               aimTime = 1.0, lockTime = 0.25, fireInterval = 2.0,
+               bulletSpeed = 450, bulletLife = 2.0, bulletRadius = 3,
+               reach = 1000, lineAlpha = 0.45, lineWidth = 1 },
+  -- Keeps `keepDistance` px, and every `launchInterval` s (hatches blinking
+  -- for the last `hatchTime` s) launches up to `launchCount` `spawn` drones
+  -- out of its sides (`hatchOffset` px, at `launchSpeed`), `maxDrones` alive
+  -- at most. Its drones blow up with it (no points).
+  carrier  = { hp = 12, speed = 25, size = 26, radius = 12, points = 800, color = "carrier", contactDamage = true,
+               push = 3.0, hpBar = true, name = "PORTA-NAVES", keepDistance = 140,
+               launchInterval = 4.0, hatchTime = 0.4, launchCount = 2, maxDrones = 4,
+               launchSpeed = 90, hatchOffset = 13, spawn = "scout" },
+  -- Carrier drone: flies out harmless for `harmlessTime` s, then homes in,
+  -- turning at most `turnRate` rad/s. Outside the wave quota.
+  scout    = { hp = 1, speed = 100, size = 8, radius = 4, points = 50, color = "carrier", contactDamage = true,
+               harmlessTime = 0.3, turnRate = math.rad(150) },
 }
 
 -- Spacing between enemies (steering in src/entities/enemy.lua, hard overlap
@@ -497,6 +554,7 @@ Config.WAVE = {
   clearBonus = 250,           -- multiplicado pelo número da wave
   batchMin = 1,
   batchMax = 3,               -- inimigos por spawn de porta
+  debutCount = 3,             -- a new type's debut wave: its first batch brings this many
 }
 
 function Config.waveQuota(w)
@@ -626,6 +684,12 @@ Config.ENEMY_MIX = {
   { type = "runner",  from = 2, base = 15,  perWave = 5,   min = 0 },
   { type = "shooter", from = 3, base = 10,  perWave = 4,   min = 0 },
   { type = "tank",    from = 5, base = 8,   perWave = 3,   min = 0 },
+  -- New types (`debut`: their first wave shows "NOVO: <name>" and opens with
+  -- WAVE.debutCount of them). Placeholder weights, tuned with the curve later.
+  { type = "kamikaze", from = 7, base = -12, perWave = 4,  min = 0, debut = true },
+  { type = "divisor",  from = 9, base = -18, perWave = 4,  min = 0, debut = true },
+  { type = "sniper",   from = 12, base = -26, perWave = 3, min = 0, debut = true },
+  { type = "carrier",  from = 15, base = -35, perWave = 3, min = 0, debut = true },
 }
 
 -- ---------------------------------------------------------------------------
@@ -647,7 +711,7 @@ Config.POWERUP = {
   pickupRadius = 9,           -- drawn size lives in Config.ART.size.pickup
   pickupLife = 10,
   blinkAt = 3,                -- começa a piscar nos últimos N segundos
-  -- The blink (a white flash, the pickup never disappears) speeds up from
+  -- The blink (a white ring around it, the pickup never disappears) speeds up from
   -- blinkRateMin to blinkRateMax Hz as its life runs out.
   blinkRateMin = 3,
   blinkRateMax = 10,
@@ -765,6 +829,24 @@ Config.SFX = {
   -- Dash: the force field pitched way up, a short whoosh.
   dash          = { src = "kenney/forceField", variants = 5,
                     vol = 0.30, voices = 2, pitch = 2.2, pitchVar = 0.06, minGap = 0.05 },
+  -- New enemies: a low charge-up hum while the kamikaze aims, its launch,
+  -- the clang when it hits a wall, and the divisor cracking open.
+  kamikaze_aim  = { src = "kenney/laserRetro", variants = 5,
+                    vol = 0.20, voices = 3, pitch = 0.45, pitchVar = 0.05, minGap = 0.10 },
+  kamikaze_charge = { src = "kenney/laserLarge", variants = 5,
+                    vol = 0.28, voices = 3, pitch = 0.7, pitchVar = 0.06, minGap = 0.08 },
+  kamikaze_stun = { src = "kenney/impactMetal", variants = 5,
+                    vol = 0.30, voices = 3, pitch = 0.8, pitchVar = 0.08, minGap = 0.08 },
+  divisor_split = { src = "kenney/impactMetal", variants = 5,
+                    vol = 0.30, voices = 3, pitch = 1.4, pitchVar = 0.08, minGap = 0.06 },
+  -- Sniper: a thin hum while aiming, a sharp crack when it fires. Carrier:
+  -- a deep clunk when its hatches open.
+  sniper_aim    = { src = "kenney/laserSmall", variants = 5,
+                    vol = 0.18, voices = 3, pitch = 0.6, pitchVar = 0.05, minGap = 0.10 },
+  sniper_shot   = { src = "kenney/laserLarge", variants = 5,
+                    vol = 0.30, voices = 3, pitch = 1.5, pitchVar = 0.05, minGap = 0.06 },
+  carrier_launch = { src = "kenney/doorOpen", variants = 3,
+                    vol = 0.30, voices = 2, pitch = 0.6, pitchVar = 0.05, minGap = 0.10 },
   -- Waves e combo
   door_warn     = { src = "kenney/doorOpen", variants = 3,
                     vol = 0.15, voices = 4, pitchVar = 0.04, minGap = 0.12 },
@@ -991,6 +1073,11 @@ Config.FX = {
     popTime = 0.25, popPeak = 1.25,
     dropRing = 18, collectRing = 26,
     floatTime = 0.8, floatRise = 14,
+    -- Halo radius (x the pickup size) and how much a blink boosts it; the
+    -- blink itself is a white ring around the badge (radius x size, px
+    -- width), never over it, so the letter stays readable.
+    glowSize = 0.65, blinkGlow = 1.3,
+    blinkRing = 0.62, blinkWidth = 1.5, blinkAlpha = 0.9,
   },
   -- HUD and banner juice (src/hud.lua, Game:draw):
   --   scoreCatchUp -- s for the shown score to reach the real one
@@ -1035,11 +1122,13 @@ Config.FX = {
     fire = 0.45,         -- explosion fire puffs
     flash = 0.5,         -- explosion core flash
     ring = 0.8,
+    telegraph = 0.7,     -- kamikaze / sniper aim lines
+    sniperShot = 0.9,    -- the sniper streak's red halo
     engine = 0.55,       -- player and boss engine flames (outer, colored)
     engineCore = 0.15,   -- their white core (blows out to a blob if strong)
     ship = 0.12,         -- faint aura in the player's color
     shield = 0.6,        -- invulnerability shield, bubble, respawn rings
-    pickup = 0.55,
+    pickup = 0.28,       -- halo under the badge (kept low: the letter must read)
     door = 0.5,          -- blinking door lamp
     hitFlash = 0.35,     -- enemy/boss white hit flash
     rage = 0.6,          -- boss rage red pulse

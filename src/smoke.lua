@@ -224,10 +224,11 @@ local function finish(code)
   s.devices = Input.count
   print(string.format(
     "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d bosses=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
-    "dashes=%d combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d deniedFx=%d " ..
-    "cores=%s",
+    "dashes=%d charges=%d splits=%d snipes=%d launches=%d combo=%d pausas=%d esperas=%d peakEnemies=%d " ..
+    "peakBullets=%d peakParticles=%d denied=%d deniedFx=%d cores=%s",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
     s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0, s.dashes or 0,
+    s.charges or 0, s.splits or 0, s.snipes or 0, s.launches or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
   -- Both players ending on the same color means the picker's skip rule broke.
@@ -298,6 +299,47 @@ function Smoke.update(dt)
         if Config.SMOKE_SHOTS and not Smoke.dashShots then
           Smoke.dashShots = { Smoke.t + 0.08, Smoke.t + 0.6 }
         end
+      end
+    end
+  end
+  -- --shots: the first debut banner, kamikaze aim line and divisor split.
+  if Config.SMOKE_SHOTS and State.current() == Game then
+    local Spawner = require("src.systems.spawner")
+    if not Smoke.debutShot and Spawner.introLabel and Spawner.banner > 0
+      and Spawner.banner < Config.WAVE.bannerTime - 0.4 then
+      love.graphics.captureScreenshot("smoke_debut.png")
+      Smoke.debutShot = true
+    end
+    -- A power-up on the floor, and one blinking (its last seconds).
+    local pk = Game.world.pickups
+    for i = 1, pk.count do
+      local p = pk.items[i]
+      if not Smoke.pickupShot and p.age > 0.6 and p.life > 3 then
+        love.graphics.captureScreenshot("smoke_pickup.png")
+        Smoke.pickupShot = true
+      elseif not Smoke.pickupBlinkShot and p:blinkOn() then
+        love.graphics.captureScreenshot("smoke_pickupblink.png")
+        Smoke.pickupBlinkShot = true
+      end
+    end
+    local en = Game.world.enemies
+    for i = 1, en.count do
+      local e = en.items[i]
+      if not Smoke.aimShot and e.type == "kamikaze" and e.state == "aim" and e.stateT < 0.25 then
+        love.graphics.captureScreenshot("smoke_aim.png")
+        Smoke.aimShot = true
+      end
+      if not Smoke.sniperShot and e.type == "sniper" and e.state == "aim" and e.stateT < 0.3 then
+        love.graphics.captureScreenshot("smoke_sniper.png")
+        Smoke.sniperShot = true
+      end
+      if not Smoke.carrierShot and e.type == "scout" and e.harmless > 0 and e.harmless < 0.15 then
+        love.graphics.captureScreenshot("smoke_carrier.png")
+        Smoke.carrierShot = true
+      end
+      if not Smoke.splitShot and e.type == "fragment" and e.harmless > 0 and e.harmless < 0.2 then
+        love.graphics.captureScreenshot("smoke_split.png")
+        Smoke.splitShot = true
       end
     end
   end

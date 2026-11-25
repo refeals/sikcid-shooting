@@ -79,7 +79,7 @@ local ovSelf, ovMass, ovIndex = nil, 1, 0
 
 local function pushApart(b)
   local a = ovSelf
-  if b == a or b.dead then return end
+  if b == a or b.dead or b.phasing then return end
   local minDist = a.space + b.space
   local dx, dy = a.x - b.x, a.y - b.y
   local d2 = dx * dx + dy * dy
@@ -104,8 +104,11 @@ local function resolveOverlaps(world)
   local bossSpace = bossSolid and boss.size * SP.bossFrac or 0
   for i = 1, enemies.count do
     local a = enemies.items[i]
-    ovSelf, ovMass, ovIndex = a, a.def.push or 1, i
-    queryCircle(a.x, a.y, a.space + SP.maxSpace, pushApart)
+    -- A charging kamikaze (`phasing`) neither shoves nor is shoved.
+    if not a.phasing then
+      ovSelf, ovMass, ovIndex = a, a.def.push or 1, i
+      queryCircle(a.x, a.y, a.space + SP.maxSpace, pushApart)
+    end
 
     if bossSolid then
       local minDist = a.space + bossSpace
@@ -282,7 +285,8 @@ local function enemiesVsPlayers(world)
     -- touching one (Player:updateDash spends the linger budget).
     if p.alive and p.invuln <= 0 and p.dashSafe <= 0 and not world.godMode then
       queryCircle(p.x, p.y, P.radius + 24, function(e)
-        if e.dead then return end
+        -- Fresh divisor fragments fly out harmless for a moment.
+        if e.dead or e.harmless > 0 then return end
         local rr = P.radius + e.radius
         if Util.dist2(p.x, p.y, e.x, e.y) > rr * rr then return end
         if p.dashLingering then

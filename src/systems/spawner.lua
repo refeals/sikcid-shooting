@@ -97,7 +97,26 @@ function Spawner.reset(world, startWave)
   Spawner.door = nil
   Spawner.banner = 0
   Spawner.bossWave = false
+  Spawner.introType, Spawner.introName, Spawner.introLeft = nil, nil, 0
+  Spawner.introLabel = nil
   for i = 1, 4 do doors[i].warn, doors[i].portalFlash = 0, 0 end
+end
+
+-- A type debuting in wave n (ENEMY_MIX `debut` with from == n): the banner
+-- names it and the first batch brings WAVE.debutCount of it.
+local function setDebut(n)
+  Spawner.introType, Spawner.introName, Spawner.introLeft = nil, nil, 0
+  Spawner.introLabel = nil
+  for i = 1, #Config.ENEMY_MIX do
+    local m = Config.ENEMY_MIX[i]
+    if m.debut and m.from == n then
+      Spawner.introType = m.type
+      Spawner.introName = Config.ENEMIES[m.type].name or string.upper(m.type)
+      Spawner.introLabel = "NOVO: " .. Spawner.introName   -- the banner's line
+      Spawner.introLeft = Config.WAVE.debutCount
+      return
+    end
+  end
 end
 
 function Spawner.isBossWave(n)
@@ -110,6 +129,7 @@ function Spawner.startWave(n)
   Spawner.phase = "idle"
   Spawner.timer = 0.2
   buildMix(n)
+  setDebut(n)
   if Config.SMOKE then require("src.smoke").note("waves", n) end
 
   Spawner.bossWave = Spawner.isBossWave(n)
@@ -166,15 +186,23 @@ local function spawnBatch(world)
 
   local bMin, bMax = Config.waveBatch(Spawner.wave)
   local batch = Util.randInt(bMin, bMax)
+  -- Debut wave: the first batch is (at least) the new type, all of it.
+  if Spawner.introLeft > 0 and batch < Spawner.introLeft then batch = Spawner.introLeft end
   for _ = 1, batch do
     if Spawner.spawned >= Spawner.quota then break end
     if world.enemies.count >= Spawner.maxAlive then break end
-    local pick = Util.weightedPick(mixBuf, mixCount)
+    local kind
+    if Spawner.introLeft > 0 then
+      kind = Spawner.introType
+      Spawner.introLeft = Spawner.introLeft - 1
+    else
+      kind = Util.weightedPick(mixBuf, mixCount).type
+    end
     -- Espalha um pouco ao longo da porta para não nascerem sobrepostos.
     local jitter = Util.randRange(-DOOR_LEN * 0.4, DOOR_LEN * 0.4)
     local x = d.sx + ((d.side == "top" or d.side == "bottom") and jitter or 0)
     local y = d.sy + ((d.side == "left" or d.side == "right") and jitter or 0)
-    local e = world:spawnEnemy(pick.type, x, y)
+    local e = world:spawnEnemy(kind, x, y)
     if e then
       Spawner.spawned = Spawner.spawned + 1
       -- "Pop" de partículas na porta: o inimigo não aparece do nada.

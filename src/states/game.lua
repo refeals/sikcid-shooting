@@ -399,6 +399,7 @@ local function drawGlowLayer()
   for i = 1, pickups.count do pickups.items[i]:drawGlow() end
   Particle.drawGlow(particles)
   drawRings(Config.FX.emit.ring)
+  for i = 1, enemies.count do enemies.items[i]:drawTelegraph(Config.FX.emit.telegraph, arena) end
   for i = 1, enemies.count do enemies.items[i]:drawGlow() end
   world.boss:drawGlow()
   for i = 1, bullets.count do bullets.items[i]:drawGlow() end
@@ -687,11 +688,52 @@ function world:hitStop(t, force)
   if t > self.hitStopTimer then self.hitStopTimer = t end
 end
 
+-- Divisor: its pieces fan out from where it died, harmless for a moment.
+-- Straight into the pool (not through the spawner): outside the wave quota,
+-- still counted as alive; none when the pool is full.
+function world:split(enemy)
+  local def = enemy.def
+  local kind = def.splitInto
+  local child = Config.ENEMIES[kind]
+  local n = def.splitCount
+  local start = math.random() * math.pi * 2
+  for i = 1, n do
+    local ang = start + (i - 1) / n * math.pi * 2
+    local e = self:spawnEnemy(kind, enemy.x, enemy.y)
+    if not e then break end
+    e.vx, e.vy = math.cos(ang) * def.splitSpeed, math.sin(ang) * def.splitSpeed
+    e.angle = ang
+    e.harmless = child.harmlessTime or 0
+  end
+  Audio.play("divisor_split")
+  if Config.SMOKE then require("src.smoke").bump("splits") end
+end
+
+-- Carrier: its drones blow up with it (no points, drops or combo). Flagged
+-- dead; Combat's sweep takes them out of the pool at the end of the frame.
+function world:killBrood(enemy)
+  local pool = self.enemies
+  local any = false
+  for i = 1, pool.count do
+    local e = pool.items[i]
+    if e.parent == enemy and not e.dead then
+      local size = Config.ART.size[e.type] or e.def.size
+      self:explosion(e.x, e.y, e.color, J.explosions.small, size / Config.ART.size.grunt)
+      e.dead = true
+      e.parent = nil
+      any = true
+    end
+  end
+  if any then Audio.play("enemy_die") end
+end
+
 function world:onEnemyKilled(enemy, killerIndex)
   local size = Config.ART.size[enemy.type] or enemy.def.size
-  if enemy.type == "tank" then
+  -- Heavy ships (tank, carrier: the ones with an HP bar) go out big.
+  local heavy = enemy.def.hpBar
+  if heavy then
     self:explosion(enemy.x, enemy.y, enemy.color, J.explosions.tank)
-    self:debris("tank", enemy.x, enemy.y, enemy.angle, size, enemy.color, false)
+    self:debris(enemy.type, enemy.x, enemy.y, enemy.angle, size, enemy.color, false)
     self:scorch(enemy.x, enemy.y, Config.FX.scorch.tank)
   else
     -- Small ships: the same preset, scaled by the sprite size (grunt = 1).
@@ -711,8 +753,10 @@ function world:onEnemyKilled(enemy, killerIndex)
   end
 
   self:dropPowerup(enemy.x, enemy.y, false)
+  if enemy.def.splitInto then self:split(enemy) end
+  if enemy.def.spawn then self:killBrood(enemy) end
 
-  if enemy.type == "tank" then
+  if heavy then
     self:shake(J.shakeTankDeath)
     Background.pulse(enemy.x, enemy.y, Config.ART.background.grid.tankDeath)
     Post.shockwave(enemy.x, enemy.y, Config.FX.shock.tank)
@@ -841,6 +885,7 @@ end
 -- redrawn additively through the sheen shader). `age` = s since it appeared.
 local bannerColor = { 1, 1, 1, 1 }
 local sweepColor = { 1, 1, 1, 1 }
+local introColor = { 1, 1, 1, 1 }   -- debut line under the banner
 
 local function drawBannerText(fontRole, digitRole, label, num, suffix, y, half, age, color)
   local HC = Config.FX.hud
@@ -1253,7 +1298,9 @@ function Game:draw(covered)
   drawRings(1)
   love.graphics.setBlendMode("alpha")
   Profiler.stop("particles")
-  -- Runner afterimages under every live enemy, then the enemies.
+  -- Kamikaze aim lines and runner afterimages under every live enemy, then
+  -- the enemies.
+  for i = 1, enemies.count do enemies.items[i]:drawTelegraph(1, arena) end
   for i = 1, enemies.count do enemies.items[i]:drawEchoes() end
   for i = 1, enemies.count do enemies.items[i]:draw() end
   world.boss:draw()
@@ -1304,6 +1351,12 @@ function Game:draw(covered)
     local tint = Config.FX.hud.bannerTint
     bannerColor[1], bannerColor[2], bannerColor[3], bannerColor[4] = tint[1], tint[2], tint[3], math.min(1, t * 2)
     drawBannerText("big", "digitsBig", "WAVE ", waveNum, nil, by, 12, age, bannerColor)
+    -- A type's debut wave: "NOVO: <NAME>" under it, in that enemy's color.
+    if Spawner.introLabel then
+      local ec = Config.COLORS[Config.ENEMIES[Spawner.introType].color]
+      introColor[1], introColor[2], introColor[3], introColor[4] = ec[1], ec[2], ec[3], bannerColor[4]
+      UI.text("title", Spawner.introLabel, arena.cx - 160, by + 30, introColor, 320, "center")
+    end
   end
 
   -- Boss alert: blinking ALERTA and the boss name while it is still offscreen.

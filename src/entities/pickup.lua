@@ -8,7 +8,6 @@ local Shaders = require("src.shaders")
 
 local PU = Config.POWERUP
 local EMIT = Config.FX.emit
-local BLINK_ALPHA = 0.75   -- white flash over the badge on each blink
 local FXP = Config.FX.pickup
 
 local Pickup = {}
@@ -107,7 +106,7 @@ function Pickup:vanishing()
   return math.max(0, self.vanish / Config.FX.dissolve.pickupVanish)
 end
 
--- In its last seconds it flashes white (never disappears, so it can't be
+-- In its last seconds a white ring blinks around it (it never disappears, so it can't be
 -- lost in the chaos), faster as the end nears. Not while frozen.
 function Pickup:blinkOn()
   return not self.frozen and self.life > 0 and self.life < PU.blinkAt
@@ -153,10 +152,11 @@ function Pickup:draw()
     Shaders.reset()
   end
   if self:blinkOn() then
-    g.setBlendMode("add")
-    g.setColor(1, 1, 1, BLINK_ALPHA)
-    g.circle("fill", 0, 0, s * 0.5)
-    g.setBlendMode("alpha")
+    -- A white ring around the badge (over it would hide the letter).
+    g.setColor(1, 1, 1, FXP.blinkAlpha)
+    g.setLineWidth(FXP.blinkWidth)
+    g.circle("line", 0, 0, s * FXP.blinkRing)
+    g.setLineWidth(1)
   end
   g.setColor(1, 1, 1, 1)
   g.pop()
@@ -177,12 +177,12 @@ end
 function Pickup:drawGlow()
   local c = self.def.color
   local a = EMIT.pickup * (0.75 + 0.25 * math.sin(self.bob * 1.5))
-  if self:blinkOn() then a = math.min(1, a * 1.8) end
+  if self:blinkOn() then a = math.min(1, a * FXP.blinkGlow) end
   local k = self:vanishing()
   if k then a = a * k end
   love.graphics.setColor(c[1], c[2], c[3], a)
   love.graphics.circle("fill", self.x, self.y + math.sin(self.bob) * 2,
-    Config.ART.size.pickup * 0.85 * self:scale())
+    Config.ART.size.pickup * FXP.glowSize * self:scale())
 end
 
 return Pickup
