@@ -729,7 +729,7 @@ end
 function world:onPlayerHit(player)
   -- One hit per moment: the bubble's invulnerability also covers the other
   -- collision checks of the same frame.
-  if not player.alive or player.invuln > 0 then return end
+  if not player.alive or player.invuln > 0 or player:dashGuarded() then return end
   if player.mods.bubble then
     popBubble(self, player)
     return
@@ -933,6 +933,37 @@ local function drawPauseButton()
   g.rectangle("fill", x + s * 0.5 + 1.5, y + (s - bh) * 0.5, bw, bh)
   g.setColor(1, 1, 1, 1)
   Touch.button("start", x, y, s, s)
+end
+
+-- DASH button (touch): a disc above the aim ghost, filling up with the
+-- player's cooldown; a finger landing on it dashes instead of aiming.
+local dashTextColor = { 1, 1, 1, 1 }
+
+local function drawDashButton(p)
+  local T = Config.TOUCH
+  local r = T.dashRadius
+  local x = Config.VIRTUAL_W - T.ghostInset
+  local y = Config.VIRTUAL_H - T.ghostInset - T.dashLift
+  local g = love.graphics
+  local c = p.color
+  local ready = p.dashCd <= 0
+  local k = ready and 1 or 1 - p.dashCd / Config.DASH.cooldown
+  g.setColor(c[1], c[2], c[3], ready and 0.28 or 0.12)
+  g.circle("fill", x, y, r)
+  if not ready then
+    g.setColor(c[1], c[2], c[3], 0.25)
+    g.arc("fill", x, y, r, -math.pi / 2, -math.pi / 2 + k * math.pi * 2, 24)
+  end
+  g.setColor(c[1], c[2], c[3], ready and 0.8 or 0.4)
+  g.setLineWidth(1.5)
+  g.circle("line", x, y, r)
+  g.setLineWidth(1)
+  local C = Config.COLORS.text
+  dashTextColor[1], dashTextColor[2], dashTextColor[3] = C[1], C[2], C[3]
+  dashTextColor[4] = ready and 0.9 or 0.45
+  UI.text("body", "DASH", x - r, y - 4, dashTextColor, r * 2, "center")
+  g.setColor(1, 1, 1, 1)
+  Touch.button("dash", x - r, y - r, r * 2, r * 2)
 end
 
 function Game:enter(devices, count)
@@ -1340,6 +1371,7 @@ function Game:draw(covered)
   if tp then
     Touch.useSticks()
     Touch.drawSticks(tp.color)
+    drawDashButton(tp)
   end
   Hud.draw(world.players, world.playerCount, hudInfo)
   if tp then drawPauseButton() end

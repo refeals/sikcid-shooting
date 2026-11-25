@@ -402,6 +402,29 @@ Config.PLAYER = {
   reticleSize = 9,            -- reticle width (px)
 }
 
+-- Dash (RB / LB / B, Shift, touch button): a quick burst along the move stick
+-- (or the aim, standing still) that passes through enemies and their shots.
+--   distance/time -- px covered in s (the ship keeps firing meanwhile)
+--   cooldown      -- s from one dash start to the next
+--   grace         -- s of protection left after the burst ends
+--   lingerMax     -- ending inside an enemy (or the boss): the protection
+--                    holds while still touching it, at most this many s more
+--   buffer        -- a press up to this many s early fires once it is ready
+-- Visuals: `ghosts` fading copies of the ship sampled every `ghostEvery` s
+-- during the burst, gone after `ghostLife` s; the cooldown ring around the
+-- ship (`ring.radius` x ship size) and its flash when ready.
+Config.DASH = {
+  distance = 70,
+  time = 0.15,
+  cooldown = 1.2,
+  grace = 0.1,
+  lingerMax = 0.3,
+  buffer = 0.1,
+  ghosts = 4, ghostEvery = 0.03, ghostLife = 0.22, ghostAlpha = 0.45,
+  ring = { radius = 0.85, width = 1.5, alpha = 0.35 },
+  readyFlash = 0.18,
+}
+
 -- Arma base (modificada pelos power-ups via tabela de mods).
 Config.WEAPON = {
   fireRate = 8,               -- tiros por segundo
@@ -739,6 +762,9 @@ Config.SFX = {
                     vol = 0.30, voices = 4, pitch = 0.9, pitchVar = 0.10, minGap = 0.04 },
   drone_shot    = { src = "kenney/laserSmall", variants = 5,
                     vol = 0.14, voices = 3, pitch = 1.4, pitchVar = 0.06, minGap = 0.05 },
+  -- Dash: the force field pitched way up, a short whoosh.
+  dash          = { src = "kenney/forceField", variants = 5,
+                    vol = 0.30, voices = 2, pitch = 2.2, pitchVar = 0.06, minGap = 0.05 },
   -- Waves e combo
   door_warn     = { src = "kenney/doorOpen", variants = 3,
                     vol = 0.15, voices = 4, pitchVar = 0.04, minGap = 0.12 },
@@ -816,6 +842,8 @@ Config.TOUCH = {
   ghostInset = 56,     -- their distance from the corners
   buttonPad = 8,       -- extra hit margin around on-screen buttons
   pauseSize = 18,      -- pause button in the HUD
+  dashRadius = 18,     -- DASH button, above the aim ghost
+  dashLift = 62,       -- its center this many px above the aim ghost's
 }
 
 -- ---------------------------------------------------------------------------

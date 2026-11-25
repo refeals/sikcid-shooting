@@ -1,5 +1,5 @@
 -- Briefing antes da partida: janela sobre a arena (já montada e congelada)
--- apresentando os power-ups. A partida só começa quando um dos jogadores
+-- apresentando os power-ups (e o botão de dash). A partida só começa quando um dos jogadores
 -- aperta START de novo — assim a transição do lobby para o jogo não joga
 -- ninguém direto no meio da ação.
 --
@@ -35,9 +35,29 @@ end
 local WEAPON_LETTERS = lettersWhere(function(d) return d.weapon end)
 local STACK_LETTERS  = lettersWhere(function(d) return not d.weapon and not d.permanent end)
 
+-- Dash button per device kind (the smoke bots read as a pad).
+local DASH_KEYS = { gamepad = "RB / LB / B", scripted = "RB / LB / B",
+                    keyboard = "SHIFT", touch = "BOTÃO ACIMA DE MIRAR" }
+
+-- "DASH: <keys of every player's device, no repeats> - ...", built once.
+local function dashLine(world)
+  local keys, seen = {}, {}
+  for i = 1, world.playerCount do
+    local d = world.players[i].device
+    local k = d and DASH_KEYS[d.kind]
+    if k and not seen[k] then
+      seen[k] = true
+      keys[#keys + 1] = k
+    end
+  end
+  if #keys == 0 then keys[1] = DASH_KEYS.gamepad end
+  return "DASH: " .. table.concat(keys, " OU ") .. "  -  ATRAVESSA INIMIGOS E TIROS"
+end
+
 function Briefing:enter(world)
   self.world = world
   self.timer = 0
+  self.dashText = dashLine(world)
   if Config.SMOKE then require("src.smoke").note("state", "briefing") end
 end
 
@@ -87,7 +107,7 @@ function Briefing:draw()
   -- Window: tab + subtitle + the power-ups in columns + the stacking rule.
   local rows = math.ceil(#defs / COLS)
   local pw = COLS * COL_W + 20
-  local ph = Config.ART.ui.tabH + 52 + rows * ROW_H
+  local ph = Config.ART.ui.tabH + 64 + rows * ROW_H   -- +12: the dash line
   local px = math.floor((W - pw) * 0.5)
   local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5) - 12
   local top = UI.window(px, py, pw, ph, "POWER-UPS")
@@ -111,6 +131,8 @@ function Briefing:draw()
   -- Stacking rule.
   UI.text("body", string.format("%s SÃO ARMAS: PEGAR UMA TROCA A OUTRA.   %s ACUMULAM.",
     WEAPON_LETTERS, STACK_LETTERS), px, y + 4, C.textDim, pw, "center")
+  -- The dash, with the button of each player's device.
+  UI.text("body", self.dashText, px, y + 16, C.text, pw, "center")
 
   -- Pulsing call to start.
   local ready = self.timer >= ACCEPT_DELAY

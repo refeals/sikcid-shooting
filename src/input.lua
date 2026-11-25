@@ -8,8 +8,8 @@
 --   "touch"    -- touch screen (mobile web); created on the first touch, see
 --                 src/touch.lua
 --
--- Ações lógicas: "start", "back", "fire" e, no lobby, "left", "right" e
--- "random" (seletor de cor).
+-- Ações lógicas: "start", "back", "fire", "dash" (RB / LB / B, Shift, botão
+-- touch) e, no lobby, "left", "right" e "random" (seletor de cor).
 
 local Config = require("src.config")
 local Util   = require("src.util")
@@ -44,6 +44,7 @@ local KEY_MAP = {
   start = { "return", "kpenter" },
   back  = { "escape" },
   fire  = { "space" },
+  dash  = { "lshift", "rshift" },
   -- Lobby color picker: both WASD and arrow halves, since either hand may be
   -- the one on the keyboard.
   left   = { "a", "left" },
@@ -107,6 +108,8 @@ function Device:poll(dt)
     down.start = j:isGamepadDown("start")
     down.back  = j:isGamepadDown("back") or j:isGamepadDown("guide")
     down.fire  = j:isGamepadDown("a") or (j:getGamepadAxis("triggerright") or 0) > 0.5
+    down.dash  = j:isGamepadDown("rightshoulder") or j:isGamepadDown("leftshoulder")
+                 or j:isGamepadDown("b")
     -- Lobby picker: d-pad or the left stick pushed past the threshold, so a
     -- stick flick counts as one press (edge detect does the rest).
     local lx = j:getGamepadAxis("leftx") or 0
@@ -139,10 +142,11 @@ function Device:poll(dt)
     down.back  = Touch.actionDown("back")
     down.left  = Touch.actionDown("left")
     down.right = Touch.actionDown("right")
+    down.dash  = Touch.actionDown("dash")
     down.fire, down.random = false, false
     any = down.start
   else
-    down.start, down.back, down.fire = false, false, false
+    down.start, down.back, down.fire, down.dash = false, false, false, false
     down.left, down.right, down.random = false, false, false
   end
   self.anyDown = any

@@ -112,7 +112,8 @@ end
 -- Roteia os comandos do roteiro: device 1 vira o pad falso quando --fakepad
 -- está ligado; o resto continua no device sintético.
 -- Logical action -> fake gamepad button (anything else keeps its own name).
-local PAD_BUTTONS = { fire = "a", left = "dpleft", right = "dpright", random = "y" }
+local PAD_BUTTONS = { fire = "a", left = "dpleft", right = "dpright", random = "y",
+                      dash = "rightshoulder" }
 
 -- --smoketouch: bot 1 is a finger. A button press taps the on-screen button
 -- for that action (pause, color arrows, ABANDONAR) or, for START with no
@@ -169,6 +170,25 @@ local function axis(which, mx, my)
   end
 end
 
+-- Bot dash trigger (see Smoke.update): an enemy within DASH_ENEMY px or an
+-- enemy shot within DASH_SHOT px of the ship.
+local DASH_ENEMY, DASH_SHOT = 40, 30
+local dashHeld = { false, false }
+
+local function threatened(world, p)
+  if world:nearestEnemy(p.x, p.y, DASH_ENEMY) then return true end
+  local bullets = world.bullets
+  local r2 = DASH_SHOT * DASH_SHOT
+  for i = 1, bullets.count do
+    local b = bullets.items[i]
+    if b.owner == "enemy" and not b.dead then
+      local dx, dy = b.x - p.x, b.y - p.y
+      if dx * dx + dy * dy <= r2 then return true end
+    end
+  end
+  return false
+end
+
 function Smoke.reset()
   Smoke.t = 0
   Smoke.fpsMin = 9999
@@ -177,6 +197,7 @@ function Smoke.reset()
   Smoke.stats = {}
   Smoke.goTimer, Smoke.goPressed, Smoke.goReleased, Smoke.goReleaseAt = 0, false, false, 0
   Smoke.nextShot = 1
+  dashHeld[1], dashHeld[2] = false, false
   pad = nil
   if Config.SMOKE_PAD then
     pad = makeFakePad()
@@ -203,10 +224,10 @@ local function finish(code)
   s.devices = Input.count
   print(string.format(
     "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d bosses=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
-    "combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d deniedFx=%d " ..
+    "dashes=%d combo=%d pausas=%d esperas=%d peakEnemies=%d peakBullets=%d peakParticles=%d denied=%d deniedFx=%d " ..
     "cores=%s",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
-    s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0,
+    s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0, s.dashes or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
   -- Both players ending on the same color means the picker's skip rule broke.
@@ -261,6 +282,30 @@ function Smoke.update(dt)
   local State = require("src.state")
   -- Before that, START once the arena's GAME OVER accepts it.
   local Game = require("src.states.game")
+
+  -- Dash when threatened: an enemy or an enemy shot close by and the dash
+  -- ready. Pressed for one frame (released on the next).
+  for which = 1, 2 do
+    if dashHeld[which] then
+      press(which, "dash", false)
+      dashHeld[which] = false
+    elseif State.current() == Game and not Game.isEnding() then
+      local p = Game.world.players[which]
+      if p and p.alive and p.dashCd <= 0 and threatened(Game.world, p) then
+        press(which, "dash", true)
+        dashHeld[which] = true
+        -- --shots: the first dash mid-burst (afterimages) and recharging (ring).
+        if Config.SMOKE_SHOTS and not Smoke.dashShots then
+          Smoke.dashShots = { Smoke.t + 0.08, Smoke.t + 0.6 }
+        end
+      end
+    end
+  end
+  local ds = Smoke.dashShots
+  if ds and ds[1] and Smoke.t >= ds[1] then
+    love.graphics.captureScreenshot(ds[2] and "smoke_dash.png" or "smoke_dashring.png")
+    table.remove(ds, 1)
+  end
   if State.current() == Game and Game.isEnding() then
     -- The screenshot is saved at the end of the frame: take it one frame
     -- before START switches the screen.

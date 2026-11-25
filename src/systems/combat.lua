@@ -277,17 +277,30 @@ local function enemiesVsPlayers(world)
   local bossSolid = boss and (boss.state == "enter" or boss.state == "fight")
   for pi = 1, world.playerCount do
     local p = world.players[pi]
-    if p.alive and p.invuln <= 0 and not world.godMode then
+    -- Mid-dash (burst + grace) the ship passes through everything. Right
+    -- after it, a ship still inside an enemy lingers protected while it keeps
+    -- touching one (Player:updateDash spends the linger budget).
+    if p.alive and p.invuln <= 0 and p.dashSafe <= 0 and not world.godMode then
       queryCircle(p.x, p.y, P.radius + 24, function(e)
         if e.dead then return end
         local rr = P.radius + e.radius
         if Util.dist2(p.x, p.y, e.x, e.y) > rr * rr then return end
-        world:onPlayerHit(p)
+        if p.dashLingering then
+          p.dashTouched = true
+        else
+          world:onPlayerHit(p)
+        end
         return false
       end)
       if p.alive and bossSolid then
         local rr = P.radius + boss.radius
-        if Util.dist2(p.x, p.y, boss.x, boss.y) <= rr * rr then world:onPlayerHit(p) end
+        if Util.dist2(p.x, p.y, boss.x, boss.y) <= rr * rr then
+          if p.dashLingering then
+            p.dashTouched = true
+          else
+            world:onPlayerHit(p)
+          end
+        end
       end
     end
   end
@@ -301,7 +314,8 @@ local function enemyBulletsVsPlayers(world)
     if b.owner == "enemy" and not b.dead then
       for pi = 1, world.playerCount do
         local p = world.players[pi]
-        if p.alive and p.invuln <= 0 and not world.godMode then
+        -- Dashing ships let shots through (the shot keeps flying).
+        if p.alive and p.invuln <= 0 and not p:dashGuarded() and not world.godMode then
           local rr = P.radius + b.radius
           if Util.dist2(b.x, b.y, p.x, p.y) <= rr * rr then
             b.dead = true

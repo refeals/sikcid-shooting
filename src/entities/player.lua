@@ -16,6 +16,7 @@ local DR = Config.POWERUPS.drone
 local SIZE = Config.ART.size
 local TR = Config.FX.trail
 local MZ = Config.FX.muzzle
+local D = Config.DASH
 
 local UP = -math.pi / 2
 local BUBBLE_COLOR = { 0.60, 0.95, 1.00 }
@@ -102,6 +103,19 @@ function Player.new(index, device)
     ribbonN = 0, ribbonT = 0,
     ribbonClock = 0,          -- game time, runs while dead too (the ribbon fades)
     hidden = false,           -- match start: not drawn until :arrive (briefing)
+    -- Dash (Config.DASH): see Player:updateDash.
+    dashT = 0,                -- s of burst left
+    dashSafe = 0,             -- s of protection left (burst + grace)
+    dashCd = 0,               -- s until the next dash
+    dashBuffer = 0,           -- an early press, still waiting for the cooldown
+    dashDX = 0, dashDY = 0,   -- burst direction
+    dashLinger = 0,           -- s of protection left to spend inside an enemy
+    dashLingering = false,    -- burst over, still inside an enemy
+    dashTouched = false,      -- set by Combat: touching an enemy while lingering
+    readyFlash = 0,           -- cooldown ring flash when the dash is back
+    -- Dash afterimages: fixed arrays, newest first, aged by ghostAt.
+    ghostX = {}, ghostY = {}, ghostA = {}, ghostAt = {},
+    ghostN = 0, ghostT = 0,
   }, Player)
   self:resetMods()
   self.ribbonMesh = love.graphics.newMesh((TR.ribbonPoints + 1) * 2, "strip", "stream")
@@ -161,6 +175,9 @@ function Player:spawn(x, y, quiet)
   self.angle = UP
   self.muzzle = 0
   self.ribbonN = 0          -- no ribbon from the death spot to here
+  self.dashT, self.dashSafe, self.dashCd, self.dashBuffer = 0, 0, 0, 0
+  self.dashLinger, self.dashLingering, self.dashTouched = 0, false, false
+  self.readyFlash, self.ghostN, self.ghostT = 0, 0, 0
   self.spawnFx = P.spawnFxTime
   if not quiet then Audio.play("player_spawn") end
   -- Morrer custa os power-ups temporários.
@@ -249,6 +266,78 @@ local function sampleRibbon(self, dt)
   self.ribbonN = n
 end
 
+-- Dash afterimages: a new copy every ghostEvery s during the burst (newest
+-- first; the arrays are shifted, they are tiny). They age out in drawGhosts.
+local function sampleGhosts(self, dt)
+  if self.dashT <= 0 then return end
+  self.ghostT = self.ghostT - dt
+  if self.ghostT > 0 then return end
+  self.ghostT = D.ghostEvery
+  local xs, ys, as, at = self.ghostX, self.ghostY, self.ghostA, self.ghostAt
+  local n = math.min(self.ghostN + 1, D.ghosts)
+  for i = n, 2, -1 do
+    xs[i], ys[i], as[i], at[i] = xs[i - 1], ys[i - 1], as[i - 1], at[i - 1]
+  end
+  xs[1], ys[1], as[1], at[1] = self.x, self.y, self.angle, self.ribbonClock
+  self.ghostN = n
+end
+
+-- Protected by the dash: during the burst + grace, or while lingering inside
+-- an enemy right after it (Combat sets dashTouched to keep that going).
+function Player:dashGuarded()
+  return self.dashSafe > 0 or self.dashLingering
+end
+
+-- Dash timers, the press (buffered) and the burst start. Returns whether the
+-- ship is mid-burst this frame (Player:update then moves it at burst speed).
+function Player:updateDash(dt, moveX, moveY)
+  if self.readyFlash > 0 then self.readyFlash = self.readyFlash - dt end
+  if self.dashCd > 0 then
+    self.dashCd = self.dashCd - dt
+    if self.dashCd <= 0 then self.readyFlash = D.readyFlash end
+  end
+  if self.dashBuffer > 0 then self.dashBuffer = self.dashBuffer - dt end
+  local d = self.device
+  if d.connected and d:pressed("dash") then self.dashBuffer = D.buffer end
+
+  -- Protection: burst + grace; then, if Combat finds the ship inside an
+  -- enemy, it lingers while it keeps touching one (up to lingerMax).
+  if self.dashSafe > 0 then
+    self.dashSafe = self.dashSafe - dt
+    if self.dashSafe <= 0 then self.dashLingering = true end
+  elseif self.dashLingering then
+    self.dashLinger = self.dashLinger - dt
+    if not self.dashTouched or self.dashLinger <= 0 then self.dashLingering = false end
+  end
+  self.dashTouched = false
+
+  -- Burst over: leave at normal top speed the same way (no skid, no halt).
+  if self.dashT > 0 then
+    self.dashT = self.dashT - dt
+    if self.dashT <= 0 then
+      local v = P.speed * self.mods.speedMul
+      self.vx, self.vy = self.dashDX * v, self.dashDY * v
+    end
+  end
+
+  if self.dashBuffer > 0 and self.dashCd <= 0 and self.dashT <= 0 then
+    -- Along the move stick; standing still, where the ship aims.
+    local dx, dy = Util.normalize(moveX, moveY)
+    if dx == 0 and dy == 0 then dx, dy = Util.normalize(self.aimX, self.aimY) end
+    if dx == 0 and dy == 0 then dx, dy = 0, -1 end
+    self.dashDX, self.dashDY = dx, dy
+    self.dashT = D.time
+    self.dashSafe = D.time + D.grace
+    self.dashLinger, self.dashLingering = D.lingerMax, false
+    self.dashCd = D.cooldown
+    self.dashBuffer, self.readyFlash = 0, 0
+    self.ghostN, self.ghostT = 0, 0
+    Audio.play("dash")
+    if Config.SMOKE then require("src.smoke").bump("dashes") end
+  end
+  return self.dashT > 0
+end
+
 function Player:update(dt, world)
   self.ribbonClock = self.ribbonClock + dt
   if self.invuln > 0 then self.invuln = self.invuln - dt end
@@ -277,12 +366,18 @@ function Player:update(dt, world)
   local moveX, moveY = 0, 0
   if d.connected then moveX, moveY = d:moveVector() end
 
-  -- Movimento com aceleração alta (resposta imediata, sem patinar).
-  local speed = P.speed * self.mods.speedMul
-  local targetX, targetY = moveX * speed, moveY * speed
-  local step = P.accel * dt
-  self.vx = Util.approach(self.vx, targetX, step)
-  self.vy = Util.approach(self.vy, targetY, step)
+  if self:updateDash(dt, moveX, moveY) then
+    -- Mid-burst: fixed speed along the dash (the walls below stop it).
+    local v = D.distance / D.time
+    self.vx, self.vy = self.dashDX * v, self.dashDY * v
+  else
+    -- Movimento com aceleração alta (resposta imediata, sem patinar).
+    local speed = P.speed * self.mods.speedMul
+    local targetX, targetY = moveX * speed, moveY * speed
+    local step = P.accel * dt
+    self.vx = Util.approach(self.vx, targetX, step)
+    self.vy = Util.approach(self.vy, targetY, step)
+  end
 
   self.x = self.x + self.vx * dt
   self.y = self.y + self.vy * dt
@@ -310,6 +405,7 @@ function Player:update(dt, world)
   end
 
   sampleRibbon(self, dt)
+  sampleGhosts(self, dt)
   self:updateDrone(dt, world)
 end
 
@@ -510,6 +606,42 @@ local function blinkedOff(self)
   return self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0
 end
 
+-- Dash afterimages: fading copies of the ship in its color, older = fainter.
+-- `glow` (glow layer): a soft disc per copy instead of the sprite.
+local function drawGhosts(self, alphaMul, glow)
+  local c = self.color
+  for i = 1, self.ghostN do
+    local age = (self.ribbonClock - self.ghostAt[i]) / D.ghostLife
+    if age >= 1 then break end
+    local a = D.ghostAlpha * (1 - age) * (1 - 0.5 * (i - 1) / D.ghosts) * alphaMul
+    if glow then
+      love.graphics.setColor(c[1], c[2], c[3], a)
+      love.graphics.circle("fill", self.ghostX[i], self.ghostY[i], SIZE.playerShip * 0.45)
+    else
+      Player.drawShip(c, self.ghostX[i], self.ghostY[i], self.ghostA[i], SIZE.playerShip, a)
+    end
+  end
+end
+
+-- Dash cooldown: a thin arc around the ship filling clockwise from the top
+-- while it recharges, then a full ring flashing outward when it is back.
+local function drawDashRing(self, alphaMul)
+  local g = love.graphics
+  local c = self.color
+  local r = SIZE.playerShip * D.ring.radius
+  g.setLineWidth(D.ring.width)
+  if self.dashCd > 0 then
+    local k = 1 - self.dashCd / D.cooldown
+    g.setColor(c[1], c[2], c[3], D.ring.alpha * alphaMul)
+    g.arc("line", "open", self.x, self.y, r, -math.pi / 2, -math.pi / 2 + k * math.pi * 2, 24)
+  elseif self.readyFlash > 0 then
+    local f = self.readyFlash / D.readyFlash
+    g.setColor(c[1] + (1 - c[1]) * 0.5, c[2] + (1 - c[2]) * 0.5, c[3] + (1 - c[3]) * 0.5, f * alphaMul)
+    g.circle("line", self.x, self.y, r + 3 * (1 - f))
+  end
+  g.setLineWidth(1)
+end
+
 -- Shadow layer (src/post.lua): the ship's silhouette, offset down-right.
 -- Same visibility as Player:draw (none while dead, blinks with the ship).
 function Player:drawShadow()
@@ -550,6 +682,8 @@ function Player:drawGlow()
     g.setColor(c[1], c[2], c[3], EMIT.shield * (0.6 + 0.2 * math.sin(self.invuln * 14)))
     g.circle("line", self.x, self.y, SIZE.playerShip * 0.62)
   end
+  drawGhosts(self, EMIT.shield, true)
+  if self.readyFlash > 0 then drawDashRing(self, EMIT.shield) end
   if blinkedOff(self) then return end
 
   g.setColor(c[1], c[2], c[3], EMIT.ship * spawnProgress(self))
@@ -612,6 +746,11 @@ function Player:draw()
   g.setBlendMode("add")
   drawBeam(self, 1)
   g.setBlendMode("alpha")
+
+  -- Dash afterimages and cooldown ring: shown through the blink, like the
+  -- shield bubble (they tell where the ship went and when it dashes again).
+  drawGhosts(self, 1, false)
+  drawDashRing(self, 1)
 
   -- Blink during invulnerability.
   if blinkedOff(self) then return end
