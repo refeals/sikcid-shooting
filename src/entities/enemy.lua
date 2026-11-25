@@ -292,5 +292,12 @@ function Enemy:draw()
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+-- Glow layer (src/post.lua): the white hit flash blooms a little.
+function Enemy:drawGlow()
+  if self.flash <= 0 then return end
+  love.graphics.setColor(1, 1, 1, Config.FX.emit.hitFlash)
+  Assets.draw(self.type, self.x, self.y, self.angle, SIZE[self.type] or SIZE.grunt)
+end
+
 Enemy.BEHAVIORS = BEHAVIORS
 return Enemy

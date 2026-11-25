@@ -339,6 +339,85 @@ function Player:drawMarker()
   UI.text("body", PLAYER_TAGS[self.index] or "P?", self.markerX - 20, self.markerY - 4, c, 40, "center")
 end
 
+-- Engine flame behind the ship while moving (two frames flickering): an
+-- outer flame in the player's color with a white core over it, longer the
+-- faster the ship goes. Each layer is anchored so its near end stays at the
+-- ship's tail while it stretches. The CALLER sets the additive blend: this
+-- runs in the arena pass and in the glow layer (scaled by `alphaMul`, with
+-- `coreMul` on the white core, which would bloom into a white blob).
+local function drawEngine(self, alphaMul, coreMul)
+  local speed2 = self.vx * self.vx + self.vy * self.vy
+  if speed2 <= P.flameMinSpeed * P.flameMinSpeed then return end
+  local g = love.graphics
+  local c = self.color
+  local E = Config.ART.engine
+  local fx, fy = math.cos(self.angle), math.sin(self.angle)
+  local frame = math.floor(self.engineT * E.flickerRate) % 2 == 0 and "engineFlame1" or "engineFlame2"
+  local t = math.min(1, (math.sqrt(speed2) - P.flameMinSpeed) / (P.speed - P.flameMinSpeed))
+  local stretch = E.stretchMin + (E.stretchMax - E.stretchMin) * t
+  local back = SIZE.playerShip * 0.5
+  local rot = self.angle + math.pi
+  local d = back + SIZE.engineFlame * 0.5 * (stretch - 1)
+  g.setColor(c[1], c[2], c[3], alphaMul)
+  Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineFlame, 1, stretch)
+  d = back + SIZE.engineCore * 0.5 * (stretch - 1)
+  g.setColor(1, 1, 1, E.coreAlpha * alphaMul * coreMul)
+  Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineCore, 1, stretch)
+end
+
+-- Ship hidden this frame by the invulnerability blink.
+local function blinkedOff(self)
+  return self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0
+end
+
+-- Glow layer (src/post.lua): engine flame, a faint aura in the player's
+-- color, and the shield/bubble/respawn rings. Mirrors Player:draw's
+-- visibility rules (marker while dead, blink while invulnerable).
+function Player:drawGlow()
+  local g = love.graphics
+  local c = self.color
+  local EMIT = Config.FX.emit
+  if not self.alive then
+    if not self.out and self.markerDelay <= 0 then
+      local t = love.timer.getTime()
+      g.setColor(c[1], c[2], c[3], EMIT.shield * (0.7 + 0.25 * math.sin(t * 6)))
+      g.setLineWidth(2)
+      g.circle("line", self.markerX, self.markerY, SIZE.playerShip * 0.6 + 2 * math.sin(t * 6))
+      g.setLineWidth(1)
+    end
+    return
+  end
+  if self.spawnFx > 0 then
+    local t = self.spawnFx / P.spawnFxTime
+    g.setColor(c[1], c[2], c[3], t * EMIT.shield)
+    g.setLineWidth(2)
+    g.circle("line", self.x, self.y, SIZE.playerShip * 0.5 + 20 * t)
+    g.setLineWidth(1)
+  end
+  if self.invuln > 0 then
+    g.setColor(c[1], c[2], c[3], EMIT.shield * (0.6 + 0.2 * math.sin(self.invuln * 14)))
+    g.circle("line", self.x, self.y, SIZE.playerShip * 0.62)
+  end
+  if blinkedOff(self) then return end
+
+  g.setColor(c[1], c[2], c[3], EMIT.ship)
+  g.circle("fill", self.x, self.y, SIZE.playerShip * 0.55)
+  drawEngine(self, EMIT.engine, EMIT.engineCore)
+
+  if self.mods.bubble then
+    local bc = BUBBLE_COLOR
+    g.setColor(bc[1], bc[2], bc[3], EMIT.shield)
+    g.setLineWidth(1.5)
+    g.circle("line", self.x, self.y, SIZE.playerShip * 0.72 + math.sin(self.engineT * 5) * 1.2)
+    g.setLineWidth(1)
+  end
+  if self.mods.drone and self.droneFlash > 0 then
+    local dx, dy = self:droneXY()
+    g.setColor(1, 1, 1, 1)
+    g.circle("fill", dx + self.droneAimX * DR.barrel, dy + self.droneAimY * DR.barrel, 3)
+  end
+end
+
 function Player:draw()
   if not self.alive then
     if not self.out then self:drawMarker() end
@@ -367,11 +446,7 @@ function Player:draw()
   end
 
   -- Blink during invulnerability.
-  if self.invuln > 0 and math.floor(self.invuln * P.blinkRate) % 2 == 0 then
-    return
-  end
-
-  local fx, fy = math.cos(self.angle), math.sin(self.angle)
+  if blinkedOff(self) then return end
 
   -- Outline: a lightened, gently pulsing silhouette under the flame and the
   -- ship, so each player finds their own ship in the chaos. Arena only
@@ -389,27 +464,9 @@ function Player:draw()
     O.alpha + O.pulseAmp * math.sin(self.engineT * rate * math.pi * 2))
   Assets.draw("playerOutline", self.x, self.y, self.angle, SIZE.playerShip)
 
-  -- Engine flame behind the ship while moving (two frames flickering): an
-  -- outer flame in the player's color with a white core over it, both
-  -- additive and longer the faster the ship goes. Each layer is anchored so
-  -- its near end stays at the ship's tail while it stretches.
-  local speed2 = self.vx * self.vx + self.vy * self.vy
-  if speed2 > P.flameMinSpeed * P.flameMinSpeed then
-    local E = Config.ART.engine
-    local frame = math.floor(self.engineT * E.flickerRate) % 2 == 0 and "engineFlame1" or "engineFlame2"
-    local t = math.min(1, (math.sqrt(speed2) - P.flameMinSpeed) / (P.speed - P.flameMinSpeed))
-    local stretch = E.stretchMin + (E.stretchMax - E.stretchMin) * t
-    local back = SIZE.playerShip * 0.5
-    local rot = self.angle + math.pi
-    local d = back + SIZE.engineFlame * 0.5 * (stretch - 1)
-    g.setBlendMode("add")
-    g.setColor(c[1], c[2], c[3], 1)
-    Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineFlame, 1, stretch)
-    d = back + SIZE.engineCore * 0.5 * (stretch - 1)
-    g.setColor(1, 1, 1, E.coreAlpha)
-    Assets.draw(frame, self.x - fx * d, self.y - fy * d, rot, SIZE.engineCore, 1, stretch)
-    g.setBlendMode("alpha")
-  end
+  g.setBlendMode("add")
+  drawEngine(self, 1, 1)
+  g.setBlendMode("alpha")
 
   Player.drawShip(c, self.x, self.y, self.angle, SIZE.playerShip)
 

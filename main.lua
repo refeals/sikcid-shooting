@@ -11,6 +11,7 @@ local Smoke  = require("src.smoke")
 local Profiler = require("src.profiler")
 local Assets  = require("src.assets")
 local Shaders = require("src.shaders")
+local Post    = require("src.post")
 local Background = require("src.background")
 local UI      = require("src.ui")
 local Touch   = require("src.touch")
@@ -54,6 +55,9 @@ local function parseArgs(args)
       Config.TOUCH_MOUSE = true  -- the mouse acts as one finger (test touch on a PC)
     elseif a == "--smoketouch" then
       Config.SMOKE_TOUCH = true  -- smoke bot 1 plays through synthetic touches
+    elseif a == "--fx" then
+      -- Glow quality: high | low | off (see Config.FX).
+      if args[i + 1] then Config.FX.quality = args[i + 1]; i = i + 1 end
     elseif a == "--media" then
       Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
     end
@@ -93,6 +97,7 @@ function love.load(args)
   Screen.load()
   Assets.load()
   Shaders.load()
+  Post.load()
   Background.load()
   UI.load()
   love.graphics.setFont(Assets.font("body"))

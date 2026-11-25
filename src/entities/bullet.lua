@@ -12,6 +12,7 @@ local BM = Config.BOSS.missile
 local SV = Config.RESPAWN.salvo
 local X2 = Config.POWERUPS.damage
 local DR = Config.POWERUPS.drone
+local EMIT = Config.FX.emit
 
 local Bullet = {}
 Bullet.__index = Bullet
@@ -194,37 +195,49 @@ function Bullet:draw()
   end
 end
 
--- Soft glow in the owner's color under player shots, so they read against
--- the dark arena. Drawn in its own pass with additive blending (Game:draw)
--- so the blend mode is switched once, not per bullet.
+-- Light this bullet adds to the glow layer (src/post.lua): player shots in
+-- the owner's color, enemy stars and boss missiles in their pink. Drawn
+-- between Post.beginGlow/endGlow, already additive.
 function Bullet:drawGlow()
+  local g = love.graphics
   local c = self.color
-  if self.kind == "drone" then
-    -- Two layers: a soft halo and a bright inner glow.
-    local r, a = DR.shotGlow, 1
+  if self.kind == "enemy" then
+    g.setColor(c[1], c[2], c[3], EMIT.enemyShot)
+    g.circle("fill", self.x, self.y, SIZE.enemyShot * 0.6)
+    return
+  elseif self.kind == "bossMissile" then
+    local a = EMIT.bossMissile
+    if self.age >= BM.homingTime and math.floor(self.age * 18) % 2 == 0 then a = a * 0.4 end
+    g.setColor(c[1], c[2], c[3], a)
+    g.circle("fill", self.x, self.y, SIZE.bossMissile * 0.4)
+    return
+  elseif self.kind == "drone" then
+    -- Two layers: a soft halo and a bright inner glow. The pellet itself is
+    -- white, so its color comes from here.
+    local r, a = DR.shotGlow, EMIT.drone
     if self.powered then
       c = X2.color
       r = r * X2.shotScale
-      a = math.min(1.3, X2.glowMul)
+      a = math.min(1, a * X2.glowMul)
     end
-    love.graphics.setColor(c[1], c[2], c[3], 0.35 * a)
-    love.graphics.circle("fill", self.x, self.y, r)
-    love.graphics.setColor(c[1], c[2], c[3], math.min(1, 0.8 * a))
-    love.graphics.circle("fill", self.x, self.y, r * 0.55)
+    g.setColor(c[1], c[2], c[3], 0.45 * a)
+    g.circle("fill", self.x, self.y, r)
+    g.setColor(c[1], c[2], c[3], a)
+    g.circle("fill", self.x, self.y, r * 0.55)
     return
   end
   local r = (self.kind == "missile" and SIZE.missile * 0.35)
     or (self.kind == "salvo" and SIZE.salvo * 0.45)
     or SIZE.shot * 0.45
-  local a = 0.45
+  local a = EMIT.shot
   -- DANO X2: a bigger, stronger glow in the power-up color.
   if self.powered then
     c = X2.color
     r = r * X2.shotScale * X2.glowMul
     a = math.min(1, a * X2.glowMul)
   end
-  love.graphics.setColor(c[1], c[2], c[3], a)
-  love.graphics.circle("fill", self.x, self.y, r)
+  g.setColor(c[1], c[2], c[3], a)
+  g.circle("fill", self.x, self.y, r)
 end
 
 return Bullet

@@ -10,6 +10,7 @@ local Util   = require("src.util")
 local Assets = require("src.assets")
 
 local J = Config.JUICE
+local EMIT = Config.FX.emit
 
 local PUFFS = { "puff1", "puff2", "puff3", "puff4" }
 
@@ -103,6 +104,15 @@ function Particle:draw()
     local s = self.size * t
     love.graphics.rectangle("fill", self.x - s * 0.5, self.y - s * 0.5, s, s)
   end
+end
+
+-- Glow layer (src/post.lua): sparks are hot, smoke puffs are not.
+function Particle:drawGlow()
+  if self.kind ~= "spark" then return end
+  local t = self.life / self.maxLife
+  local c = self.color
+  love.graphics.setColor(c[1], c[2], c[3], t * EMIT.spark)
+  love.graphics.circle("fill", self.x, self.y, self.size * (0.4 + 0.6 * t))
 end
 
 return Particle

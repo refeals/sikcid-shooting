@@ -857,4 +857,40 @@ Config.JUICE = {
   particleDrag = 2.6,
 }
 
+-- ---------------------------------------------------------------------------
+-- Visual effects (src/post.lua)
+-- ---------------------------------------------------------------------------
+Config.FX = {
+  -- "high" | "low" | "off" | "auto" (low in the browser, high elsewhere).
+  -- Overridden by --fx on the command line. "off" keeps the glow layer but
+  -- skips the blur (the same path used when the shader fails to compile).
+  quality = "auto",
+  glow = {
+    -- Glow canvas size as a fraction of the 640x360 logical screen. "wide"
+    -- adds a second, half-size blurred level for a broad halo.
+    high = { scale = 0.5,  wide = true },
+    low  = { scale = 0.25, wide = false },
+    spread = 1.0,          -- blur radius multiplier (texels per tap step)
+    intensity = 1.6,       -- tight level gain
+    wideIntensity = 1.0,   -- wide level gain
+  },
+  -- Alpha of each emitter in the glow layer (0 = does not glow).
+  emit = {
+    shot = 0.9,          -- player shots (owner color)
+    drone = 0.8,
+    enemyShot = 0.55,    -- pink stars: a danger halo
+    bossMissile = 0.8,
+    spark = 0.9,         -- explosion sparks (smoke never glows)
+    ring = 0.8,
+    engine = 0.55,       -- player and boss engine flames (outer, colored)
+    engineCore = 0.15,   -- their white core (blows out to a blob if strong)
+    ship = 0.12,         -- faint aura in the player's color
+    shield = 0.6,        -- invulnerability shield, bubble, respawn rings
+    pickup = 0.55,
+    door = 0.5,          -- blinking door lamp
+    hitFlash = 0.35,     -- enemy/boss white hit flash
+    rage = 0.6,          -- boss rage red pulse
+  },
+}
+
 return Config

@@ -43,6 +43,7 @@ function Boss.new()
     size = B.size, radius = B.size * B.radiusFrac,
     hp = 1, maxHp = 1,
     flash = 0,
+    sputter = 1,          -- engine alpha this frame (dying sputter), set by draw
     timer = 0,            -- time left in "warn" / "dying"
     goalX = 0, goalY = 0, pause = 0,
     burstTimer = 0, volleysLeft = 0, volleyTimer = 0, burstTarget = nil,
@@ -409,8 +410,11 @@ end
 -- Engine flames behind each nozzle of the variant (drawn under the hull):
 -- the player's two flickering flame frames, additive, an outer flame in the
 -- variant color (redder while raging) and a white core. While dying they
--- sputter and shrink toward the final blast.
-local function drawEngines(self, x, y)
+-- sputter and shrink toward the final blast. The CALLER sets the additive
+-- blend: this runs both in the arena pass and in the glow layer, where
+-- `alphaMul` scales it and `coreMul` the white core (which would blow out
+-- to a white blob once bloomed).
+local function drawEngines(self, x, y, alphaMul, coreMul)
   local list = self.variant.engines
   if not list then return end
   local E = B.engine
@@ -422,7 +426,7 @@ local function drawEngines(self, x, y)
   local rx, ry = math.sin(a), -math.cos(a)            -- the sprite's +u
 
   local stretch = self.thrust
-  local alpha = 1
+  local alpha = self.sputter * alphaMul
   local c, l = self.variant.color, E.lighten
   local cr, cg, cb = c[1] + (1 - c[1]) * l, c[2] + (1 - c[2]) * l, c[3] + (1 - c[3]) * l
   if self:isRaging() then
@@ -433,12 +437,10 @@ local function drawEngines(self, x, y)
   if self.state == "dying" then
     local left = self.timer / B.death.time            -- 1 -> 0
     stretch = stretch * (0.3 + 0.7 * left)
-    if math.random() < 0.35 then alpha = 0.25 end     -- sputters
   end
 
   local frame = floor(self.engineT * Config.ART.engine.flickerRate) % 2 == 0
     and "engineFlame1" or "engineFlame2"
-  g.setBlendMode("add")
   for i = 1, #list do
     local n = list[i]
     -- Nozzle in world space: offset from the sprite center, rotated.
@@ -452,34 +454,14 @@ local function drawEngines(self, x, y)
     Assets.draw(frame, nx - fx * back, ny - fy * back, a + math.pi, size, 1, stretch)
     local core = size * E.coreScale
     back = core * 0.5 * stretch * 0.85
-    g.setColor(1, 1, 1, E.coreAlpha * alpha)
+    g.setColor(1, 1, 1, E.coreAlpha * alpha * coreMul)
     Assets.draw(frame, nx - fx * back, ny - fy * back, a + math.pi, core, 1, stretch)
   end
-  g.setBlendMode("alpha")
 end
 
-function Boss:draw()
-  if not self.active or self.state == "done" or self.state == "warn" then return end
-  local g = love.graphics
-  local x, y = self.x, self.y
-  local role = self.variant.sprite
-
-  -- Dying: shakes harder as the end nears, and flickers.
-  if self.state == "dying" then
-    local k = 1 - self.timer / B.death.time
-    local j = 1 + 3 * k
-    x, y = x + Util.randRange(-j, j), y + Util.randRange(-j, j)
-  end
-
-  drawEngines(self, x, y)
-
-  Shaders.recolor(self.variant.color)
-  g.setColor(1, 1, 1, 1)
-  Assets.draw(role, x, y, self.angle, self.size)
-  Shaders.reset()
-
-  -- Overlays drawn additively with the same sprite: white on hits and while
-  -- dying, a red pulse while raging.
+-- Additive overlays with the hull sprite: white on hits and while dying, a
+-- red pulse while raging. Returns their alphas (0 = off).
+local function overlays(self)
   local white = 0
   if self.flash > 0 then white = 0.6 end
   if self.state == "dying" and floor(self.timer * 14) % 2 == 0 then white = 0.5 end
@@ -488,6 +470,36 @@ function Boss:draw()
     local t = love.timer.getTime()
     red = 0.25 + 0.2 * math.sin(t * B.rage.pulseRate * math.pi * 2)
   end
+  return white, red
+end
+
+function Boss:draw()
+  if not self.active or self.state == "done" or self.state == "warn" then return end
+  local g = love.graphics
+  local x, y = self.x, self.y
+  local role = self.variant.sprite
+
+  -- Dying: shakes harder as the end nears, and the engines sputter. Kept
+  -- for drawGlow, so the glow follows the same jitter this frame.
+  self.sputter = 1
+  if self.state == "dying" then
+    local k = 1 - self.timer / B.death.time
+    local j = 1 + 3 * k
+    x, y = x + Util.randRange(-j, j), y + Util.randRange(-j, j)
+    if math.random() < 0.35 then self.sputter = 0.25 end
+  end
+  self.drawX, self.drawY = x, y
+
+  g.setBlendMode("add")
+  drawEngines(self, x, y, 1, 1)
+  g.setBlendMode("alpha")
+
+  Shaders.recolor(self.variant.color)
+  g.setColor(1, 1, 1, 1)
+  Assets.draw(role, x, y, self.angle, self.size)
+  Shaders.reset()
+
+  local white, red = overlays(self)
   if white > 0 or red > 0 then
     g.setBlendMode("add")
     if red > 0 then
@@ -501,6 +513,25 @@ function Boss:draw()
     g.setBlendMode("alpha")
   end
   g.setColor(1, 1, 1, 1)
+end
+
+-- Glow layer (src/post.lua): engine flames, hit/death flash and rage pulse.
+-- Uses the position Boss:draw picked this frame (dying jitter included).
+function Boss:drawGlow()
+  if not self.active or self.state == "done" or self.state == "warn" then return end
+  local EMIT = Config.FX.emit
+  local x, y = self.drawX or self.x, self.drawY or self.y
+  local role = self.variant.sprite
+  drawEngines(self, x, y, EMIT.engine, EMIT.engineCore)
+  local white, red = overlays(self)
+  if red > 0 then
+    love.graphics.setColor(1, 0.15, 0.1, red * EMIT.rage)
+    Assets.draw(role, x, y, self.angle, self.size)
+  end
+  if white > 0 then
+    love.graphics.setColor(1, 1, 1, white * EMIT.hitFlash)
+    Assets.draw(role, x, y, self.angle, self.size)
+  end
 end
 
 function Boss:drawDebug()

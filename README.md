@@ -148,6 +148,8 @@ headers, com áudio pior (estalos/latência).
   somem (`Config.WEB`). Fechar a aba é a saída.
 - Abre em janela, não em tela cheia (o navegador só deixa com clique do
   jogador). ESC em tela cheia é do navegador: pause com **Enter**.
+- Brilho em qualidade `low` (camada de 160x90, sem o halo largo); ver
+  "Brilho (bloom seletivo)".
 - Sprites sem mipmaps (WebGL 1 não faz mipmap de textura fora de potência de
   2): podem serrilhar um pouco quando desenhados bem menores.
 - O áudio só começa depois da primeira tecla/clique (regra de autoplay).
@@ -495,6 +497,25 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
 | HUD | [src/hud.lua](src/hud.lua) |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
+| Brilho (bloom) | [src/post.lua](src/post.lua) + o `:drawGlow()` de cada entidade |
+
+### Brilho (bloom seletivo)
+
+Só o que emite luz brilha: tiros, estrelas inimigas, mísseis, faíscas, chamas
+dos motores, rings, pickups, lâmpadas das portas, escudos e o flash de dano.
+Nebulosa, planetas e HUD ficam de fora. Cada entidade desenha a sua luz em
+`:drawGlow()`, chamado por `Game:draw` entre `Post.beginGlow()` e
+`Post.endGlow()`. Essa camada é desenhada num canvas pequeno, de tamanho fixo
+em resolução lógica (o custo não cresce com a janela), passa por um blur
+gaussiano e é somada por cima da arena.
+
+- Qualidade em `Config.FX.quality`, ou na linha de comando com
+  `love . --fx high|low|off`. Em `auto`, usa `low` no navegador e `high` no
+  resto. `high` desenha a camada em 320x180 mais um halo largo em 160x90;
+  `low` usa só 160x90; `off` pula o blur.
+- Força de cada emissor em `Config.FX.emit`; ganho e raio em `Config.FX.glow`.
+- Se o shader não compilar, o jogo segue com a camada sem blur (o mesmo
+  visual do `off`) e avisa no console (`[post] glow blur unavailable`).
 
 Cores de jogo em `Config.COLORS`; sprites, tamanhos, fontes e ajustes visuais
 em `Config.ART`.
@@ -697,6 +718,7 @@ src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
 src/shaders.lua       -- recolor: vermelho da Kenney -> cor do jogador
 src/ui.lua            -- janela, aba, barra, badge, crosshair e texto (UIPack)
 src/background.lua    -- céu animado (seed + relógio), paleta por wave, grade com ondas
+src/post.lua          -- pós-processamento: camada de glow (bloom seletivo)
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest
@@ -726,8 +748,10 @@ Decisões que sustentam os 60 FPS em hardware modesto:
   pares seria ~5k testes por frame.
 - Colisão por **círculo com distância ao quadrado** — nenhum `sqrt` no caminho
   quente.
-- O screen shake é só um `love.graphics.translate` no canvas. O único shader
-  é o de recolor das peças dos jogadores.
+- O screen shake é só um `love.graphics.translate` no canvas. Shaders: o
+  recolor das peças dos jogadores e o blur do brilho. O blur roda em canvases
+  pequenos de tamanho fixo (no máximo 320x180), então custa o mesmo em 720p e
+  em 1080p.
 - Sprites, fontes e peças de UI são criados no boot (~30 ms); nada de imagem é
   alocado durante a partida.
 - Power-ups **recalculam** os modificadores do zero em vez de "desfazer" efeito:
@@ -759,13 +783,14 @@ Com DEBUG ligado, se o trabalho de um frame passar de 8 ms
 (`Config.PROFILE_WARN_MS`), o console mostra qual sistema pesou mais:
 
 ```
-[perf] frame 10.6ms > 8ms | mais pesado: colisao | inimigos 0.06ms  colisao 10.01ms  particulas 0.00ms  resto 0.48ms | in 3 bal 6 par 7
+[perf] frame 10.6ms > 8ms | mais pesado: colisao | inimigos 0.06ms  colisao 10.01ms  particulas 0.00ms  glow 0.20ms  resto 0.48ms | in 3 bal 6 par 7
 ```
 
 - mede o **trabalho** do frame (update + draw), não o `dt`: com vsync o `dt`
   fica em ~16,6 ms mesmo com o jogo folgado, porque inclui a espera pela tela;
-- seções: update de inimigos, colisão (grid + testes + separação) e
-  partículas (update + desenho). `resto` é todo o resto (HUD, balas, jogadores,
+- seções: update de inimigos, colisão (grid + testes + separação),
+  partículas (update + desenho) e glow (desenho da camada, blur e
+  composição; é tempo de CPU, a GPU pode demorar mais). `resto` é todo o resto (HUD, balas, jogadores,
   desenho geral); se ele dominar, o aviso diz "fora dos sistemas medidos" em
   vez de culpar o sistema errado;
 - no máximo um aviso por segundo, e os primeiros 30 frames (aquecimento: cache

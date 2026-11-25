@@ -24,6 +24,7 @@ local Boss     = require("src.entities.boss")
 local Particle = require("src.entities.particle")
 local Profiler = require("src.profiler")
 local Shaders  = require("src.shaders")
+local Post     = require("src.post")
 local Background = require("src.background")
 local UI        = require("src.ui")
 local Music     = require("src.music")
@@ -199,21 +200,36 @@ local function updateRings(dt)
   end
 end
 
-local function drawRings()
+-- Additive; the CALLER sets the blend. Runs in the arena pass and again in
+-- the glow layer, scaled by `alphaMul`.
+local function drawRings(alphaMul)
   local gr = love.graphics
-  gr.setBlendMode("add")
   for i = 1, RING_SLOTS do
     local g = rings[i]
     if g.t < g.life then
       local k = g.t / g.life
       local c = g.color
-      gr.setColor(c[1], c[2], c[3], (1 - k) * 0.9)
+      gr.setColor(c[1], c[2], c[3], (1 - k) * 0.9 * alphaMul)
       gr.setLineWidth(3 * (1 - k) + 1)
       gr.circle("line", g.x, g.y, g.r * (0.25 + 0.75 * k))
     end
   end
   gr.setLineWidth(1)
-  gr.setBlendMode("alpha")
+end
+
+-- Everything that emits light, drawn into the glow layer (src/post.lua).
+-- HUD and texts stay out of it.
+local function drawGlowLayer()
+  Post.beginGlow()
+  Spawner.drawGlow()
+  for i = 1, pickups.count do pickups.items[i]:drawGlow() end
+  for i = 1, particles.count do particles.items[i]:drawGlow() end
+  drawRings(Config.FX.emit.ring)
+  for i = 1, enemies.count do enemies.items[i]:drawGlow() end
+  world.boss:drawGlow()
+  for i = 1, bullets.count do bullets.items[i]:drawGlow() end
+  for i = 1, world.playerCount do world.players[i]:drawGlow() end
+  Post.endGlow()
 end
 
 -- ---------------------------------------------------------------------------
@@ -939,24 +955,20 @@ function Game:draw(covered)
   for i = 1, pickups.count do pickups.items[i]:draw() end
   Profiler.start("particles")
   for i = 1, particles.count do particles.items[i]:draw() end
-  drawRings()
+  love.graphics.setBlendMode("add")
+  drawRings(1)
+  love.graphics.setBlendMode("alpha")
   Profiler.stop("particles")
   for i = 1, enemies.count do enemies.items[i]:draw() end
   world.boss:draw()
 
-  -- Bullets grouped by pass: enemy shots plain, an additive glow under every
-  -- player shot, then each player's shots under the recolor shader in that
-  -- player's color (one state switch per pass instead of one per bullet).
+  -- Bullets grouped by pass: enemy shots plain, then each player's shots
+  -- under the recolor shader in that player's color (one state switch per
+  -- pass instead of one per bullet). Their light is in the glow layer.
   for i = 1, bullets.count do
     local b = bullets.items[i]
     if b.owner == "enemy" then b:draw() end
   end
-  love.graphics.setBlendMode("add")
-  for i = 1, bullets.count do
-    local b = bullets.items[i]
-    if b.owner ~= "enemy" then b:drawGlow() end
-  end
-  love.graphics.setBlendMode("alpha")
   for p = 1, world.playerCount do
     Shaders.recolor(world.players[p].color)
     for i = 1, bullets.count do
@@ -967,6 +979,8 @@ function Game:draw(covered)
   Shaders.reset()
 
   for i = 1, world.playerCount do world.players[i]:draw() end
+
+  drawGlowLayer()
 
   local waveNum = numStr("wave", math.max(1, Spawner.wave), "%d")
   -- Breather countdown, keyed by tenths of a second so its string changes

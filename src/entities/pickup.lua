@@ -5,6 +5,7 @@ local Assets = require("src.assets")
 local UI     = require("src.ui")
 
 local PU = Config.POWERUP
+local EMIT = Config.FX.emit
 
 local Pickup = {}
 Pickup.__index = Pickup
@@ -61,18 +62,25 @@ function Pickup.drawIcon(def, x, y, s, alpha)
 end
 
 function Pickup:draw()
-  -- Blinks in its last seconds as a warning it is about to vanish. Not while
-  -- frozen: the blink phase comes from `life`, and a life paused in an "off"
-  -- phase would leave it invisible for the whole breather.
-  if not self.frozen and self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0 then return end
-  local y = self.y + math.sin(self.bob) * 2   -- gentle float
+  if self:blinkedOff() then return end
+  -- Gentle float; the halo is in :drawGlow.
+  Pickup.drawIcon(self.def, self.x, self.y + math.sin(self.bob) * 2, Config.ART.size.pickup)
+end
+
+-- Blinks in its last seconds as a warning it is about to vanish. Not while
+-- frozen: the blink phase comes from `life`, and a life paused in an "off"
+-- phase would leave it invisible for the whole breather.
+function Pickup:blinkedOff()
+  return not self.frozen and self.life < PU.blinkAt and math.floor(self.life * 8) % 2 == 0
+end
+
+-- Glow layer (src/post.lua): a pulsing halo so drops stand out from enemies
+-- and debris.
+function Pickup:drawGlow()
+  if self:blinkedOff() then return end
   local c = self.def.color
-  -- Pulsing glow so drops stand out from enemies and debris.
-  love.graphics.setBlendMode("add")
-  love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.15 * math.sin(self.bob * 1.5))
-  love.graphics.circle("fill", self.x, y, Config.ART.size.pickup * 0.85)
-  love.graphics.setBlendMode("alpha")
-  Pickup.drawIcon(self.def, self.x, y, Config.ART.size.pickup)
+  love.graphics.setColor(c[1], c[2], c[3], EMIT.pickup * (0.75 + 0.25 * math.sin(self.bob * 1.5)))
+  love.graphics.circle("fill", self.x, self.y + math.sin(self.bob) * 2, Config.ART.size.pickup * 0.85)
 end
 
 return Pickup

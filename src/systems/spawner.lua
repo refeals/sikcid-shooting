@@ -279,13 +279,21 @@ end
 -- Door drawing: a Kenney hatch set into each wall, with a red light that
 -- flashes during the spawn telegraph (same timing as before).
 -- ---------------------------------------------------------------------------
+-- Lamp position (just inside the hatch) and its blink state.
+local function doorLamp(d)
+  local inset = Config.ART.door.thick - 5
+  return d.wx + math.cos(d.inward) * inset, d.wy + math.sin(d.inward) * inset
+end
+
+local function lampOn(d)
+  return d.warn > 0 and math.floor(d.warn * 16) % 2 == 0
+end
+
 function Spawner.draw()
-  local C = Config.COLORS
   local D = Config.ART.door
   local g = love.graphics
   for i = 1, 4 do
     local d = doors[i]
-    local ix, iy = math.cos(d.inward), math.sin(d.inward)
 
     -- Hatch body. Its long side runs along the wall; it is squashed so only
     -- D.thick px poke into the arena.
@@ -294,14 +302,9 @@ function Spawner.draw()
     g.setColor(1, 1, 1, 1)
     Assets.draw("door", d.wx, d.wy, d.inward, DOOR_LEN, 1, (D.thick * 2) / depth)
 
-    local on = d.warn > 0 and math.floor(d.warn * 16) % 2 == 0
-    local lx, ly = d.wx + ix * (D.thick - 5), d.wy + iy * (D.thick - 5)
-    if on then
-      -- Glow, then the lit lamp.
-      g.setBlendMode("add")
-      g.setColor(C.doorWarn[1], C.doorWarn[2], C.doorWarn[3], 0.55)
-      g.circle("fill", lx, ly, D.light * 1.6)
-      g.setBlendMode("alpha")
+    -- The lit lamp (its halo is in Spawner.drawGlow).
+    local lx, ly = doorLamp(d)
+    if lampOn(d) then
       g.setColor(1, 1, 1, 1)
     else
       g.setColor(0.45, 0.45, 0.5, 1)
@@ -309,6 +312,20 @@ function Spawner.draw()
     Assets.draw("doorLight", lx, ly, 0, D.light)
   end
   g.setColor(1, 1, 1, 1)
+end
+
+-- Glow layer (src/post.lua): the blinking door lamps light up.
+function Spawner.drawGlow()
+  local C = Config.COLORS
+  local r = Config.ART.door.light * 1.6
+  for i = 1, 4 do
+    local d = doors[i]
+    if lampOn(d) then
+      local lx, ly = doorLamp(d)
+      love.graphics.setColor(C.doorWarn[1], C.doorWarn[2], C.doorWarn[3], Config.FX.emit.door)
+      love.graphics.circle("fill", lx, ly, r)
+    end
+  end
 end
 
 Spawner.doors = doors
