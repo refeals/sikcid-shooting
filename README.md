@@ -148,8 +148,8 @@ headers, com áudio pior (estalos/latência).
   somem (`Config.WEB`). Fechar a aba é a saída.
 - Abre em janela, não em tela cheia (o navegador só deixa com clique do
   jogador). ESC em tela cheia é do navegador: pause com **Enter**.
-- Brilho em qualidade `low` (camada de 160x90, sem o halo largo); ver
-  "Brilho (bloom seletivo)".
+- Pós-processamento em qualidade `low` (brilho em 160x90, sem o halo largo);
+  ver "Pós-processamento".
 - Sprites sem mipmaps (WebGL 1 não faz mipmap de textura fora de potência de
   2): podem serrilhar um pouco quando desenhados bem menores.
 - O áudio só começa depois da primeira tecla/clique (regra de autoplay).
@@ -497,25 +497,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
 | HUD | [src/hud.lua](src/hud.lua) |
 | Painéis, abas, barras das telas | [src/ui.lua](src/ui.lua) (`UI.window`, `UI.tab`, `UI.bar`, `UI.text`...) |
-| Brilho (bloom) | [src/post.lua](src/post.lua) + o `:drawGlow()` de cada entidade |
-
-### Brilho (bloom seletivo)
-
-Só o que emite luz brilha: tiros, estrelas inimigas, mísseis, faíscas, chamas
-dos motores, rings, pickups, lâmpadas das portas, escudos e o flash de dano.
-Nebulosa, planetas e HUD ficam de fora. Cada entidade desenha a sua luz em
-`:drawGlow()`, chamado por `Game:draw` entre `Post.beginGlow()` e
-`Post.endGlow()`. Essa camada é desenhada num canvas pequeno, de tamanho fixo
-em resolução lógica (o custo não cresce com a janela), passa por um blur
-gaussiano e é somada por cima da arena.
-
-- Qualidade em `Config.FX.quality`, ou na linha de comando com
-  `love . --fx high|low|off`. Em `auto`, usa `low` no navegador e `high` no
-  resto. `high` desenha a camada em 320x180 mais um halo largo em 160x90;
-  `low` usa só 160x90; `off` pula o blur.
-- Força de cada emissor em `Config.FX.emit`; ganho e raio em `Config.FX.glow`.
-- Se o shader não compilar, o jogo segue com a camada sem blur (o mesmo
-  visual do `off`) e avisa no console (`[post] glow blur unavailable`).
+| Pós-processamento (brilho, shockwave, aberração, vinheta) | [src/post.lua](src/post.lua) + o `:drawGlow()` de cada entidade |
 
 Cores de jogo em `Config.COLORS`; sprites, tamanhos, fontes e ajustes visuais
 em `Config.ART`.
@@ -526,6 +508,47 @@ cada slot em `Config.PLAYER_COLORS`, que é a lista que todo visual de jogador
 lê (nave, tiros, HUD, pausa, game over). A cor inicial de cada slot fica em
 `Config.PLAYER_DEFAULT_COLOR`, e a escolha é salva como `color1`/`color2` no
 `highscores.dat`. Para adicionar uma cor, basta uma entrada nova na paleta.
+
+### Pós-processamento
+
+A arena (do céu ao brilho) é desenhada num canvas de cena e passa por um
+shader de composição antes de ir para a tela. Banners, textos e HUD são
+desenhados depois, nítidos e sem distorção. Tudo fica em
+[src/post.lua](src/post.lua), com o tuning em `Config.FX`.
+
+**Brilho (bloom seletivo).** Só o que emite luz brilha: tiros, estrelas
+inimigas, mísseis, faíscas, chamas dos motores, rings, pickups, lâmpadas das
+portas, escudos e o flash de dano. Nebulosa, planetas e HUD ficam de fora.
+Cada entidade desenha a sua luz em `:drawGlow()`, chamado por `Game:draw`
+entre `Post.beginGlow()` e `Post.endGlow()`. A camada é desenhada num canvas
+pequeno, de tamanho fixo em resolução lógica (o custo não cresce com a
+janela), passa por um blur gaussiano e é somada à cena. Força de cada emissor
+em `Config.FX.emit`; ganho e raio em `Config.FX.glow`.
+
+**Shockwave, aberração cromática e vinheta** (no shader de composição):
+
+| Efeito | Quando | Tuning |
+|---|---|---|
+| Shockwave (anel que distorce a imagem) | morte de tank, NOVA, salvo, bolha estourando, morte do jogador, final do boss | `Config.FX.shock` |
+| Aberração cromática (split RGB nas bordas) | morte do jogador, final do boss | `Config.FX.aberration` |
+| Vinheta (bordas da arena mais escuras) | sempre; pulsa vermelha quando um jogador morre | `Config.FX.vignette` |
+
+Os efeitos correm no tempo do jogo: congelam no hit-stop e ficam em câmera
+lenta no game over. No máximo 4 shockwaves ao mesmo tempo. Com DEBUG, **F6**
+dispara uma shockwave com aberração no centro, para tunar.
+
+**Qualidade:** `Config.FX.quality`, ou `love . --fx high|low|off` na linha de
+comando. Em `auto`, usa `low` no navegador e `high` no resto.
+
+| Qualidade | Brilho | Composição da cena |
+|---|---|---|
+| `high` | 320x180 + halo largo em 160x90 | ligada |
+| `low` | 160x90 | ligada |
+| `off` | sem blur | desligada (sem shockwave, aberração e vinheta) |
+
+Se um shader não compilar, o jogo segue sem aquele efeito (o brilho fica sem
+blur, a cena desenha direto na tela) e avisa no console (`[post] ...
+unavailable`).
 
 ### Arte (Kenney)
 
@@ -718,7 +741,7 @@ src/assets.lua        -- sprites (atlas XML da Kenney), imagens de UI e fontes
 src/shaders.lua       -- recolor: vermelho da Kenney -> cor do jogador
 src/ui.lua            -- janela, aba, barra, badge, crosshair e texto (UIPack)
 src/background.lua    -- céu animado (seed + relógio), paleta por wave, grade com ondas
-src/post.lua          -- pós-processamento: camada de glow (bloom seletivo)
+src/post.lua          -- pós-processamento: brilho, shockwave, aberração, vinheta
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
 src/states/           -- lobby, briefing, game, pause, gameover, inputtest
@@ -749,9 +772,10 @@ Decisões que sustentam os 60 FPS em hardware modesto:
 - Colisão por **círculo com distância ao quadrado** — nenhum `sqrt` no caminho
   quente.
 - O screen shake é só um `love.graphics.translate` no canvas. Shaders: o
-  recolor das peças dos jogadores e o blur do brilho. O blur roda em canvases
-  pequenos de tamanho fixo (no máximo 320x180), então custa o mesmo em 720p e
-  em 1080p.
+  recolor das peças dos jogadores, o blur do brilho e a composição da cena.
+  O blur roda em canvases pequenos de tamanho fixo (no máximo 320x180), então
+  custa o mesmo em 720p e em 1080p. A composição é um único passe em tela
+  cheia com 3 leituras de textura por pixel.
 - Sprites, fontes e peças de UI são criados no boot (~30 ms); nada de imagem é
   alocado durante a partida.
 - Power-ups **recalculam** os modificadores do zero em vez de "desfazer" efeito:
@@ -771,6 +795,7 @@ Ligue `Config.DEBUG = true` em `src/config.lua` (ou rode com `--debug`):
 | F3 | invencibilidade |
 | F4 | dropa um power-up aleatório |
 | F5 | tela de teste de input (funciona sempre, mesmo sem DEBUG) |
+| F6 | shockwave + aberração no centro da arena (tuning de `Config.FX`) |
 
 A tela de **teste de input** (F5, ou `love . --inputtest`) mostra todos os
 devices com eixos ao vivo, d-pad, botões, deadzone e o progresso do combo de
@@ -783,14 +808,14 @@ Com DEBUG ligado, se o trabalho de um frame passar de 8 ms
 (`Config.PROFILE_WARN_MS`), o console mostra qual sistema pesou mais:
 
 ```
-[perf] frame 10.6ms > 8ms | mais pesado: colisao | inimigos 0.06ms  colisao 10.01ms  particulas 0.00ms  glow 0.20ms  resto 0.48ms | in 3 bal 6 par 7
+[perf] frame 10.6ms > 8ms | mais pesado: colisao | inimigos 0.06ms  colisao 10.01ms  particulas 0.00ms  post 0.20ms  resto 0.48ms | in 3 bal 6 par 7
 ```
 
 - mede o **trabalho** do frame (update + draw), não o `dt`: com vsync o `dt`
   fica em ~16,6 ms mesmo com o jogo folgado, porque inclui a espera pela tela;
 - seções: update de inimigos, colisão (grid + testes + separação),
-  partículas (update + desenho) e glow (desenho da camada, blur e
-  composição; é tempo de CPU, a GPU pode demorar mais). `resto` é todo o resto (HUD, balas, jogadores,
+  partículas (update + desenho) e post (brilho e composição da cena; é
+  tempo de CPU, a GPU pode demorar mais). `resto` é todo o resto (HUD, balas, jogadores,
   desenho geral); se ele dominar, o aviso diz "fora dos sistemas medidos" em
   vez de culpar o sistema errado;
 - no máximo um aviso por segundo, e os primeiros 30 frames (aquecimento: cache

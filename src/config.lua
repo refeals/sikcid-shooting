@@ -891,6 +891,29 @@ Config.FX = {
     hitFlash = 0.35,     -- enemy/boss white hit flash
     rage = 0.6,          -- boss rage red pulse
   },
+  -- Shockwaves: a ring that grows to `radius` px over `life` s and bends the
+  -- picture behind it by up to `strength` px (fading as it grows); `width`
+  -- is the ring's half-width. Callers may pass a gameplay radius instead
+  -- (NOVA, bubble, salvo use theirs). At most 4 at once.
+  shock = {
+    tank   = { radius = 70,  strength = 4,  width = 12, life = 0.35 },
+    salvo  = { radius = 40,  strength = 3,  width = 10, life = 0.30 },
+    bubble = { radius = 50,  strength = 3,  width = 10, life = 0.35 },
+    nova   = { radius = 130, strength = 6,  width = 16, life = 0.45 },
+    player = { radius = 110, strength = 7,  width = 16, life = 0.50 },
+    boss   = { radius = 300, strength = 10, width = 28, life = 0.90 },
+    debug  = { radius = 160, strength = 8,  width = 20, life = 0.60 },
+  },
+  -- Chromatic aberration pulses: RGB split in px at the arena's side edges
+  -- (zero at the center), decaying `decay` px per second. Capped at `max`.
+  aberration = { player = 3, boss = 3.5, debug = 3, max = 4, decay = 5 },
+  -- Vignette: darkens the arena edges by `strength`, from `inner` to `outer`
+  -- (1 = the arena's half width/height, so the corners are ~1.41). A player
+  -- death tints it `hurtColor` at `hurt` opacity, fading `hurtDecay`/s.
+  vignette = {
+    strength = 0.35, inner = 0.75, outer = 1.45,
+    hurtColor = { 0.85, 0.05, 0.08 }, hurt = 0.35, hurtDecay = 1.2,
+  },
 }
 
 return Config

@@ -360,6 +360,7 @@ function world:nova(p)
   self:ring(p.x, p.y, NV.radius * 0.7, Config.COLORS.flash, 0.35)
   Particle.burst(self.particles, 14, p.x, p.y, p.color, 5)
   Background.pulse(p.x, p.y, 0.8)
+  Post.shockwave(p.x, p.y, Config.FX.shock.nova, NV.radius)
   self:shake(4)
 end
 
@@ -370,6 +371,7 @@ function world:salvoBlast(b)
   self:areaDamage(b.x, b.y, S.blastRadius, S.blastDamage, b.owner)
   Particle.explosion(self.particles, b.x, b.y, b.color, 3, S.blastRadius * 0.6, 6, 4)
   self:ring(b.x, b.y, S.blastRadius, b.color, 0.3)
+  Post.shockwave(b.x, b.y, Config.FX.shock.salvo, S.blastRadius)
   self:shake(1.5)
   Audio.play("salvo_blast")
 end
@@ -450,6 +452,7 @@ local function popBubble(self, p)
   popX, popY, popR, popPush = p.x, p.y, BB.pushRadius, BB.push
   Combat.queryCircle(p.x, p.y, BB.pushRadius + Config.ENEMY_SPACING.maxSpace, popPushOne)
   self:ring(p.x, p.y, BB.pushRadius, { 0.60, 0.95, 1.00 }, 0.35)
+  Post.shockwave(p.x, p.y, Config.FX.shock.bubble, BB.pushRadius)
   Particle.burst(self.particles, 10, p.x, p.y, { 0.60, 0.95, 1.00, 1 }, 4)
   Audio.play("bubble_pop")
 end
@@ -521,6 +524,7 @@ function world:onEnemyKilled(enemy, killerIndex)
   if enemy.type == "tank" then
     self:shake(J.shakeTankDeath)
     Background.pulse(enemy.x, enemy.y, Config.ART.background.grid.tankDeath)
+    Post.shockwave(enemy.x, enemy.y, Config.FX.shock.tank)
     self:hitStop(J.hitStopTank)
     Audio.play("tank_die")
   else
@@ -544,6 +548,9 @@ function world:onPlayerHit(player)
   Combo.breakOn(player)
   Particle.explosion(self.particles, player.x, player.y, player.color,
     J.playerDeathPuffs, Config.ART.size.playerShip, J.playerDeathParticles, 5)
+  Post.shockwave(player.x, player.y, Config.FX.shock.player)
+  Post.aberrate(Config.FX.aberration.player)
+  Post.hurt(1)
   self:shake(J.shakePlayerDeath, true)
   Audio.play("player_die")
 
@@ -709,6 +716,7 @@ function Game:enter(devices, count)
   particles:clear()
   pickups:clear()
   world.boss:clear()
+  Post.clear()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
   -- Sky set straight to the starting wave's palette (--wave 25 starts there).
@@ -871,6 +879,7 @@ function Game:update(dt)
   end
   updateRings(dt)
   Profiler.stop("particles")
+  Post.update(dt)   -- game time: waves freeze in hit-stop, slow in the game over
 
   -- No respiro entre waves, todos os relógios de recompensa ficam parados:
   -- power-ups ativos, power-ups no chão e combo. Não há inimigos, então
@@ -943,6 +952,9 @@ end
 function Game:draw(covered)
   local C = Config.COLORS
 
+  -- The arena (sky to glow) goes through the scene composite (shockwaves,
+  -- aberration, vignette); banners, texts and the HUD stay out of it.
+  Post.beginScene()
   Background.draw()
   -- Faint grid over the sky: keeps a sense of scale, ripples on big moments.
   Background.drawGrid(arena)
@@ -981,6 +993,7 @@ function Game:draw(covered)
   for i = 1, world.playerCount do world.players[i]:draw() end
 
   drawGlowLayer()
+  Post.endScene(arena)
 
   local waveNum = numStr("wave", math.max(1, Spawner.wave), "%d")
   -- Breather countdown, keyed by tenths of a second so its string changes
@@ -1085,6 +1098,10 @@ function Game:keypressed(key)
   elseif key == "f4" then
     -- Dropa um power-up aleatório no centro.
     world:dropPowerup(arena.cx, arena.cy, true)
+  elseif key == "f6" then
+    -- Test shockwave + aberration at the center (tuning Config.FX).
+    Post.shockwave(arena.cx, arena.cy, Config.FX.shock.debug)
+    Post.aberrate(Config.FX.aberration.debug)
   end
 end
 

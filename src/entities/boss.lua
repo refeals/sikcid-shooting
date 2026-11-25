@@ -22,6 +22,7 @@ local Assets     = require("src.assets")
 local Shaders    = require("src.shaders")
 local Music      = require("src.music")
 local Background = require("src.background")
+local Post       = require("src.post")
 local Combo      = require("src.systems.combo")
 
 local B = Config.BOSS
@@ -291,6 +292,8 @@ local function finale(self, world)
   world:explosion(x, y, Config.COLORS.flash, 4, self.size * 0.3, 10, 4)
   world:shake(B.death.shake, true)
   world:hitStop(B.death.hitStop, true)
+  Post.shockwave(x, y, Config.FX.shock.boss)
+  Post.aberrate(Config.FX.aberration.boss)
   Background.pulse(x, y, B.death.pulse)
   Audio.play("boss_die")
 

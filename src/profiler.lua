@@ -24,9 +24,9 @@ local Profiler = {
   enemies = 0,     -- update dos inimigos
   collision = 0,   -- grid + colisões + separação
   particles = 0,   -- update e desenho das partículas
-  glow = 0,        -- camada de glow: desenho, blur e composição (src/post.lua)
+  post = 0,        -- pós-processamento: glow + composição da cena (src/post.lua)
   -- Início da medição em andamento, por sistema.
-  startAt = { enemies = 0, collision = 0, particles = 0, glow = 0 },
+  startAt = { enemies = 0, collision = 0, particles = 0, post = 0 },
   -- Contagem de entidades, preenchida pelo game (entra no aviso).
   counts = { enemies = 0, bullets = 0, particles = 0 },
 }
@@ -35,13 +35,13 @@ local LABELS = {
   enemies = "update de inimigos",
   collision = "colisao",
   particles = "particulas",
-  glow = "glow",
+  post = "pos-processamento",
 }
 
 function Profiler.beginFrame()
   if not Config.DEBUG then return end
   Profiler.frameStart = getTime()
-  Profiler.enemies, Profiler.collision, Profiler.particles, Profiler.glow = 0, 0, 0, 0
+  Profiler.enemies, Profiler.collision, Profiler.particles, Profiler.post = 0, 0, 0, 0
 end
 
 -- Uso: Profiler.start("enemies") ... Profiler.stop("enemies")
@@ -75,13 +75,13 @@ function Profiler.endFrame()
   local e = Profiler.enemies * 1000
   local c = Profiler.collision * 1000
   local p = Profiler.particles * 1000
-  local gl = Profiler.glow * 1000
-  local rest = total - e - c - p - gl
+  local fx = Profiler.post * 1000
+  local rest = total - e - c - p - fx
 
   local worst, worstMs = "enemies", e
   if c > worstMs then worst, worstMs = "collision", c end
   if p > worstMs then worst, worstMs = "particles", p end
-  if gl > worstMs then worst, worstMs = "glow", gl end
+  if fx > worstMs then worst, worstMs = "post", fx end
 
   -- Se o resto (HUD, jogadores, balas, desenho geral) domina, diz isso em vez
   -- de culpar um sistema que não é o gargalo.
@@ -90,8 +90,8 @@ function Profiler.endFrame()
 
   local n = Profiler.counts
   print(string.format(
-    "[perf] frame %.1fms > %gms | mais pesado: %s | inimigos %.2fms  colisao %.2fms  particulas %.2fms  glow %.2fms  resto %.2fms | in %d bal %d par %d",
-    total, Config.PROFILE_WARN_MS, culprit, e, c, p, gl, rest,
+    "[perf] frame %.1fms > %gms | mais pesado: %s | inimigos %.2fms  colisao %.2fms  particulas %.2fms  post %.2fms  resto %.2fms | in %d bal %d par %d",
+    total, Config.PROFILE_WARN_MS, culprit, e, c, p, fx, rest,
     n.enemies, n.bullets, n.particles))
   io.stdout:flush()
 end
