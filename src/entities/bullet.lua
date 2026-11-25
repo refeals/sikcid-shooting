@@ -57,6 +57,30 @@ function Bullet:reset(x, y, dirX, dirY, speed, dmg, owner, kind, life, radius, c
   self.powered = false
   self.pierce = 0       -- PERFURANTE: enemies it may still pass through
   self.lastHit = nil    -- the enemy it just went through (not hit twice)
+  self.bounces = 0      -- RICOCHETE: wall bounces left
+  self.bounceHoming = false   -- RICOCHETE++: homes in once it has bounced
+  self.homing = false
+end
+
+-- RICOCHETE: a player shot crossing a wall is reflected back in (the smear
+-- restarts there, so it never pokes through the wall).
+local RC = Config.UPGRADES.ricochet
+
+local function bounce(self, world)
+  local a = world.arena
+  local hit = false
+  if self.x < a.x then self.x, self.vx, hit = a.x, -self.vx, true
+  elseif self.x > a.x + a.w then self.x, self.vx, hit = a.x + a.w, -self.vx, true end
+  if self.y < a.y then self.y, self.vy, hit = a.y, -self.vy, true
+  elseif self.y > a.y + a.h then self.y, self.vy, hit = a.y + a.h, -self.vy, true end
+  if not hit then return end
+  self.bounces = self.bounces - 1
+  self.angle = math.atan2(self.vy, self.vx)
+  self.life = math.min(self.life, RC.afterLife)
+  self.maxLife = self.life
+  if self.bounceHoming then self.homing = true end
+  world:impact(self.x, self.y, -self.vx, -self.vy, self.color)
+  if Config.SMOKE then require("src.smoke").bump("bounces") end
 end
 
 -- Boss missile going off: when it burns out or is shot down. Visual only.
@@ -151,8 +175,20 @@ function Bullet:update(dt, world)
     end
   end
 
+  -- RICOCHETE++: after a bounce, a gentle homing like the missile's.
+  if self.homing then
+    local target = world:nearestEnemy(self.x, self.y, RC.range)
+    if target then
+      local want = math.atan2(target.y - self.y, target.x - self.x)
+      self.angle = Util.turnToward(self.angle, want, RC.turn * dt)
+      self.vx = math.cos(self.angle) * self.speed
+      self.vy = math.sin(self.angle) * self.speed
+    end
+  end
+
   self.x = self.x + self.vx * dt
   self.y = self.y + self.vy * dt
+  if self.bounces > 0 then bounce(self, world) end
 
   local r = self.radius
   if self.x < arena.x - r or self.x > arena.x + arena.w + r

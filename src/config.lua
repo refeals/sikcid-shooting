@@ -775,6 +775,20 @@ Config.UPGRADES = {
   pierce   = { 1, 2, math.huge },          -- extra enemies a shot passes through
   rear     = { rates = { 0.5, 1, 1 }, fan = { 1, 1, 3 }, fanAngle = math.rad(30) },
   loyal    = { rates = { 0.5, 1, 1 }, counts = { 1, 1, 2 } },   -- permanent drones
+  -- LÂMINA: dash damage to each enemy it passes through (once per dash);
+  -- at the top level a blade kill recharges the dash.
+  blade    = { damage = { 3, 6, 6 }, resetOnKill = { false, false, true } },
+  -- RECARGA: a free BOLHA every `interval` s without one; at the top level
+  -- the bubble pops with a NOVA.
+  recharge = { interval = { 30, 20, 20 }, popNova = { false, false, true } },
+  -- RICOCHETE: player shots bounce off the walls; at the top level a shot
+  -- that bounced homes in (nearest enemy within `range`, `turn` rad/s).
+  ricochet = { bounces = { 1, 2, 2 }, homing = { false, false, true },
+               turn = math.rad(150), range = 160,
+               afterLife = 0.6 },   -- s a shot may live on after a bounce (keeps the pool sane)
+  -- CHOQUE: a mini-NOVA when the dash ends (and when it starts, top level).
+  shock    = { radius = { 50, 70, 70 }, damage = { 2, 3, 3 }, onStart = { false, false, true },
+               volume = 0.45, pitch = 1.5 },
 }
 
 -- Respawn (with lives left; not the comeback at wave end after running out).

@@ -41,6 +41,18 @@ Upgrades.DEFS = {
   { id = "loyal", name = "DRONE FIEL", letter = "D", max = 3, unique = true,
     desc = { "DRONE PERMANENTE (METADE DA CADÊNCIA)", "O DRONE ATIRA NA CADÊNCIA CHEIA",
              "UM SEGUNDO DRONE" } },
+  { id = "blade", name = "LÂMINA", letter = "L", max = 3, unique = true,
+    desc = { "DASH DÁ 3 DE DANO EM QUEM ATRAVESSA", "DASH DÁ 6 DE DANO",
+             "MATAR COM A LÂMINA RECARREGA O DASH" } },
+  { id = "recharge", name = "RECARGA", letter = "B", max = 3, unique = true,
+    desc = { "GANHA UMA BOLHA A CADA 30 S", "GANHA UMA BOLHA A CADA 20 S",
+             "A BOLHA ESTOURA COM UMA NOVA" } },
+  { id = "ricochet", name = "RICOCHETE", letter = "Q", max = 3, unique = true,
+    desc = { "TIROS QUICAM 1 VEZ NAS PAREDES", "TIROS QUICAM 2 VEZES",
+             "TIRO QUE QUICOU PERSEGUE INIMIGOS" } },
+  { id = "shock", name = "CHOQUE", letter = "Z", max = 3, unique = true,
+    desc = { "FIM DO DASH SOLTA UMA MINI-NOVA", "MINI-NOVA MAIOR E MAIS FORTE",
+             "MINI-NOVA TAMBÉM NO INÍCIO DO DASH" } },
 }
 
 -- Filler card when nothing else is left to offer.
@@ -220,6 +232,16 @@ function Upgrades.apply(p, m)
   if n > 0 then m.rearRate, m.rearFan = U.rear.rates[n], U.rear.fan[n] end
   n = L.loyal or 0
   if n > 0 then m.loyalCount, m.loyalRate = U.loyal.counts[n], U.loyal.rates[n] end
+  n = L.blade or 0
+  if n > 0 then m.blade, m.bladeReset = U.blade.damage[n], U.blade.resetOnKill[n] end
+  n = L.recharge or 0
+  if n > 0 then m.recharge, m.popNova = U.recharge.interval[n], U.recharge.popNova[n] end
+  n = L.ricochet or 0
+  if n > 0 then m.bounces, m.bounceHoming = U.ricochet.bounces[n], U.ricochet.homing[n] end
+  n = L.shock or 0
+  if n > 0 then
+    m.shockRadius, m.shockDamage, m.shockStart = U.shock.radius[n], U.shock.damage[n], U.shock.onStart[n]
+  end
 end
 
 -- ---------------------------------------------------------------------------

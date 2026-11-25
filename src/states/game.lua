@@ -552,6 +552,20 @@ function world:nova(p)
   self:shake(4)
 end
 
+-- CHOQUE: a mini-NOVA around the player at the end (and start) of a dash.
+function world:shockPulse(p, radius, dmg)
+  local SH = Config.UPGRADES.shock
+  self:areaDamage(p.x, p.y, radius, dmg, p.index)
+  self:clearEnemyShots(p.x, p.y, radius)
+  self:ring(p.x, p.y, radius, p.color, 0.35)
+  self:ring(p.x, p.y, radius * 0.6, Config.COLORS.flash, 0.25)
+  Particle.burst(self.particles, 6, p.x, p.y, p.color, 4)
+  Post.shockwave(p.x, p.y, Config.FX.shock.bubble, radius)
+  self:shake(1.5)
+  Audio.play("nova", SH.volume, SH.pitch)
+  if Config.SMOKE then require("src.smoke").bump("shocks") end
+end
+
 -- A respawn salvo missile going off: its own hit already dealt `dmg`; the
 -- blast hurts everything around.
 function world:salvoBlast(b)
@@ -643,6 +657,8 @@ local function popBubble(self, p)
   Post.shockwave(p.x, p.y, Config.FX.shock.bubble, BB.pushRadius)
   Particle.burst(self.particles, 10, p.x, p.y, { 0.60, 0.95, 1.00, 1 }, 4)
   Audio.play("bubble_pop")
+  -- RECARGA++: the bubble pops with a NOVA.
+  if p.mods.popNova then self:nova(p) end
 end
 
 -- The boss died: every enemy blows up (no points) and every enemy shot pops.

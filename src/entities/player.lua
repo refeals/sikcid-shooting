@@ -9,6 +9,7 @@ local Shaders = require("src.shaders")
 local UI      = require("src.ui")
 local Post    = require("src.post")
 local Upgrades = require("src.systems.upgrades")
+local Combat  = require("src.systems.combat")
 
 local P = Config.PLAYER
 local W = Config.WEAPON
@@ -36,8 +37,10 @@ end
 local function fire(self, world, x, y, dx, dy, speed, dmg, kind, life, radius)
   local b = world:spawnBullet(x, y, dx, dy, speed, dmg, self.index, kind, life, radius, self.color)
   if b then
-    if self.mods.damageMul > 1 then b.powered = true end
-    b.pierce = self.mods.pierce
+    local m = self.mods
+    if m.damageMul > 1 then b.powered = true end
+    b.pierce = m.pierce
+    b.bounces, b.bounceHoming = m.bounces, m.bounceHoming   -- RICOCHETE
   end
   return b
 end
@@ -106,6 +109,10 @@ function Player.new(index, device)
     upgradeOrder = {},
     maxLives = P.maxLives,    -- CASCO raises it
     rearCooldown = 0,         -- RETAGUARDA fire timer
+    rechargeT = 0,            -- RECARGA: s without a bubble so far
+    -- LÂMINA: enemies already cut by the current dash (once each), and
+    -- whether the boss was.
+    bladeHits = {}, bladeN = 0, bladeBoss = false,
     -- Respawn marker (while dead with lives left): where the ship comes back.
     markerX = 0, markerY = 0,
     markerDelay = 0,          -- hidden (and still) for this long after the death
@@ -158,6 +165,15 @@ function Player:resetMods()
   m.rearFan = 1         -- RETAGUARDA: rear shots per volley
   m.loyalCount = 0      -- DRONE FIEL: permanent drones
   m.loyalRate = 0       -- DRONE FIEL: their fire rate (x the power-up drone's)
+  m.blade = 0           -- LÂMINA: dash damage (0 = off)
+  m.bladeReset = false  -- LÂMINA++: a blade kill recharges the dash
+  m.recharge = 0        -- RECARGA: s between free bubbles (0 = off)
+  m.popNova = false     -- RECARGA++: the bubble pops with a NOVA
+  m.bounces = 0         -- RICOCHETE: wall bounces per shot
+  m.bounceHoming = false   -- RICOCHETE++: bounced shots home in
+  m.shockRadius = 0     -- CHOQUE: mini-NOVA when the dash ends (0 = off)
+  m.shockDamage = 0
+  m.shockStart = false  -- CHOQUE++: also when it starts
   Upgrades.apply(self, m)
 end
 
@@ -317,7 +333,7 @@ end
 
 -- Dash timers, the press (buffered) and the burst start. Returns whether the
 -- ship is mid-burst this frame (Player:update then moves it at burst speed).
-function Player:updateDash(dt, moveX, moveY)
+function Player:updateDash(dt, moveX, moveY, world)
   if self.readyFlash > 0 then self.readyFlash = self.readyFlash - dt end
   if self.dashCd > 0 then
     self.dashCd = self.dashCd - dt
@@ -344,6 +360,9 @@ function Player:updateDash(dt, moveX, moveY)
     if self.dashT <= 0 then
       local v = P.speed * self.mods.speedMul
       self.vx, self.vy = self.dashDX * v, self.dashDY * v
+      -- CHOQUE: a mini-NOVA where the burst ends.
+      local m = self.mods
+      if m.shockRadius > 0 then world:shockPulse(self, m.shockRadius, m.shockDamage) end
     end
   end
 
@@ -360,10 +379,78 @@ function Player:updateDash(dt, moveX, moveY)
     self.dashCd = self.dashCdMax
     self.dashBuffer, self.readyFlash = 0, 0
     self.ghostN, self.ghostT = 0, 0
+    self.bladeN, self.bladeBoss = 0, false   -- LÂMINA: a fresh cut list
     Audio.play("dash")
+    -- CHOQUE++: a mini-NOVA where the burst starts too.
+    local m = self.mods
+    if m.shockStart then world:shockPulse(self, m.shockRadius, m.shockDamage) end
     if Config.SMOKE then require("src.smoke").bump("dashes") end
   end
   return self.dashT > 0
+end
+
+-- LÂMINA: mid-burst, every enemy the ship touches takes the blade damage once
+-- per dash (the boss too). A kill counts like a shot of this player's; at
+-- the top level it recharges the dash. Module-level callback fed by upvalues.
+local BLADE_MAX = 16
+local bladeSelf, bladeWorld = nil, nil
+
+local function bladeHit(e)
+  local p = bladeSelf
+  if e.dead then return end
+  local rr = P.radius + e.radius
+  if Util.dist2(p.x, p.y, e.x, e.y) > rr * rr then return end
+  local hits = p.bladeHits
+  for i = 1, p.bladeN do
+    if hits[i] == e then return end
+  end
+  if p.bladeN < BLADE_MAX then
+    p.bladeN = p.bladeN + 1
+    hits[p.bladeN] = e
+  end
+  local world = bladeWorld
+  world:impact(e.x, e.y, -p.dashDX, -p.dashDY, p.color)
+  if e:damage(p.mods.blade) then
+    e.dead = true
+    world:onEnemyKilled(e, p.index)
+    if p.mods.bladeReset then
+      p.dashCd, p.readyFlash = 0, D.readyFlash
+    end
+  else
+    Audio.play("enemy_hit")
+  end
+  if Config.SMOKE then require("src.smoke").bump("blades") end
+end
+
+function Player:updateBlade(world)
+  if self.mods.blade <= 0 then return end
+  bladeSelf, bladeWorld = self, world
+  Combat.queryCircle(self.x, self.y, P.radius + Config.ENEMY_SPACING.maxSpace, bladeHit)
+  bladeSelf, bladeWorld = nil, nil
+  local boss = world.boss
+  if not self.bladeBoss and boss:isFighting() then
+    local rr = P.radius + boss.radius
+    if Util.dist2(self.x, self.y, boss.x, boss.y) <= rr * rr then
+      self.bladeBoss = true
+      boss:hit(self.mods.blade, self.index, world)
+      world:impact(self.x, self.y, -self.dashDX, -self.dashDY, self.color)
+    end
+  end
+end
+
+-- RECARGA: a free BOLHA every `recharge` s spent without one.
+function Player:updateRecharge(dt, world)
+  local m = self.mods
+  if m.recharge <= 0 or m.bubble then return end
+  self.rechargeT = self.rechargeT + dt
+  if self.rechargeT < m.recharge then return end
+  self.rechargeT = 0
+  local Powerups = require("src.systems.powerups")
+  local def = Powerups.byId("bubble")
+  Powerups.give(self, def, world)
+  world:ring(self.x, self.y, 26, def.color, 0.35)
+  world:floatText(self.x, self.y - 14, def.name, def.color)
+  if Config.SMOKE then require("src.smoke").bump("recharges") end
 end
 
 function Player:update(dt, world)
@@ -394,7 +481,8 @@ function Player:update(dt, world)
   local moveX, moveY = 0, 0
   if d.connected then moveX, moveY = d:moveVector() end
 
-  if self:updateDash(dt, moveX, moveY) then
+  local bursting = self:updateDash(dt, moveX, moveY, world)
+  if bursting then
     -- Mid-burst: fixed speed along the dash (the walls below stop it).
     local v = D.distance / D.time
     self.vx, self.vy = self.dashDX * v, self.dashDY * v
@@ -416,6 +504,9 @@ function Player:update(dt, world)
   if self.x > a.x + a.w - r then self.x, self.vx = a.x + a.w - r, 0 end
   if self.y < a.y + r then self.y, self.vy = a.y + r, 0 end
   if self.y > a.y + a.h - r then self.y, self.vy = a.y + a.h - r, 0 end
+
+  if bursting then self:updateBlade(world) end
+  self:updateRecharge(dt, world)
 
   local wantsFire = self:updateAim(moveX, moveY, world)
   -- Purely visual: the ship turns quickly but not instantly toward the aim.
