@@ -19,7 +19,7 @@ Config.HUD_H = 40             -- faixa de HUD no topo; arena é o resto
 -- hardware antigo; o que passar do teto é descartado sem alocar.
 Config.MAX_ENEMIES = 100
 Config.MAX_BULLETS = 200
-Config.MAX_PARTICLES = 120
+-- (Particles: the pool size depends on the FX quality, Config.FX.particles.)
 Config.MAX_PICKUPS = 24
 
 -- Com DEBUG ligado: avisa no console quando o trabalho de um frame (update +
@@ -844,32 +844,56 @@ Config.JUICE = {
   shakeFatigue = { gain = 0.15, recover = 1.0, minMul = 0.25 },
   hitStopTank = 0.05,
   hitStopCooldown = 0.4,   -- s: at most one tank hit-stop per window
-  -- Explosions = smoke puffs + sparks, all from the same particle pool.
-  deathParticles = 5,
-  deathPuffs = 3,
-  tankDeathParticles = 10,
-  tankDeathPuffs = 7,
-  playerDeathParticles = 14,
-  playerDeathPuffs = 7,
-  puffSpeedMin = 10,
-  puffSpeedMax = 45,
-  puffLifeMin = 0.35,
-  puffLifeMax = 0.65,
-  puffGrow = 0.8,             -- extra size reached at the end of the life
-  puffAlpha = 0.85,
-  puffSpin = 2.0,             -- max rad/s
-  -- Missile smoke trail: only emitted while the pool is below trailPoolShare
-  -- of its size, so trails never starve explosions of particles.
+  -- Explosions (src/entities/particle.lua). One preset per kind of blast;
+  -- every particle comes from the same pool (size in Config.FX.particles).
+  --   flash     -- px, white core flash (0 = none)
+  --   fire      -- additive puffs (white -> hot -> the blast color), fireSize px
+  --   sparks    -- additive streaks, sparkSize px wide
+  --   smoke     -- dark puffs under the enemies, smokeSize px
+  --   ring      -- px, thin shock ring (nil = none)
+  -- Emitted in that order, so a nearly full pool loses smoke, not fire.
+  explosions = {
+    small     = { flash = 20,  fire = 3,  fireSize = 14, sparks = 6,  sparkSize = 2.0, smoke = 2, smokeSize = 16 },
+    tank      = { flash = 36,  fire = 6,  fireSize = 22, sparks = 12, sparkSize = 2.5, smoke = 4, smokeSize = 26, ring = 46 },
+    player    = { flash = 46,  fire = 7,  fireSize = 24, sparks = 16, sparkSize = 2.5, smoke = 5, smokeSize = 28, ring = 60 },
+    bossBlast = { flash = 30,  fire = 2,  fireSize = 22, sparks = 4,  sparkSize = 2.5, smoke = 1, smokeSize = 24 },
+    boss      = { flash = 100, fire = 12, fireSize = 50, sparks = 26, sparkSize = 3.0, smoke = 8, smokeSize = 52, ring = 160 },
+    missile   = { flash = 20,  fire = 2,  fireSize = 12, sparks = 5,  sparkSize = 2.0, smoke = 2, smokeSize = 14 },
+    salvo     = { flash = 26,  fire = 3,  fireSize = 18, sparks = 6,  sparkSize = 2.0, smoke = 2, smokeSize = 18 },
+  },
+  -- Staged blasts: secondary `small` pops around the big ones, `delayMin` to
+  -- `delayMax` s later (game time), within `radius` px.
+  stages = {
+    player = { count = 3, delayMin = 0.10, delayMax = 0.30, radius = 12 },
+    boss   = { count = 3, delayMin = 0.12, delayMax = 0.40, radius = 40 },
+  },
+  -- Color over life (0..1 of the particle's life): white -> `hot` until
+  -- `hotEnd`, `hot` -> the blast color until `colorEnd`, then the color.
+  ramp = { hot = { 1.0, 0.85, 0.45 }, hotEnd = 0.08, colorEnd = 0.40 },
+  spark  = { speedMin = 70, speedMax = 240, lifeMin = 0.20, lifeMax = 0.45, drag = 3.5,
+             stretch = 0.065, minLen = 2 },   -- streak length = speed * stretch (s)
+  fire   = { speedMin = 8, speedMax = 40, lifeMin = 0.22, lifeMax = 0.40, drag = 3.0,
+             grow = 0.9, alpha = 0.6, spin = 2.0 },
+  flashAlpha = 0.75,
+  smoke  = { speedMin = 6, speedMax = 30, lifeMin = 0.45, lifeMax = 0.75, drag = 1.5,
+             grow = 0.7, alpha = 0.55, darken = 0.28, spin = 1.0 },
+  flashLife = 0.08,
+  -- Debris: the sprite's 4 quadrants fly apart (tank, player, boss).
+  debris = { speedMin = 30, speedMax = 80, lifeMin = 0.50, lifeMax = 0.85, drag = 1.5, spin = 6 },
+  -- Impact sparks on a hit that doesn't kill: `count` streaks bouncing back
+  -- against the shot, within +-`spread` rad.
+  impact = { count = 2, spread = math.rad(45), speedMin = 70, speedMax = 150,
+             lifeMin = 0.10, lifeMax = 0.20, size = 1.5 },
+  -- Low-priority particles only spawn below this share of the pool, so they
+  -- never starve the explosions.
+  poolShare = { smoke = 0.8, debris = 0.8, impact = 0.6 },
+  -- Missile smoke trail (same pool rule, trailPoolShare).
   trailInterval = 0.07,
   trailLife = 0.3,
   trailSize = 6,
+  trailAlpha = 0.85,
   trailPoolShare = 0.6,
-  particleSpeedMin = 40,
-  particleSpeedMax = 170,
-  particleLifeMin = 0.25,
-  particleLifeMax = 0.6,
-  particleSize = 4,
-  particleDrag = 2.6,
+  particleSize = 4,           -- default spark width for Particle.burst
 }
 
 -- ---------------------------------------------------------------------------
@@ -889,6 +913,9 @@ Config.FX = {
     intensity = 1.6,       -- tight level gain
     wideIntensity = 1.0,   -- wide level gain
   },
+  -- Particle pool size per quality ("off" uses low). Sized for an old i5
+  -- (3rd gen): the CPU, not the GPU, is the limit.
+  particles = { high = 320, low = 160 },
   -- Alpha of each emitter in the glow layer (0 = does not glow).
   emit = {
     shot = 0.9,          -- player shots (owner color)
@@ -896,6 +923,8 @@ Config.FX = {
     enemyShot = 0.55,    -- pink stars: a danger halo
     bossMissile = 0.8,
     spark = 0.9,         -- explosion sparks (smoke never glows)
+    fire = 0.45,         -- explosion fire puffs
+    flash = 0.5,         -- explosion core flash
     ring = 0.8,
     engine = 0.55,       -- player and boss engine flames (outer, colored)
     engineCore = 0.15,   -- their white core (blows out to a blob if strong)

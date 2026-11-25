@@ -9,6 +9,7 @@
 -- (respawn blink, etc.) keep working.
 
 local Config = require("src.config")
+local Assets = require("src.assets")
 
 local Shaders = {}
 
@@ -81,15 +82,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen)
 
 local recolor
 local shield
-local white             -- 1x1 white image the shield shader is drawn on
 local currentTarget = { -1, -1, -1 }
 local tintBuf = { 1, 1, 1 }
 
 function Shaders.load()
-  local data = love.image.newImageData(1, 1)
-  data:setPixel(0, 0, 1, 1, 1, 1)
-  white = love.graphics.newImage(data)
-
   local okS, s = pcall(love.graphics.newShader, SHIELD_SRC)
   if okS then
     local S = Config.BOSS.shield
@@ -126,7 +122,7 @@ function Shaders.drawShield(x, y, r, color, alpha, t, hits)
     shield:send("hits", hits[1], hits[2], hits[3], hits[4])
     g.setShader(shield)
     g.setColor(1, 1, 1, alpha)
-    g.draw(white, x - r, y - r, 0, r * 2, r * 2)
+    g.draw(Assets.white, x - r, y - r, 0, r * 2, r * 2)
     g.setShader()
   else
     local S = Config.BOSS.shield

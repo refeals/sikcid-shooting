@@ -144,12 +144,12 @@ local function bulletsVsEnemies(world)
         b.dead = true
         local killed = e:damage(b.dmg)
         -- O som de morte fica em world:onEnemyKilled (cobre bala e explosão).
-        -- DANO X2: sparks in its color and a deeper hit sound.
-        if b.powered then
-          world:burst(2, b.x, b.y, X2_COLOR, 3)
-          if not killed then Audio.play("enemy_hit", 1.2, 0.75) end
-        elseif not killed then
-          Audio.play("enemy_hit")
+        -- A hit that doesn't kill: sparks bouncing back in the shot's color
+        -- (DANO X2: its color and a deeper hit sound). A kill has its
+        -- explosion instead.
+        if not killed then
+          world:impact(b.x, b.y, b.vx, b.vy, b.powered and X2_COLOR or b.color)
+          if b.powered then Audio.play("enemy_hit", 1.2, 0.75) else Audio.play("enemy_hit") end
         end
         if killed then
           e.dead = true
@@ -214,7 +214,7 @@ local function bulletsVsBoss(world)
       local rr = b.radius + boss.radius
       if Util.dist2(b.x, b.y, boss.x, boss.y) <= rr * rr then
         b.dead = true
-        world:burst(2, b.x, b.y, b.powered and X2_COLOR or boss.variant.color, 3)
+        world:impact(b.x, b.y, b.vx, b.vy, b.powered and X2_COLOR or b.color)
         local killed = boss:hit(b.dmg, b.owner, world)
         if b.kind == "salvo" then world:salvoBlast(b) end
         if killed or not boss:isFighting() then return end

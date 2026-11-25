@@ -354,8 +354,12 @@ end
 
 local function finale(self, world)
   local x, y, c = self.x, self.y, self.variant.color
-  world:explosion(x, y, c, 10, self.size * 0.45, 20, 6)
-  world:explosion(x, y, Config.COLORS.flash, 4, self.size * 0.3, 10, 4)
+  -- Staged: the big blast (scaled with bosses that grew), the hull in four
+  -- pieces, then secondary pops around.
+  local J = Config.JUICE
+  world:explosion(x, y, c, J.explosions.boss, self.size / B.size)
+  world:debris(self.variant.sprite, x, y, self.angle, self.size, c, true)
+  world:stagedPops(x, y, c, J.stages.boss)
   world:shake(B.death.shake, true)
   world:hitStop(B.death.hitStop, true)
   Post.shockwave(x, y, Config.FX.shock.boss)
@@ -478,7 +482,7 @@ function Boss:update(dt, world)
       local r = self.size * 0.35
       local bx = self.x + Util.randRange(-r, r)
       local by = self.y + Util.randRange(-r, r)
-      world:explosion(bx, by, self.variant.color, 2, self.size * 0.18, 4, 4)
+      world:explosion(bx, by, self.variant.color, Config.JUICE.explosions.bossBlast)
       world:shake(2)
       Audio.play("boss_blast")
     end

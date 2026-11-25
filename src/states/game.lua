@@ -50,7 +50,9 @@ arena.cy = arena.y + arena.h * 0.5
 -- apenas limpos (nenhuma tabela é realocada durante o jogo).
 local bullets   = Pool.new(Bullet.new, Config.MAX_BULLETS)
 local enemies   = Pool.new(Enemy.new, Config.MAX_ENEMIES)
-local particles = Pool.new(Particle.new, Config.MAX_PARTICLES)
+-- Particles: sized by the FX quality, set again in Game:enter (Post.load runs
+-- after this module is required).
+local particles = Pool.new(Particle.new, Config.FX.particles.high)
 local pickups   = Pool.new(Pickup.new, Config.MAX_PICKUPS)
 
 local world = {
@@ -171,8 +173,69 @@ function world:burst(count, x, y, color, size)
   Particle.burst(self.particles, count, x, y, color, size)
 end
 
-function world:explosion(x, y, color, puffs, puffSize, sparks, sparkSize)
-  Particle.explosion(self.particles, x, y, color, puffs, puffSize, sparks, sparkSize)
+-- Explosion from a Config.JUICE.explosions preset (sizes times `scale`),
+-- plus its thin shock ring when the preset has one.
+function world:explosion(x, y, color, preset, scale)
+  Particle.explosion(self.particles, x, y, color, preset, scale)
+  if preset.ring then self:ring(x, y, preset.ring * (scale or 1), color, 0.35) end
+end
+
+-- Sparks bouncing back from a shot moving along (dirX, dirY) that hit.
+function world:impact(x, y, dirX, dirY, color)
+  Particle.impact(self.particles, x, y, dirX, dirY, color)
+end
+
+-- A ship sprite breaking into 4 spinning pieces (see Particle.debris).
+function world:debris(role, x, y, angle, size, color, recolor)
+  Particle.debris(self.particles, role, x, y, angle, size, color, recolor)
+end
+
+-- ---------------------------------------------------------------------------
+-- Staged explosions: blasts scheduled a little later (secondary pops around
+-- a big one). Fixed slots; run on game time in Game:update, so they freeze
+-- in hit-stop and go slow in the game over slow motion.
+-- ---------------------------------------------------------------------------
+local LATER_SLOTS = 8
+local later = {}
+for i = 1, LATER_SLOTS do later[i] = { t = 0, x = 0, y = 0, color = nil, preset = nil } end
+
+function world:explodeLater(delay, x, y, color, preset)
+  for i = 1, LATER_SLOTS do
+    local s = later[i]
+    if not s.preset then
+      s.t, s.x, s.y, s.color, s.preset = delay, x, y, color, preset
+      return
+    end
+  end
+end
+
+-- `count` secondary `small` pops around (x, y), per a Config.JUICE.stages entry.
+function world:stagedPops(x, y, color, stage)
+  local small = J.explosions.small
+  for _ = 1, stage.count do
+    local a = math.random() * math.pi * 2
+    local r = stage.radius * math.sqrt(math.random())
+    self:explodeLater(Util.randRange(stage.delayMin, stage.delayMax),
+      x + math.cos(a) * r, y + math.sin(a) * r, color, small)
+  end
+end
+
+local function updateLater(dt)
+  for i = 1, LATER_SLOTS do
+    local s = later[i]
+    if s.preset then
+      s.t = s.t - dt
+      if s.t <= 0 then
+        local preset = s.preset
+        s.preset = nil
+        world:explosion(s.x, s.y, s.color, preset)
+      end
+    end
+  end
+end
+
+local function clearLater()
+  for i = 1, LATER_SLOTS do later[i].preset = nil end
 end
 
 -- ---------------------------------------------------------------------------
@@ -223,7 +286,7 @@ local function drawGlowLayer()
   Post.beginGlow()
   Spawner.drawGlow()
   for i = 1, pickups.count do pickups.items[i]:drawGlow() end
-  for i = 1, particles.count do particles.items[i]:drawGlow() end
+  Particle.drawGlow(particles)
   drawRings(Config.FX.emit.ring)
   for i = 1, enemies.count do enemies.items[i]:drawGlow() end
   world.boss:drawGlow()
@@ -369,7 +432,7 @@ end
 function world:salvoBlast(b)
   local S = RS.salvo
   self:areaDamage(b.x, b.y, S.blastRadius, S.blastDamage, b.owner)
-  Particle.explosion(self.particles, b.x, b.y, b.color, 3, S.blastRadius * 0.6, 6, 4)
+  self:explosion(b.x, b.y, b.color, J.explosions.salvo)
   self:ring(b.x, b.y, S.blastRadius, b.color, 0.3)
   Post.shockwave(b.x, b.y, Config.FX.shock.salvo, S.blastRadius)
   self:shake(1.5)
@@ -465,9 +528,7 @@ function world:clearHostiles()
   local pool = self.enemies
   for i = pool.count, 1, -1 do
     local e = pool.items[i]
-    local size = Config.ART.size[e.type] or e.def.size
-    Particle.explosion(self.particles, e.x, e.y, e.color, J.deathPuffs, size * 0.7,
-      J.deathParticles, e.def.size * 0.35)
+    self:explosion(e.x, e.y, e.color, J.explosions.small)
     e.dead = true
     pool:release(i)
   end
@@ -477,7 +538,7 @@ end
 -- Missile smoke: skipped while the pool is busy, so explosions keep priority.
 function world:trail(x, y, color)
   local pool = self.particles
-  if pool.count >= Config.MAX_PARTICLES * J.trailPoolShare then return end
+  if pool.count >= pool.capacity * J.trailPoolShare then return end
   Particle.trail(pool, x, y, color)
 end
 
@@ -504,11 +565,14 @@ function world:hitStop(t, force)
 end
 
 function world:onEnemyKilled(enemy, killerIndex)
-  local tank = enemy.type == "tank"
   local size = Config.ART.size[enemy.type] or enemy.def.size
-  Particle.explosion(self.particles, enemy.x, enemy.y, enemy.color,
-    tank and J.tankDeathPuffs or J.deathPuffs, size * 0.7,
-    tank and J.tankDeathParticles or J.deathParticles, enemy.def.size * 0.35)
+  if enemy.type == "tank" then
+    self:explosion(enemy.x, enemy.y, enemy.color, J.explosions.tank)
+    self:debris("tank", enemy.x, enemy.y, enemy.angle, size, enemy.color, false)
+  else
+    -- Small ships: the same preset, scaled by the sprite size (grunt = 1).
+    self:explosion(enemy.x, enemy.y, enemy.color, J.explosions.small, size / Config.ART.size.grunt)
+  end
 
   -- Combo sobe primeiro: a morte já conta com o multiplicador novo.
   if type(killerIndex) == "number" then
@@ -546,8 +610,11 @@ function world:onPlayerHit(player)
   player.alive = false
   player.lives = player.lives - 1
   Combo.breakOn(player)
-  Particle.explosion(self.particles, player.x, player.y, player.color,
-    J.playerDeathPuffs, Config.ART.size.playerShip, J.playerDeathParticles, 5)
+  -- Staged: the big blast, the ship in pieces, then a few secondary pops.
+  self:explosion(player.x, player.y, player.color, J.explosions.player)
+  self:debris("playerShip", player.x, player.y, player.angle, Config.ART.size.playerShip,
+    player.color, true)
+  self:stagedPops(player.x, player.y, player.color, J.stages.player)
   Post.shockwave(player.x, player.y, Config.FX.shock.player)
   Post.aberrate(Config.FX.aberration.player)
   Post.hurt(1)
@@ -717,6 +784,8 @@ function Game:enter(devices, count)
   pickups:clear()
   world.boss:clear()
   Post.clear()
+  clearLater()
+  particles.capacity = Post.particleCap()
   Spawner.load(arena)
   Spawner.reset(world, Config.SMOKE_WAVE)
   -- Sky set straight to the starting wave's palette (--wave 25 starts there).
@@ -880,6 +949,7 @@ function Game:update(dt)
   updateRings(dt)
   Profiler.stop("particles")
   Post.update(dt)   -- game time: waves freeze in hit-stop, slow in the game over
+  updateLater(dt)   -- staged explosions, same clock
 
   -- No respiro entre waves, todos os relógios de recompensa ficam parados:
   -- power-ups ativos, power-ups no chão e combo. Não há inimigos, então
@@ -966,7 +1036,7 @@ function Game:draw(covered)
 
   for i = 1, pickups.count do pickups.items[i]:draw() end
   Profiler.start("particles")
-  for i = 1, particles.count do particles.items[i]:draw() end
+  Particle.drawUnder(particles)   -- smoke, trails, debris: under the enemies
   love.graphics.setBlendMode("add")
   drawRings(1)
   love.graphics.setBlendMode("alpha")
@@ -991,6 +1061,12 @@ function Game:draw(covered)
   Shaders.reset()
 
   for i = 1, world.playerCount do world.players[i]:draw() end
+
+  -- Fire, sparks and flashes over everything in the arena (they are light:
+  -- they never hide what is alive).
+  Profiler.start("particles")
+  Particle.drawOver(particles)
+  Profiler.stop("particles")
 
   drawGlowLayer()
   Post.endScene(arena)

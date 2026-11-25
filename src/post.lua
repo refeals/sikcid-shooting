@@ -180,6 +180,11 @@ function Post.load()
     Post.sceneOk and "on" or "off"))
 end
 
+-- Particle pool size for the current quality (Config.FX.particles).
+function Post.particleCap()
+  return FX.particles[Post.quality == "high" and "high" or "low"]
+end
+
 -- ---------------------------------------------------------------------------
 -- Effects (game time)
 -- ---------------------------------------------------------------------------

@@ -58,7 +58,7 @@ end
 
 -- Boss missile going off: when it burns out or is shot down. Visual only.
 function Bullet:blast(world)
-  world:explosion(self.x, self.y, self.color, 3, SIZE.bossMissile * 0.8, 6, 3)
+  world:explosion(self.x, self.y, self.color, Config.JUICE.explosions.missile)
   Audio.play("missile_fail")
 end
 

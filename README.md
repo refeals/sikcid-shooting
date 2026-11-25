@@ -474,7 +474,8 @@ espalhado em outro arquivo.
 | Screen shake (com fadiga e multiplicador global `shakeScale`), hit-stop (com cooldown), explosões (faíscas + fumaça), rastro de míssil | `Config.JUICE` |
 | Controles touch: raio dos analógicos, deadzone, fantasmas, botões | `Config.TOUCH` |
 | Sequência de game over: câmera lenta, tempos, escurecimento | `Config.GAME_OVER` |
-| Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 120 partículas) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PARTICLES`, `MAX_PICKUPS` |
+| Tetos de entidades vivas (tamanho dos pools; hoje 100 inimigos, 200 balas, 24 pickups) | `Config.MAX_ENEMIES`, `MAX_BULLETS`, `MAX_PICKUPS` |
+| Teto de partículas por qualidade (hoje 320 em high, 160 em low/off) | `Config.FX.particles` |
 | Limiar do aviso de frame lento (DEBUG) | `Config.PROFILE_WARN_MS`, `PROFILE_WARN_INTERVAL` |
 
 As fórmulas de wave são funções, não tabela: a curva é infinita. Para deixar o
@@ -497,7 +498,7 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 | Boss (nave recolorida, fogo nos bocais de cada nave, flash, pulso de fúria, tremor na morte, escudo da entrada) | [src/entities/boss.lua](src/entities/boss.lua) → `Boss:draw`; shader do escudo em [src/shaders.lua](src/shaders.lua) |
 | Balas, mísseis e brilho dos tiros | [src/entities/bullet.lua](src/entities/bullet.lua) → `Bullet:draw` / `Bullet:drawGlow` |
 | Ícone de power-up (chão, HUD e briefing) | [src/entities/pickup.lua](src/entities/pickup.lua) → `Pickup.drawIcon` |
-| Explosões (fumaça + faíscas) e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua) |
+| Explosões (clarão, fogo, faíscas, fumaça, destroços), faíscas de impacto e rastro de míssil | [src/entities/particle.lua](src/entities/particle.lua); presets em `Config.JUICE.explosions` (ver "Explosões") |
 | Portas e telégrafo | [src/systems/spawner.lua](src/systems/spawner.lua) → `Spawner.draw` |
 | Fundo: nebulosa, estrelas em camadas, objetos distantes, brilhos, estrelas cadentes, paleta por bloco de waves entre bosses (vermelha na wave de boss) e grade com ondas | [src/background.lua](src/background.lua) (tuning em `Config.ART.background`) |
 | Arena, banners de wave | [src/states/game.lua](src/states/game.lua) → `Game:draw` |
@@ -514,6 +515,31 @@ cada slot em `Config.PLAYER_COLORS`, que é a lista que todo visual de jogador
 lê (nave, tiros, HUD, pausa, game over). A cor inicial de cada slot fica em
 `Config.PLAYER_DEFAULT_COLOR`, e a escolha é salva como `color1`/`color2` no
 `highscores.dat`. Para adicionar uma cor, basta uma entrada nova na paleta.
+
+### Explosões
+
+Cada explosão vem de um preset em `Config.JUICE.explosions` (`small`, `tank`,
+`player`, `bossBlast`, `boss`, `missile`, `salvo`) e mistura cinco tipos de
+partícula, todos do mesmo pool:
+
+| Tipo | O que é | Camada |
+|---|---|---|
+| Clarão | círculo branco de poucos frames no centro | acima de tudo, aditivo, brilha |
+| Fogo | puffs aditivos que nascem branco/amarelo e esfriam para a cor de quem explodiu (`Config.JUICE.ramp`) | acima de tudo, brilha |
+| Faíscas | traços esticados na direção do movimento | acima de tudo, brilha |
+| Fumaça | puffs escuros tingidos com a cor, curtos | abaixo dos inimigos |
+| Destroços | os 4 quadrantes do sprite voando e girando (só tank, jogador e boss) | abaixo dos inimigos |
+
+- Tank, jogador e boss também soltam um ring fino. Jogador e boss explodem
+  em estágios: depois da explosão grande vêm 2–3 estouros menores em volta
+  (`Config.JUICE.stages`), no tempo do jogo (ficam em câmera lenta no game
+  over).
+- Tiro que acerta e não mata solta 2 faíscas ricocheteando na cor do tiro
+  (`Config.JUICE.impact`).
+- O pool tem 320 partículas em `high` e 160 em `low`/`off`
+  (`Config.FX.particles`). Fumaça, destroços, faíscas de impacto e rastros de
+  míssil são os primeiros a sair quando o pool aperta (`Config.JUICE.poolShare`),
+  então as explosões em si nunca ficam sem partícula.
 
 ### Pós-processamento
 

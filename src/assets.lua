@@ -197,6 +197,33 @@ local function loadSprites(sheets)
   end
 end
 
+-- Debris: each sprite gets 4 quads, its quadrants (top-left, top-right,
+-- bottom-left, bottom-right in texture space), over its own image. Order
+-- matches QUADRANT_SIGNS below.
+Assets.QUADRANT_SIGNS = { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }
+
+local function makeQuadrants()
+  for _, s in pairs(Assets.sprites) do
+    local iw, ih = s.image:getDimensions()
+    local hw, hh = s.w * 0.5, s.h * 0.5
+    s.quads = {
+      love.graphics.newQuad(s.pad, s.pad, hw, hh, iw, ih),
+      love.graphics.newQuad(s.pad + hw, s.pad, hw, hh, iw, ih),
+      love.graphics.newQuad(s.pad, s.pad + hh, hw, hh, iw, ih),
+      love.graphics.newQuad(s.pad + hw, s.pad + hh, hw, hh, iw, ih),
+    }
+  end
+end
+
+-- Draws quadrant `q` (1..4) of a sprite role, centered on (x, y), at the
+-- scale the whole sprite would have at `size` (as Assets.draw).
+function Assets.drawQuadrant(role, q, x, y, angle, size)
+  local s = Assets.sprites[role]
+  if not s then return end
+  local k = size / math.max(s.w, s.h)
+  love.graphics.draw(s.image, s.quads[q], x, y, (angle or 0) - s.rot, k, k, s.w * 0.25, s.h * 0.25)
+end
+
 local function loadFonts()
   for role, def in pairs(Config.ART.fonts) do
     local ok, font = pcall(love.graphics.newFont, def.file, def.size, "mono")
@@ -212,8 +239,14 @@ end
 function Assets.load()
   local t0 = love.timer.getTime()
   placeholder = makePlaceholder()
+  -- 1x1 white texel: stretched into spark streaks (one texture, so the
+  -- draws batch) and the boss shield quad.
+  local px = love.image.newImageData(1, 1)
+  px:setPixel(0, 0, 1, 1, 1, 1)
+  Assets.white = love.graphics.newImage(px)
   local sheets = loadSheets()
   loadSprites(sheets)
+  makeQuadrants()
   loadFonts()
   -- The sheet ImageData (~5 MB for spaceShooter2) is only needed for cutting.
   for _, s in pairs(sheets) do s.data:release() end
