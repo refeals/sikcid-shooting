@@ -114,8 +114,10 @@ function Player.new(index, device)
     -- LÂMINA: enemies already cut by the current dash (once each), and
     -- whether the boss was.
     bladeHits = {}, bladeN = 0, bladeBoss = false,
-    -- LASER: beam on this frame, tick timer, where it ends (world:laserHit).
+    -- LASER: beam on this frame, tick timer, where it ends (world:laserHit),
+    -- firing time left in the burst, recharge left, burst-start flash.
     laserOn = false, laserT = 0, laserX2 = 0, laserY2 = 0,
+    laserBurst = 0, laserCd = 0, laserFlash = 0,
     -- ESCUDO ORBITAL: the orbs' angle and per-orb hit cooldowns.
     orbAngle = 0, orbCd = { 0, 0, 0 },
     -- Respawn marker (while dead with lives left): where the ship comes back.
@@ -549,14 +551,33 @@ function Player:update(dt, world)
   self:updateDrones(dt, world)
 end
 
--- LASER: while the ship would fire, a beam ticks every tick s (faster with
--- the fire rate); world:laserHit deals the damage and sets where it ends.
+-- LASER: bursts of onTime s of firing, offTime s of recharge between them.
+-- While the ship would fire, a beam ticks every tick s (faster with the fire
+-- rate); world:laserHit deals the damage and sets where it ends.
 function Player:updateLaser(dt, world, wantsFire)
   local LZ = Config.POWERUPS.laser
+  if self.laserFlash > 0 then self.laserFlash = self.laserFlash - dt end
+  -- Recharging: no beam (the charge glow shows, see drawLaser); the burst
+  -- refills once it is done.
+  if self.laserCd > 0 then
+    self.laserCd = self.laserCd - dt
+    self.laserOn = false
+    if self.laserCd > 0 then return end
+    self.laserCd = 0
+    self.laserBurst = LZ.onTime
+  end
+  local starting = wantsFire and not self.laserOn and self.laserBurst >= LZ.onTime
   self.laserOn = wantsFire
   if not wantsFire then
     self.laserT = 0          -- the first tick goes off as soon as it fires again
     return
+  end
+  if starting then self.laserFlash = LZ.burstFlashTime end
+  -- The burst only runs down while the beam is on; spent -> recharge.
+  self.laserBurst = self.laserBurst - dt
+  if self.laserBurst <= 0 then
+    self.laserBurst = 0
+    self.laserCd = LZ.offTime
   end
   self.laserT = self.laserT - dt
   if self.laserT > 0 then
@@ -924,14 +945,30 @@ end
 -- LASER beam (additive, the CALLER sets the blend in Player:draw; the glow
 -- layer is additive already): a flickering glow in the player color under a
 -- white core, from the nose to where world:laserHit ended it. `wide` scales
--- the widths (the glow layer draws it wider).
+-- the widths (the glow layer draws it wider). Between bursts, a charge glow
+-- grows at the nose; a burst opens with a flash there.
 function Player:drawLaser(wide)
-  if not self.laserOn then return end
+  if self.mods.weapon ~= "laser" then return end
   local LZ = Config.POWERUPS.laser
   local g = love.graphics
   local c = self.color
   local nose = SIZE.playerShip * MZ.nose
   local x1, y1 = self.x + self.aimX * nose, self.y + self.aimY * nose
+  if self.laserCd > 0 then
+    local k = 1 - self.laserCd / LZ.offTime
+    local r = LZ.chargeSize * k * wide
+    g.setColor(c[1], c[2], c[3], 0.6)
+    g.circle("fill", x1, y1, r * 1.6)
+    g.setColor(1, 1, 1, 0.5 + 0.4 * k)
+    g.circle("fill", x1, y1, r * 0.7)
+    return
+  end
+  if self.laserFlash > 0 then
+    local k = self.laserFlash / LZ.burstFlashTime
+    g.setColor(1, 1, 1, 0.9 * k)
+    g.circle("fill", x1, y1, LZ.burstFlash * (1.3 - 0.3 * k) * wide)
+  end
+  if not self.laserOn then return end
   local flick = 0.75 + 0.25 * math.sin(self.engineT * 60)
   g.setColor(c[1], c[2], c[3], 0.55 * flick)
   g.setLineWidth(LZ.glowWidth * wide)

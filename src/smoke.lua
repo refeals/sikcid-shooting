@@ -370,6 +370,12 @@ function Smoke.update(dt)
         Smoke.laserShot = true
       end
     end
+    -- LASER recharging, its charge glow nearly full.
+    if p1 and not Smoke.chargeShot and p1.laserCd > 0
+      and p1.laserCd < Config.POWERUPS.laser.offTime * 0.25 then
+      love.graphics.captureScreenshot("smoke_laser_charge.png")
+      Smoke.chargeShot = true
+    end
     if not Smoke.slowShot and (Game.world.slowFade or 0) >= 1 then
       love.graphics.captureScreenshot("smoke_slowmo.png")
       Smoke.slowShot = true

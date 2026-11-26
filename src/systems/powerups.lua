@@ -80,6 +80,10 @@ Powerups.DEFS = {
     weapon = true, duration = N.laser.duration, weight = N.laser.weight,
     color = N.laser.color,
     apply = function(m) m.weapon = "laser" end,
+    -- A fresh pickup (or a re-pick) starts with a full, ready burst.
+    onPick = function(p)
+      p.laserBurst, p.laserCd, p.laserOn = N.laser.onTime, 0, false
+    end,
   },
   {
     id = "orbital", name = "ESCUDO ORBITAL", letter = "O",

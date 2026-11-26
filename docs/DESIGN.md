@@ -140,7 +140,7 @@ RB, LB ou B no controle; Shift no teclado; botão DASH no touch. Números em
 | B | BOLHA | segura 1 golpe; ao estourar, empurra os inimigos em volta e dá 1s de invulnerabilidade |
 | D | DRONE | drone que orbita a nave e atira sozinho (10/s) no inimigo mais próximo; os tiros são bolinhas de energia, diferentes dos da nave |
 | X | DANO X2 | dobra o dano de qualquer arma (e do drone) |
-| L | LASER | raio contínuo do bico até a parede que atravessa tudo e fere tudo na linha, inclusive o boss (o escudo de entrada dele bloqueia), 8 s (arma) |
+| L | LASER | raio do bico até a parede que atravessa tudo e fere tudo na linha, inclusive o boss (o escudo de entrada dele bloqueia). Dispara em rajadas de 1 s com 0,5 s de recarga, mostrada por um brilho que cresce na ponta da nave; 8 s (arma) |
 | O | ESCUDO ORBITAL | 3 esferas em volta da nave que destroem os tiros inimigos que tocam e ferem os inimigos que encostam |
 | T | TEMPO LENTO | a arena inteira (os 2 jogadores): inimigos, tiros inimigos, boss e sub-bosses a 50% por 6 s; véu azul e música mais grave |
 | N | NOVA | na hora: onda de choque em volta, dano 5 e apaga os tiros inimigos no raio |

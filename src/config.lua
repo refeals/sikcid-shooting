@@ -877,7 +877,13 @@ Config.POWERUPS = {
   -- (x DANO X2) to every enemy within hitWidth/2 of the line, the boss too;
   -- the boss entry shield cuts it. Drawn as a white core over a glow in the
   -- player color; a low `shot` hum at each tick.
+  -- Bursts: the beam fires for `onTime` s (spent only while firing), then
+  -- recharges for `offTime` s while a glow grows at the nose (`chargeSize`
+  -- px radius when full); the next burst opens with a `burstFlash` px flash
+  -- lasting `burstFlashTime` s. A fresh pickup starts with a full burst.
   laser    = { duration = 8, weight = 12, tick = 0.1, damage = 1.2, hitWidth = 4,
+               onTime = 1.0, offTime = 0.5,
+               chargeSize = 4, burstFlash = 9, burstFlashTime = 0.12,
                coreWidth = 1.5, glowWidth = 6, sparkEvery = 0.05, shieldEvery = 0.12,
                humVolume = 0.6, humPitch = 0.55, color = { 0.85, 1.00, 0.30, 1 } },
   -- ESCUDO ORBITAL: `count` orbs at `radius` px around the ship (spin rad/s)
