@@ -146,13 +146,24 @@ function Music.duck(on)
   Music.duckOn = on and true or false
 end
 
+-- Pitch target (TEMPO LENTO pitches it down); eased in Music.update.
+Music.pitch, Music.pitchTarget = 1, 1
+local PITCH_EASE = 0.3   -- s for a full pitch swing
+
+function Music.setPitch(p)
+  Music.pitchTarget = p
+end
+
 -- Called every frame by main (pause included): runs the fades and keeps the
 -- playlists fed.
 function Music.update(dt)
   Music.duckLevel = Util.approach(Music.duckLevel, Music.duckOn and M.duck or 1, dt / M.fadeTime)
   local master = Config.AUDIO.master * M.volume * Music.duckLevel
+  local pitchMoved = Music.pitch ~= Music.pitchTarget
+  Music.pitch = Util.approach(Music.pitch, Music.pitchTarget, dt / PITCH_EASE)
 
   for role, p in pairs(Music.roles) do
+    if pitchMoved then p.src:setPitch(Music.pitch) end
     local target = (role == Music.current) and 1 or 0
     local time = target > p.vol and p.fadeIn or M.fadeTime
     p.vol = Util.approach(p.vol, target, dt / time)

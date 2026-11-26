@@ -158,6 +158,16 @@ function Spawner.startWave(n)
   setDebut(n)
   if Config.SMOKE then require("src.smoke").note("waves", n) end
   RunLog.waveStart(n)
+  -- --powerup id[,id...]: hand those power-ups to everyone each wave (tests).
+  if Config.START_POWERUPS then
+    local Powerups = require("src.systems.powerups")
+    for i = 1, Spawner.world.playerCount do
+      for _, id in ipairs(Config.START_POWERUPS) do
+        local def = Powerups.byId(id)
+        if def then Powerups.give(Spawner.world.players[i], def, Spawner.world) end
+      end
+    end
+  end
   local players = Spawner.world.playerCount
 
   Spawner.bossWave = Spawner.isBossWave(n)

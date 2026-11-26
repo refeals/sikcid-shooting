@@ -361,15 +361,21 @@ morto vai renascer), para ninguém pegar sem ver o que é.
 | B | BOLHA | segura 1 golpe; ao estourar, empurra os inimigos em volta e dá 1s de invulnerabilidade |
 | D | DRONE | drone que orbita a nave e atira sozinho (10/s) no inimigo mais próximo; os tiros são bolinhas de energia, diferentes dos da nave |
 | X | DANO X2 | dobra o dano de qualquer arma (e do drone) |
+| L | LASER | raio contínuo do bico até a parede que atravessa tudo e fere tudo na linha, inclusive o boss (o escudo de entrada dele bloqueia), 8 s (arma) |
+| O | ESCUDO ORBITAL | 3 esferas em volta da nave que destroem os tiros inimigos que tocam e ferem os inimigos que encostam |
+| T | TEMPO LENTO | a arena inteira (os 2 jogadores): inimigos, tiros inimigos, boss e sub-bosses a 50% por 6 s; véu azul e música mais grave |
 | N | NOVA | na hora: onda de choque em volta, dano 5 e apaga os tiros inimigos no raio |
-| + | EXTRA LIFE | na hora: +1 vida (máx. 5) |
+| + | EXTRA LIFE | na hora: +1 vida (até o máximo, que o upgrade CASCO aumenta) |
 
-Armas (S, R, M) se substituem; os outros acumulam. Pegar um que já está ativo
-renova o tempo.
+Armas (S, R, M, L) se substituem; os outros acumulam. Pegar um que já está ativo
+renova o tempo. Os números de cada um estão em `Config.POWERUPS`. Para testar
+um power-up direto: `love . --powerup laser,orbital --wave 12` (dá esses
+power-ups a todos no início de cada wave).
 
 Um power-up no chão dura 10 s (`Config.POWERUP.pickupLife`). Nos últimos
-3 s ele pisca em **branco**, cada vez mais rápido, e quando o tempo acaba ele
-se desfaz em ~0,3 s. Dá para pegar durante esse desfazer: é a última chance.
+3 s um anel **branco** pisca em volta dele, cada vez mais rápido, e quando o
+tempo acaba ele se desfaz em ~0,3 s. Dá para pegar durante esse desfazer: é a
+última chance.
 
 Visual dos power-ups no chão (`Config.FX.pickup`):
 

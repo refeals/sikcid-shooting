@@ -872,6 +872,25 @@ Config.POWERUPS = {
   -- outline pulses in it at `auraRate` Hz.
   damage   = { duration = 10, weight = 12, mul = 2, color = { 1.00, 0.40, 0.30, 1 },
                shotScale = 1.4, glowMul = 1.5, auraRate = 6 },
+  -- LASER (weapon): a beam from the nose to the wall along the aim while the
+  -- ship would fire. Every `tick` s (x the fire rate) it deals `damage`
+  -- (x DANO X2) to every enemy within hitWidth/2 of the line, the boss too;
+  -- the boss entry shield cuts it. Drawn as a white core over a glow in the
+  -- player color; a low `shot` hum at each tick.
+  laser    = { duration = 8, weight = 12, tick = 0.1, damage = 1.2, hitWidth = 4,
+               coreWidth = 1.5, glowWidth = 6, sparkEvery = 0.05, shieldEvery = 0.12,
+               humVolume = 0.6, humPitch = 0.55, color = { 0.85, 1.00, 0.30, 1 } },
+  -- ESCUDO ORBITAL: `count` orbs at `radius` px around the ship (spin rad/s)
+  -- that erase the enemy shots they touch and hurt the enemies they touch
+  -- (`damage`, then hitCooldown s per orb).
+  orbital  = { duration = 12, weight = 12, count = 3, radius = 26, orbRadius = 5, spin = 3,
+               damage = 2, hitCooldown = 0.3, color = { 0.30, 0.90, 0.75, 1 } },
+  -- TEMPO LENTO: the whole arena (both players) for its duration: enemies,
+  -- their shots, the boss and sub-bosses at `scale` speed; doors, players,
+  -- their shots and timers untouched. A blue `veil` over the arena (fading
+  -- in/out over `fade` s) and the music pitched to musicPitch.
+  slowmo   = { duration = 6, weight = 5, scale = 0.5, veil = { 0.20, 0.35, 0.90, 0.16 }, fade = 0.4,
+               musicPitch = 0.85, color = { 0.35, 0.50, 1.00, 1 } },
 }
 
 -- ---------------------------------------------------------------------------

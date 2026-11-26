@@ -553,6 +553,88 @@ function world:nova(p)
   self:shake(4)
 end
 
+-- LASER: one tick of the beam. From the ship's nose along the aim to the
+-- wall (the boss entry shield cuts it short, rippling); every enemy within
+-- hitWidth/2 of the segment takes the damage, the fighting boss too. Sets
+-- p.laserX2/Y2 (where the beam ends) for the drawing.
+local laserSpark = 0
+local laserShield = 0
+
+local function segDist2(px, py, x1, y1, dx, dy, len2)
+  local t = ((px - x1) * dx + (py - y1) * dy) / len2
+  if t < 0 then t = 0 elseif t > 1 then t = 1 end
+  local cx, cy = x1 + dx * t, y1 + dy * t
+  return (px - cx) * (px - cx) + (py - cy) * (py - cy), cx, cy
+end
+
+-- `dry`: only the geometry (where the beam ends, every frame for the
+-- drawing); the damage, sparks and shield ripples happen on the ticks.
+function world:laserHit(p, dry)
+  local LZ = Config.POWERUPS.laser
+  local a = self.arena
+  local nose = Config.ART.size.playerShip * Config.FX.muzzle.nose
+  local ax, ay = p.aimX, p.aimY
+  local x1, y1 = p.x + ax * nose, p.y + ay * nose
+  -- Ray to the arena wall.
+  local t = 2000
+  if ax > 0 then t = math.min(t, (a.x + a.w - x1) / ax) elseif ax < 0 then t = math.min(t, (a.x - x1) / ax) end
+  if ay > 0 then t = math.min(t, (a.y + a.h - y1) / ay) elseif ay < 0 then t = math.min(t, (a.y - y1) / ay) end
+  t = math.max(0, t)
+
+  -- The boss entry shield stops it at its surface.
+  local boss = self.boss
+  local shielded = boss.active and boss.state == "enter"
+  if shielded then
+    local R = boss:shieldRadius()
+    local fx, fy = x1 - boss.x, y1 - boss.y
+    local b = fx * ax + fy * ay
+    local c = fx * fx + fy * fy - R * R
+    local disc = b * b - c
+    if disc >= 0 then
+      local hit = -b - math.sqrt(disc)
+      if hit >= 0 and hit < t then
+        t = hit
+        if not dry then laserShield = laserShield - LZ.tick end
+        if not dry and laserShield <= 0 then
+          laserShield = LZ.shieldEvery
+          boss:shieldHit(x1 + ax * t, y1 + ay * t, self)
+        end
+      end
+    end
+  end
+  local x2, y2 = x1 + ax * t, y1 + ay * t
+  p.laserX2, p.laserY2 = x2, y2
+  if dry then return end
+
+  local dmg = LZ.damage * p.mods.damageMul
+  local dx, dy = x2 - x1, y2 - y1
+  local len2 = dx * dx + dy * dy
+  if len2 < 1 then return end
+  local half = LZ.hitWidth * 0.5
+  laserSpark = laserSpark - LZ.tick
+  local spark = laserSpark <= 0
+  if spark then laserSpark = LZ.sparkEvery end
+  local pool = self.enemies
+  for i = 1, pool.count do
+    local e = pool.items[i]
+    if not e.dead then
+      local rr = e.radius + half
+      local d2, cx, cy = segDist2(e.x, e.y, x1, y1, dx, dy, len2)
+      if d2 <= rr * rr then
+        if spark then self:impact(cx, cy, -ax, -ay, p.color) end
+        if e:damage(dmg) then
+          e.dead = true
+          self:onEnemyKilled(e, p.index)
+        end
+      end
+    end
+  end
+  if not shielded and boss:isFighting() then
+    local rr = boss.radius + half
+    if segDist2(boss.x, boss.y, x1, y1, dx, dy, len2) <= rr * rr then boss:hit(dmg, p.index, self) end
+  end
+end
+
 -- CHOQUE: a mini-NOVA around the player at the end (and start) of a dash.
 function world:shockPulse(p, radius, dmg)
   local SH = Config.UPGRADES.shock
@@ -1069,6 +1151,7 @@ function Game:enter(devices, count)
   world.endT = -1          -- game over sequence: real s since the last death
   world.endJingle = false
   world.godMode = Config.SMOKE_GOD or false
+  world.slowmo, world.slowFade = false, 0   -- TEMPO LENTO
   bullets:clear()
   enemies:clear()
   particles:clear()
@@ -1179,6 +1262,7 @@ end
 -- at the last death) or quitting from the pause menu (closes it as quit).
 function Game:leave()
   RunLog.finish(world, "abandono")
+  Music.setPitch(1)   -- TEMPO LENTO's pitch never outlives the match
 end
 
 function Game:update(dt)
@@ -1244,18 +1328,32 @@ function Game:update(dt)
     world.players[i]:update(dt, world)
   end
 
-  world.boss:update(dt, world)
+  -- TEMPO LENTO: while any player has it, the enemy side (boss, enemies,
+  -- their shots) runs at SM.scale; players, their shots, doors and timers
+  -- don't. The veil and the music pitch follow it.
+  local SM = Config.POWERUPS.slowmo
+  local slow = false
+  for p = 1, world.playerCount do
+    if world.players[p].mods.slowmo then slow = true end
+  end
+  world.slowmo = slow
+  world.slowFade = Util.approach(world.slowFade or 0, slow and 1 or 0, dt / SM.fade)
+  Music.setPitch(slow and SM.musicPitch or 1)
+  local edt = slow and dt * SM.scale or dt
+
+  world.boss:update(edt, world)
 
   Profiler.start("enemies")
   for i = 1, enemies.count do
-    enemies.items[i]:update(dt, world)
+    enemies.items[i]:update(edt, world)
   end
   Profiler.stop("enemies")
 
   -- Balas: swap-remove pelo pool, sem table.remove.
   local i = 1
   while i <= bullets.count do
-    if bullets.items[i]:update(dt, world) then i = i + 1 else bullets:release(i) end
+    local b = bullets.items[i]
+    if b:update(b.owner == "enemy" and edt or dt, world) then i = i + 1 else bullets:release(i) end
   end
 
   Profiler.start("particles")
@@ -1419,6 +1517,15 @@ function Game:draw(covered)
   Profiler.start("particles")
   Particle.drawOver(particles)
   Profiler.stop("particles")
+
+  -- TEMPO LENTO: a light blue veil over the arena, fading in and out.
+  local sf = world.slowFade or 0
+  if sf > 0 then
+    local v = Config.POWERUPS.slowmo.veil
+    love.graphics.setColor(v[1], v[2], v[3], v[4] * sf)
+    love.graphics.rectangle("fill", arena.x, arena.y, arena.w, arena.h)
+    love.graphics.setColor(1, 1, 1, 1)
+  end
 
   drawGlowLayer()
   Post.endScene(arena)

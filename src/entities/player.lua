@@ -15,6 +15,7 @@ local P = Config.PLAYER
 local W = Config.WEAPON
 local R = Config.RESPAWN
 local DR = Config.POWERUPS.drone
+local LZ_ORB = Config.POWERUPS.orbital
 local SIZE = Config.ART.size
 local TR = Config.FX.trail
 local MZ = Config.FX.muzzle
@@ -113,6 +114,10 @@ function Player.new(index, device)
     -- LÂMINA: enemies already cut by the current dash (once each), and
     -- whether the boss was.
     bladeHits = {}, bladeN = 0, bladeBoss = false,
+    -- LASER: beam on this frame, tick timer, where it ends (world:laserHit).
+    laserOn = false, laserT = 0, laserX2 = 0, laserY2 = 0,
+    -- ESCUDO ORBITAL: the orbs' angle and per-orb hit cooldowns.
+    orbAngle = 0, orbCd = { 0, 0, 0 },
     -- Respawn marker (while dead with lives left): where the ship comes back.
     markerX = 0, markerY = 0,
     markerDelay = 0,          -- hidden (and still) for this long after the death
@@ -174,6 +179,8 @@ function Player:resetMods()
   m.shockRadius = 0     -- CHOQUE: mini-NOVA when the dash ends (0 = off)
   m.shockDamage = 0
   m.shockStart = false  -- CHOQUE++: also when it starts
+  m.orbital = false     -- ESCUDO ORBITAL (power-up)
+  m.slowmo = false      -- TEMPO LENTO (power-up; the world reads it)
   Upgrades.apply(self, m)
 end
 
@@ -514,19 +521,59 @@ function Player:update(dt, world)
     math.min(1, P.turnRate * dt))
   self.engineT = self.engineT + dt
 
-  -- Tiro automático.
+  -- Tiro automático (the LASER is a beam instead, see updateLaser).
   if self.fireCooldown > 0 then self.fireCooldown = self.fireCooldown - dt end
-  if wantsFire and self.fireCooldown <= 0 then
-    local fn = WEAPONS[self.mods.weapon] or WEAPONS.single
-    fn(self, world)
-    self.fireCooldown = 1 / (W.fireRate * self.mods.fireRateMul)
-    self.muzzle = P.muzzleTime
+  if self.mods.weapon == "laser" then
+    self:updateLaser(dt, world, wantsFire)
+  else
+    self.laserOn = false
+    if wantsFire and self.fireCooldown <= 0 then
+      local fn = WEAPONS[self.mods.weapon] or WEAPONS.single
+      fn(self, world)
+      self.fireCooldown = 1 / (W.fireRate * self.mods.fireRateMul)
+      self.muzzle = P.muzzleTime
+    end
   end
   self:updateRear(dt, world, wantsFire)
+
+  -- ESCUDO ORBITAL: the orbs turn; Combat does their hits.
+  if self.mods.orbital then
+    self.orbAngle = (self.orbAngle + LZ_ORB.spin * dt) % (math.pi * 2)
+    for i = 1, LZ_ORB.count do
+      if self.orbCd[i] > 0 then self.orbCd[i] = self.orbCd[i] - dt end
+    end
+  end
 
   sampleRibbon(self, dt)
   sampleGhosts(self, dt)
   self:updateDrones(dt, world)
+end
+
+-- LASER: while the ship would fire, a beam ticks every tick s (faster with
+-- the fire rate); world:laserHit deals the damage and sets where it ends.
+function Player:updateLaser(dt, world, wantsFire)
+  local LZ = Config.POWERUPS.laser
+  self.laserOn = wantsFire
+  if not wantsFire then
+    self.laserT = 0          -- the first tick goes off as soon as it fires again
+    return
+  end
+  self.laserT = self.laserT - dt
+  if self.laserT > 0 then
+    world:laserHit(self, true)   -- the beam follows the aim every frame
+    return
+  end
+  self.laserT = LZ.tick / self.mods.fireRateMul
+  world:laserHit(self)
+  self.muzzle = P.muzzleTime
+  Audio.play("shot", LZ.humVolume, LZ.humPitch)
+  if Config.SMOKE then require("src.smoke").bump("laserTicks") end
+end
+
+-- ESCUDO ORBITAL: where orb i is.
+function Player:orbXY(i)
+  local a = self.orbAngle + (i - 1) / LZ_ORB.count * math.pi * 2
+  return self.x + math.cos(a) * LZ_ORB.radius, self.y + math.sin(a) * LZ_ORB.radius
 end
 
 -- RETAGUARDA: plain shots straight back from the aim (a fan of rearFan at
@@ -869,6 +916,50 @@ function Player:drawGlow()
       g.circle("fill", dx + self.droneAimX[i] * DR.barrel, dy + self.droneAimY[i] * DR.barrel, 3)
     end
   end
+  -- LASER and orbs light up the glow layer (already additive here).
+  self:drawLaser(1.8)
+  self:drawOrbs(true)
+end
+
+-- LASER beam (additive, the CALLER sets the blend in Player:draw; the glow
+-- layer is additive already): a flickering glow in the player color under a
+-- white core, from the nose to where world:laserHit ended it. `wide` scales
+-- the widths (the glow layer draws it wider).
+function Player:drawLaser(wide)
+  if not self.laserOn then return end
+  local LZ = Config.POWERUPS.laser
+  local g = love.graphics
+  local c = self.color
+  local nose = SIZE.playerShip * MZ.nose
+  local x1, y1 = self.x + self.aimX * nose, self.y + self.aimY * nose
+  local flick = 0.75 + 0.25 * math.sin(self.engineT * 60)
+  g.setColor(c[1], c[2], c[3], 0.55 * flick)
+  g.setLineWidth(LZ.glowWidth * wide)
+  g.line(x1, y1, self.laserX2, self.laserY2)
+  g.setColor(1, 1, 1, 0.95)
+  g.setLineWidth(LZ.coreWidth * wide)
+  g.line(x1, y1, self.laserX2, self.laserY2)
+  g.setLineWidth(1)
+end
+
+-- ESCUDO ORBITAL: the orbs (the power-up's color, a white core); `glow`:
+-- just a halo (glow layer).
+function Player:drawOrbs(glow)
+  if not self.mods.orbital then return end
+  local c = LZ_ORB.color
+  local g = love.graphics
+  for i = 1, LZ_ORB.count do
+    local ox, oy = self:orbXY(i)
+    if glow then
+      g.setColor(c[1], c[2], c[3], 0.6)
+      g.circle("fill", ox, oy, LZ_ORB.orbRadius * 2)
+    else
+      g.setColor(c[1], c[2], c[3], 1)
+      g.circle("fill", ox, oy, LZ_ORB.orbRadius)
+      g.setColor(1, 1, 1, 0.9)
+      g.circle("fill", ox, oy, LZ_ORB.orbRadius * 0.45)
+    end
+  end
 end
 
 function Player:draw()
@@ -978,6 +1069,12 @@ function Player:draw()
     g.circle("line", self.x, self.y, r)
     g.setLineWidth(1)
   end
+
+  -- LASER beam (additive) and the orbital shield's orbs.
+  g.setBlendMode("add")
+  self:drawLaser(1)
+  g.setBlendMode("alpha")
+  self:drawOrbs(false)
 
   -- Drones orbiting the ship, in the player's color.
   -- The sprite is a plain disc, so a short barrel shows where it aims.

@@ -352,12 +352,61 @@ local function sweep(world)
   end
 end
 
+-- ---------------------------------------------------------------------------
+-- ESCUDO ORBITAL: each orb erases the enemy shots it touches (a boss missile
+-- goes off) and hurts the enemies it touches, then rests hitCooldown s.
+-- Module-level query callback fed by upvalues: no closure per orb.
+-- ---------------------------------------------------------------------------
+local OB = Config.POWERUPS.orbital
+local orbP, orbI, orbX, orbY, orbWorld = nil, 0, 0, 0, nil
+
+local function orbHit(e)
+  if e.dead or orbP.orbCd[orbI] > 0 then return end
+  local rr = OB.orbRadius + e.radius
+  if Util.dist2(orbX, orbY, e.x, e.y) > rr * rr then return end
+  orbP.orbCd[orbI] = OB.hitCooldown
+  orbWorld:impact(orbX, orbY, orbX - e.x, orbY - e.y, OB.color)
+  if e:damage(OB.damage) then
+    e.dead = true
+    orbWorld:onEnemyKilled(e, orbP.index)
+  end
+  return false
+end
+
+local function orbitalsVsThreats(world)
+  local bullets = world.bullets
+  for pi = 1, world.playerCount do
+    local p = world.players[pi]
+    if p.alive and p.mods.orbital then
+      for i = 1, OB.count do
+        local ox, oy = p:orbXY(i)
+        for k = 1, bullets.count do
+          local b = bullets.items[k]
+          if b.owner == "enemy" and not b.dead then
+            local rr = OB.orbRadius + b.radius
+            if Util.dist2(ox, oy, b.x, b.y) <= rr * rr then
+              b.dead = true
+              if b.kind == "bossMissile" then b:blast(world) end
+              world:impact(b.x, b.y, b.x - ox, b.y - oy, OB.color)
+              if Config.SMOKE then require("src.smoke").bump("orbBlocks") end
+            end
+          end
+        end
+        orbP, orbI, orbX, orbY, orbWorld = p, i, ox, oy, world
+        queryCircle(ox, oy, OB.orbRadius + SP.maxSpace, orbHit)
+      end
+    end
+  end
+  orbP, orbWorld = nil, nil
+end
+
 function Combat.update(_, world)
   buildGrid(world.enemies)
   resolveOverlaps(world)
   bulletsVsEnemies(world)
   bulletsVsBossMissiles(world)
   bulletsVsBoss(world)
+  orbitalsVsThreats(world)
   enemiesVsPlayers(world)
   enemyBulletsVsPlayers(world)
   sweep(world)

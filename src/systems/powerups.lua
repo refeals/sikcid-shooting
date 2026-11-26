@@ -75,6 +75,34 @@ Powerups.DEFS = {
     apply = function(m) m.damageMul = m.damageMul * N.damage.mul end,
   },
   {
+    id = "laser", name = "LASER", letter = "L",
+    desc = "raio que atravessa tudo",
+    weapon = true, duration = N.laser.duration, weight = N.laser.weight,
+    color = N.laser.color,
+    apply = function(m) m.weapon = "laser" end,
+  },
+  {
+    id = "orbital", name = "ESCUDO ORBITAL", letter = "O",
+    desc = "esferas que destroem tiros",
+    duration = N.orbital.duration, weight = N.orbital.weight,
+    color = N.orbital.color,
+    apply = function(m) m.orbital = true end,
+  },
+  {
+    id = "slowmo", name = "TEMPO LENTO", letter = "T",
+    desc = "inimigos em câmera lenta",
+    duration = N.slowmo.duration, weight = N.slowmo.weight,
+    color = N.slowmo.color,
+    apply = function(m) m.slowmo = true end,
+    -- A deep pulse when it kicks in (also when picked again).
+    onPick = function(p, world)
+      if not world then return end
+      require("src.post").shockwave(p.x, p.y, Config.FX.shock.nova)
+      Audio.play("nova", 0.6, 0.6)
+      if Config.SMOKE then require("src.smoke").bump("slowmos") end
+    end,
+  },
+  {
     id = "nova", name = "NOVA", letter = "N",
     desc = "onda de choque em volta (na hora)",
     sound = "nova",
@@ -86,7 +114,7 @@ Powerups.DEFS = {
   },
   {
     id = "life", name = "EXTRA LIFE", letter = "+",
-    desc = "+1 vida na hora (máx. 5)",
+    desc = "+1 vida na hora (até o máximo)",
     sound = "pickup_life",    -- som próprio (os outros usam "pickup")
     permanent = true, duration = 1, weight = N.life.weight,
     color = { 1.00, 0.45, 0.55, 1 },
@@ -161,6 +189,8 @@ function Powerups.give(player, def, world)
   local list = player.powerups
   -- DURAÇÃO (permanent upgrade) stretches every temporary power-up.
   local duration = def.duration * player.mods.durationMul
+  -- Optional kick-in effect (TEMPO LENTO), also when picked again.
+  if def.onPick then def.onPick(player, world) end
 
   -- Mesmo power-up de novo: só reseta o timer.
   for i = 1, #list do

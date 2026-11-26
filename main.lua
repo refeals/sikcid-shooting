@@ -64,6 +64,13 @@ local function parseArgs(args)
       if args[i + 1] then Config.FX.quality = args[i + 1]; i = i + 1 end
     elseif a == "--media" then
       Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
+    elseif a == "--powerup" then
+      -- power-ups handed to everyone at each wave start (comma list of ids)
+      Config.START_POWERUPS = {}
+      for id in (args[i + 1] or ""):gmatch("[^,]+") do
+        Config.START_POWERUPS[#Config.START_POWERUPS + 1] = id
+      end
+      i = i + 1
     elseif a == "--smokelog" then
       Config.SMOKE_LOG = true    -- smoke writes the run log too (runs-smoke.csv)
     elseif a == "--curve" then
