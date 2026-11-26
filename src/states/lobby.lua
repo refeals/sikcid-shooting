@@ -8,6 +8,9 @@
 --      de qualquer um dos dois inicia o jogo em 2 players.
 --   5. BACK desvincula; se o Jogador 1 sai, o Jogador 2 assume o slot 1.
 --   6. Debounce de Config.BIND_DEBOUNCE no START que acabou de vincular.
+--   7. Coming from the main menu, the device that picked JOGAR is already
+--      Player 1 (Lobby:enter(device)). BACK with both slots empty goes back
+--      to the menu.
 --
 -- Seletor de cor: cada slot vinculado troca de cor com esquerda/direita e
 -- sorteia com Y. A cor do outro jogador é sempre pulada, e a cor segue o
@@ -24,6 +27,7 @@ local State  = require("src.state")
 local Player = require("src.entities.player")
 local UI     = require("src.ui")
 local Background = require("src.background")
+local Nav    = require("src.nav")
 
 local Lobby = {}
 
@@ -138,7 +142,9 @@ local function startGame()
   State.switch(require("src.states.game"), devices, n)
 end
 
-function Lobby:enter()
+-- `device`: the device that picked JOGAR on the main menu (nil coming back
+-- from a match).
+function Lobby:enter(device)
   -- Volta do game over com os slots preservados só enquanto os devices
   -- seguirem conectados; qualquer um desconectado é solto.
   for i = 2, 1, -1 do
@@ -148,6 +154,9 @@ function Lobby:enter()
   for i = 1, 2 do
     if slots[i] then slots[i].bindTimer = Config.BIND_DEBOUNCE end
   end
+  -- Fresh bind: its debounce keeps the START that picked JOGAR (or a quick
+  -- double press) from starting the match right away.
+  if device and not slots[1] then bind(1, device) end
   blink = 0
   -- Back from a match: the sky fades home to the first palette.
   Background.setTheme(1)
@@ -165,7 +174,15 @@ function Lobby:update(dt)
   -- Vínculo de novos devices.
   if not slots[1] then
     local d = Input.find(function(dev) return dev:pressed("start") end)
-    if d then bind(1, d) end
+    if d then
+      bind(1, d)
+    elseif Input.find(function(dev) return dev:pressed("back") and not dev:isDown("start") end) then
+      -- Nobody here: BACK goes back to the main menu.
+      Audio.play("menu_cancel")
+      require("src.transition").start()
+      State.switch(require("src.states.menu"))
+      return
+    end
   elseif not slots[2] then
     local d = Input.find(function(dev)
       return not isBound(dev) and dev:anyPressed()
@@ -262,8 +279,8 @@ function Lobby:draw()
 
   Background.draw()
 
-  UI.text("big", "SIKCID SHOOTIN'", 0, 14, C.text, W, "center")
-  UI.text("body", "ARENA COOPERATIVA PARA 1-2 JOGADORES", 0, 44, C.textDim, W, "center")
+  -- The game name lives on the main menu; here just the screen's header.
+  UI.text("title", "JOGADORES", 0, 26, C.text, W, "center")
 
   local sw, sh = 200, 130
   drawSlot(1, W * 0.5 - sw - 12, 60, sw, sh)
@@ -286,7 +303,7 @@ function Lobby:draw()
   else
     hint = bound
       and "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT"
-      or  "START PARA ENTRAR   -   TECLADO: ENTER"
+      or  "START PARA ENTRAR   -   BACK VOLTA AO MENU"
   end
   UI.text("body", hint, 0, 270, C.text, W, "center")
   if bound and not touch then
@@ -296,6 +313,8 @@ function Lobby:draw()
     UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 298, C.textDim, W, "center")
     UI.exitBar(W * 0.5, 314)
   end
+  -- Touch: VOLTAR leaves the slot, then (lobby empty) goes to the menu.
+  Nav.drawTouchBack(292)
 
   if Config.DEBUG then
     UI.text("body", string.format("FPS %d  devices %d", love.timer.getFPS(), Input.count), 4, H - 12, C.textDim)

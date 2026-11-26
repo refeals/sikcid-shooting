@@ -19,7 +19,7 @@ local Touch = {}
 
 local T = Config.TOUCH
 local MAX_FINGERS = 5
-local MAX_BUTTONS = 8
+local MAX_BUTTONS = 24   -- OPÇÕES needs two arrows per row
 
 -- fingers[i] = { id, role = "move"|"aim"|"tap"|"button"|"none", action,
 --                x, y, baseX, baseY }; id == nil = free slot.

@@ -29,9 +29,12 @@ No PC, dentro da pasta do projeto:
 love .
 ```
 
-Sem controle conectado, o jogador 1 joga no teclado: **WASD** move, **setas**
-miram, **Shift** dá dash, **Enter** = start, **ESC** = back (segurar 0,5s sai
-do jogo). Controles completos em [docs/DESIGN.md](docs/DESIGN.md#controles).
+O jogo abre no menu principal (JOGAR, OPÇÕES, CRÉDITOS, SAIR). Sem controle
+conectado, o jogador 1 joga no teclado: **WASD** move, **setas** miram,
+**Shift** dá dash, **Enter** = start, **ESC** = back (segurar 0,5s sai do
+jogo); nos menus, setas ou W/S navegam e Espaço/Backspace também confirmam e
+voltam. Controles completos em [docs/DESIGN.md](docs/DESIGN.md#controles); as
+opções, em [docs/DESIGN.md](docs/DESIGN.md#opções).
 
 ## Build
 
@@ -82,7 +85,11 @@ normalmente. O build **não apaga** o `dist/`: só troca o
 | `--powerup id,id` | dá esses power-ups a todos no início de cada wave |
 | `--fx high\|low\|off` | qualidade do pós-processamento (ver [docs/VISUAL.md](docs/VISUAL.md#pós-processamento)) |
 | `--mute` | sem som |
-| `--inputtest` | abre a tela de teste de input em vez do lobby |
+| `--batocera` | sempre em tela cheia, sem o item TELA CHEIA (o launcher do Batocera passa) |
+| `--inputtest` | abre a tela de teste de input em vez do menu |
+
+`--fx`, `--mute` e `--windowed` valem só para a sessão: o item correspondente
+das opções fica travado e o `options.dat` não muda.
 | `--touchmouse` | o mouse vale como um dedo (testar o touch no PC) |
 | `--curve` | imprime a curva de waves no console e sai |
 | `--media` | regrava as imagens de divulgação em `media/` |
@@ -103,7 +110,8 @@ Ligue `Config.DEBUG = true` em `src/config.lua` (ou rode com `--debug`):
 | F7 | abre a tela de upgrade (Shift+F7 = a de recompensa de boss) |
 | F8 | chama o sub-boss do ciclo atual |
 
-A tela de **teste de input** (F5, ou `love . --inputtest`) mostra todos os
+A tela de **teste de input** (F5, OPÇÕES > TESTAR CONTROLES, ou
+`love . --inputtest`; BACK fecha) mostra todos os
 devices com eixos ao vivo, d-pad, botões, deadzone e o progresso do combo de
 saída — e lista joysticks que o SDL viu mas **não** sabe mapear como gamepad,
 que é a causa mais comum de "o controle não responde".
@@ -138,7 +146,7 @@ love . --smoke 20 --smoke2p    # 2 jogadores
 love . --smoke 20 --fakepad    # jogador 1 entra por um gamepad falso
 love . --smoke 20 --smokegod   # bots invencíveis (mede FPS sem game over)
 love . --smoke 20 --wave 30    # começa numa wave alta
-love . --smoke 13 --smoke2p --shots   # salva screenshots de cada tela
+love . --smoke 16 --smoke2p --shots   # salva screenshots de cada tela
 love . --smoke 20 --smoketouch # jogador 1 joga só por toques sintéticos
 love . --smoke 60 --upgrades 12 --wave 15   # começa com 12 upgrades aleatórios
 love . --smoke 60 --smokelog   # grava o registro de partidas em runs-smoke.csv
@@ -153,8 +161,16 @@ inimigo ou tiro chega perto.
 Os bots só andam (em círculos de períodos diferentes): nunca miram. A mira e
 o tiro ficam com o auto-aim, como um jogador que só pilota.
 
-`--smoketouch` faz o jogador 1 tocar na tela para entrar, começar, pausar
-(pelo botão ‖) e voltar, com um dedo no analógico de movimento durante a
+Antes do lobby, o roteiro passa pelo menu principal (os primeiros ~3,3 s):
+abre OPÇÕES, muda alguns itens (incluindo a qualidade dos efeitos, que recria
+o brilho), abre e fecha o TESTAR CONTROLES, usa RESTAURAR PADRÕES e APAGAR
+RECORDES, visita CRÉDITOS e escolhe JOGAR. Se ele não passar por essas telas
+ou não terminar no lobby com o bot como Jogador 1, o smoke falha (código 1).
+O roteiro conta com as linhas das opções do PC (sem `--batocera`).
+
+`--smoketouch` faz o jogador 1 tocar na tela para escolher os itens do menu,
+entrar, começar, pausar (pelo botão ‖) e voltar, com um dedo no analógico de
+movimento durante a
 partida (com `--shots`, também salva o GAME OVER da arena). Para testar o
 touch na mão sem celular, `love . --touchmouse` faz o mouse valer como um
 dedo (clicar e arrastar).
@@ -166,7 +182,9 @@ inimigos recusados por bater no teto (afeta o jogo: deve ser 0); `deniedFx=`
 conta partículas descartadas (só efeito visual a menos, aceitável em explosões
 grandes). `cores=` mostra os índices de paleta com que os jogadores começaram:
 o roteiro troca e sorteia cores no lobby, e o smoke falha (código 1) se os dois
-terminarem com a mesma cor. O smoke nunca grava as cores no save.
+terminarem com a mesma cor. `menus=` conta as telas de menu abertas. O smoke
+nunca grava nada no save (recordes, cores, opções) e roda com as opções
+padrão, ignorando o `options.dat`.
 
 `--fakepad` injeta um gamepad falso que implementa a Gamepad API do LÖVE, para
 exercitar o mesmo caminho de código dos controles reais em máquinas que não
@@ -183,8 +201,10 @@ src/util.lua          -- vetores, clamp, dist2, swap-remove, sorteio por peso
 src/pool.lua          -- pool genérico com teto fixo
 src/input.lua         -- devices (gamepad/teclado/touch), deadzone radial, hotplug
 src/touch.lua         -- analógicos flutuantes e botões de toque
+src/nav.lua           -- entrada das telas de menu (qualquer device, toque nos itens)
 src/state.lua         -- pilha de estados de tela
 src/save.lua          -- recordes e cores escolhidas em love.filesystem
+src/options.lua       -- opções do menu (options.dat), flags por cima, aplicação
 src/runlog.lua        -- registro de partidas (runs.csv)
 src/curve.lua         -- tabela da curva de waves (--curve)
 src/audio.lua         -- efeitos sonoros: variações Kenney, pool de vozes
@@ -199,7 +219,8 @@ src/post.lua          -- pós-processamento: brilho, sombras, shockwave, aberra�
 src/transition.lua    -- varredura diagonal entre telas (só visual)
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
-src/states/           -- lobby, briefing, game, pause, upgrade, gameover, inputtest
+src/states/           -- menu, options, credits, lobby, briefing, game, pause,
+                         upgrade, gameover, inputtest
 src/entities/         -- player, enemy (inclui os sub-bosses), boss, bullet,
                          pickup, particle
 src/systems/          -- spawner, combat, powerups, upgrades, combo

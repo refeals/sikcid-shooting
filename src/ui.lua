@@ -126,13 +126,16 @@ local function inkFor(c)
 end
 UI.inkFor = inkFor
 
--- Prints `text` vertically centered in a box of height `h` at (x, y), using
--- the font's cap height so pixel fonts sit visually centered.
-local function printCentered(font, text, x, y, w, h)
+-- Y to print at so the caps sit vertically centered in a box `h` tall at
+-- `y` (the font's cap height, so pixel fonts look centered).
+local function midY(font, y, h)
   local asc = font:getAscent()
   local cap = font:getHeight() * 0.5   -- Kenney fonts: caps fill ~half the line
-  local ty = y + (h - cap) * 0.5 - (asc - cap)
-  love.graphics.printf(text, math.floor(x), math.floor(ty + 0.5), math.floor(w), "center")
+  return math.floor(y + (h - cap) * 0.5 - (asc - cap) + 0.5)
+end
+
+local function printCentered(font, text, x, y, w, h)
+  love.graphics.printf(text, math.floor(x), midY(font, y, h), math.floor(w), "center")
 end
 
 -- Colored header tab with centered text (font role from Config.ART.fonts).
@@ -222,6 +225,17 @@ function UI.text(fontRole, str, x, y, color, w, align)
   end
   -- Body is the default font everywhere; leave it set for plain prints.
   love.graphics.setFont(Assets.font("body"))
+end
+
+-- Y that centers a font role's caps in a row `h` px tall at `y` (for
+-- UI.digits in menu rows).
+function UI.midY(fontRole, y, h)
+  return midY(Assets.font(fontRole), y, h)
+end
+
+-- UI.text vertically centered in a row `h` px tall at `y` (menu rows).
+function UI.textMid(fontRole, str, x, y, h, color, w, align)
+  UI.text(fontRole, str, x, midY(Assets.font(fontRole), y, h), color, w, align)
 end
 
 -- Cell of one character in UI.digits: digits share a fixed cell (the widest

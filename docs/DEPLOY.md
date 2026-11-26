@@ -52,7 +52,9 @@ Depois de qualquer mudança, é um comando só:
 ```
 
 O que muda de um build para outro é o **`.love`** (o jogo); o `.sh` é só o
-launcher e o `love/` já está lá. Não precisa atualizar a lista de jogos de novo.
+launcher (ele chama o jogo com `--batocera`: sempre em tela cheia, sem o item
+TELA CHEIA nas opções) e o `love/` já está lá. O `--deploy` reenvia o `.sh`
+junto. Não precisa atualizar a lista de jogos de novo.
 Se o jogo estiver aberto no Batocera, feche e abra.
 
 Outro endereço: `./build.sh --deploy root@192.168.0.50`, ou fixe com
@@ -84,8 +86,8 @@ a estrutura final seja exatamente `ports\.data\sikcid-shootin\` — o launcher
 repõe sozinho o bit de execução que a cópia via Windows perde.
 </details>
 
-O save dos recordes fica em
-`/userdata/system/.local/share/love/sikcid-shootin/highscores.dat`.
+O save fica em `/userdata/system/.local/share/love/sikcid-shootin/`:
+`highscores.dat` (recordes e cores) e `options.dat` (opções do menu).
 
 Estrutura esperada no Batocera:
 
@@ -126,8 +128,9 @@ bash -x /userdata/roms/ports/SikCidShootin.sh; cat /userdata/system/logs/sikcid-
 > nem a Gamepad API completa, que este jogo usa no núcleo (canvas virtual e
 > leitura de controle). Tem que ser o LÖVE de verdade, como acima.
 
-> Se algum controle não responder no port, rode o jogo num PC com
-> `love . --inputtest` (ou F5 no jogo): a tela mostra se o SDL enxergou o
+> Se algum controle não responder no port, abra **OPÇÕES > TESTAR CONTROLES**
+> com um controle que funcione (ou rode num PC com `love . --inputtest`, ou F5
+> no jogo): a tela mostra se o SDL enxergou o
 > controle e se ele tem mapeamento de gamepad.
 
 ### Saída do jogo no Batocera
@@ -139,7 +142,8 @@ funciona em qualquer tela:
 - **SELECT + START segurados por 0,5s** (mais rápido, o atalho padrão do Batocera)
 
 Uma barra de progresso aparece enquanto você segura. Um toque rápido em
-SELECT não sai: no lobby ele desvincula, no jogo abre a pausa.
+SELECT não sai: no lobby ele desvincula (com o lobby vazio, volta ao menu), no
+jogo abre a pausa. No menu principal, o item **SAIR** também fecha o jogo.
 
 ## Build web (itch.io)
 
@@ -203,10 +207,12 @@ headers, com áudio pior (estalos/latência).
 
 ### Diferenças da versão web
 
-- **Não existe "sair do jogo"**: o combo de saída é desligado e as dicas dele
-  somem (`Config.WEB`). Fechar a aba é a saída.
+- **Não existe "sair do jogo"**: o combo de saída é desligado, as dicas dele
+  somem e o menu principal não tem SAIR (`Config.WEB`). Fechar a aba é a saída.
 - Abre em janela, não em tela cheia (o navegador só deixa com clique do
-  jogador). ESC em tela cheia é do navegador: pause com **Enter**.
+  jogador), e as opções não têm TELA CHEIA: a página do itch.io tem o botão
+  dela. ESC em tela cheia é do navegador: pause com **Enter** e volte nos
+  menus com **Backspace**.
 - Pós-processamento em qualidade `low` (brilho em 160x90, sem o halo largo);
   ver [Pós-processamento](VISUAL.md#pós-processamento).
 - Sprites sem mipmaps (WebGL 1 não faz mipmap de textura fora de potência de

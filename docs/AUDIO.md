@@ -48,7 +48,9 @@ Kenney), F no fallback sfxr...`).
 
 Os ids, e o volume, número de vozes, pitch base, variação de pitch e intervalo
 mínimo de cada um, estão em `Config.SFX` em [src/config.lua](../src/config.lua).
-Volume geral em `Config.AUDIO.master`; `love . --mute` roda sem som.
+O volume dos efeitos é o item EFEITOS SONOROS das opções (0 a 10, padrão 8 =
+0,8), vezes o `vol` de cada som; `love . --mute` roda sem som e trava os dois
+volumes na sessão (ver [Opções](DESIGN.md#opções)).
 
 [src/audio.lua](../src/audio.lua) pré-carrega um **pool de vozes** por arquivo e
 usa em rodízio: nenhum `Source` é criado durante o jogo (o tiro automático
@@ -86,8 +88,9 @@ Comportamento:
   efeito de game over toca quando o texto GAME OVER aparece na arena, e
   `crushing-it` entra 2,5 s depois dele, já na tela de resultados. De volta
   ao lobby, crossfade para `sunburn`.
-- Volume geral em `Config.MUSIC.volume` (abaixo dos efeitos, para tiros e
-  explosões continuarem legíveis). `--mute` silencia tudo.
+- Volume: o item MÚSICA das opções (0 a 10, padrão 8) vezes
+  `Config.MUSIC.volume`, o volume da música no máximo (abaixo dos efeitos, para
+  tiros e explosões continuarem legíveis). `--mute` silencia tudo.
 
 A playlist usa uma `QueueableSource`, abastecida a cada frame com um `Decoder`
 por faixa, e por isso a emenda entre os STAGEs não tem intervalo. Todas as

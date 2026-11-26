@@ -26,6 +26,8 @@ Pilares:
 
 ## Loop da partida
 
+0. **Menu principal:** JOGAR leva ao lobby (ver
+   [Menu principal e opções](#menu-principal-e-opções)).
 1. **Lobby:** cada jogador entra e escolhe a cor (ver
    [Lobby e briefing](#lobby-e-briefing)).
 2. **Briefing:** a arena congelada com a lista de power-ups; START começa.
@@ -73,11 +75,15 @@ morto vai renascer), para ninguém pegar sem ver o que é.
 | Atirar | automático | automático |
 | Dash | RB, LB ou B | Shift |
 | Pausar | START ou BACK | Enter ou ESC |
+| Navegar nos menus | d-pad ↑/↓ (ou analógico esquerdo) | W/S ou ↑/↓ |
+| Mudar um valor nas opções | d-pad ←/→ | A/D ou ←/→ |
+| Confirmar nos menus | START ou A | Enter ou Espaço |
+| Voltar nos menus | BACK ou B | ESC ou Backspace |
 | Desvincular no lobby | BACK (SELECT) | ESC |
 | Trocar / sortear a cor no lobby | d-pad ←/→ (ou analógico esquerdo) / Y | A/D ou ←/→ / R |
 | Abandonar a partida | BACK na pausa, com confirmação | ESC na pausa |
 | Sair do jogo (não existe na web) | segurar SELECT (1s) ou SELECT + START (0,5s) | segurar ESC (0,5s) |
-| Teste de input | — | F5 |
+| Teste de input | OPÇÕES > TESTAR CONTROLES (BACK fecha) | F5 |
 
 ### Controles touch (celular, tablet)
 
@@ -92,6 +98,9 @@ jogador entra com um controle.
 | Dash | botão DASH, acima do analógico de mira |
 | Atirar | automático |
 | Pausar | botão ‖ ao lado do WAVE |
+| Escolher um item nos menus | tocar no item |
+| Mudar um valor nas opções | tocar nas setas ◀ ▶ |
+| Voltar nos menus e no lobby | botão VOLTAR |
 | Entrar, começar, continuar | tocar em qualquer lugar |
 | Trocar a cor no lobby | tocar nas setas |
 | Abandonar a partida | botão ABANDONAR na pausa, depois CONFIRMAR |
@@ -321,9 +330,51 @@ e a arena continua viva: os inimigos seguem vagando, mas as portas fecham.
 pontuação de cada jogador. Depois aparece **APERTE START**, que leva para a
 tela de resultados. Tempos e efeitos ficam em `Config.GAME_OVER`.
 
+## Menu principal e opções
+
+O jogo abre no menu principal: o nome do jogo e a lista **JOGAR**,
+**OPÇÕES**, **CRÉDITOS** e **SAIR** (SAIR não existe na web). Qualquer
+controle navega, vinculado ou não; o cursor sempre começa em JOGAR. BACK não
+faz nada aqui (segurar SELECT continua saindo do jogo).
+
+- **JOGAR** vai para o lobby com o controle que confirmou já como Jogador 1:
+  mais um START começa a partida solo, o mesmo número de toques de antes do
+  menu.
+- **OPÇÕES** (abaixo).
+- **CRÉDITOS**: música, arte, sons, LÖVE e love.js (os mesmos do README).
+- **SAIR** fecha o jogo na hora.
+
+A partida não volta para o menu: game over e abandonar levam ao lobby, para a
+revanche ser rápida. BACK no lobby vazio volta ao menu.
+
+### Opções
+
+Cada mudança vale na hora (a música do menu e o som de navegação já tocam no
+volume novo); o arquivo `options.dat` é gravado ao sair da tela. Os padrões
+ficam em `Config.OPTIONS`.
+
+| Item | Valores | O que faz |
+|------|---------|-----------|
+| EFEITOS VISUAIS | DESLIGADO / BAIXO / ALTO | qualidade do pós-processamento e o teto de partículas; padrão BAIXO na web, ALTO no resto |
+| MÚSICA | 0 a 10 (padrão 8) | volume da música |
+| EFEITOS SONOROS | 0 a 10 (padrão 8) | volume dos efeitos |
+| TREMOR DE TELA | DESLIGADO, 25%, 50%, 75%, 100% | força de todo tremor de tela |
+| DISTORÇÃO | LIGADA / DESLIGADA | aberração cromática e ondas de choque (por conforto); brilho e vinheta ficam |
+| TELA CHEIA | SIM / NÃO | só no PC: a web abre em janela e o Batocera é sempre tela cheia |
+| TESTAR CONTROLES | — | abre a tela de teste de input (o caminho no Batocera, que não tem F5) |
+| RESTAURAR PADRÕES | — | pede confirmação (mais um START) |
+| APAGAR RECORDES | — | pede confirmação duas vezes; não apaga as cores nem as opções |
+
+←/→ mudam o valor; START/A num item de valor avança e dá a volta (menos nos
+volumes). Mudar de linha ou BACK cancela uma confirmação pendente. Uma flag de
+linha de comando (`--fx`, `--mute`, `--windowed`) trava o item na sessão: ele
+aparece apagado com a flag ao lado e o valor dela nunca vai para o arquivo.
+
 ## Lobby e briefing
 
-1. O primeiro controle que apertar **START** vira o Jogador 1.
+1. Vindo do menu, o controle que escolheu JOGAR já é o Jogador 1. Com o lobby
+   vazio (depois de todos saírem), o primeiro controle que apertar **START**
+   vira o Jogador 1, e **BACK** volta ao menu.
 2. O **mesmo** controle apertando START de novo começa a partida em 1 jogador.
 3. **Qualquer botão** de um segundo controle vincula o Jogador 2; daí em diante
    START de qualquer um dos dois começa a partida em 2 jogadores.

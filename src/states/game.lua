@@ -33,6 +33,7 @@ local UI        = require("src.ui")
 local Music     = require("src.music")
 local Input     = require("src.input")
 local Touch     = require("src.touch")
+local Options   = require("src.options")
 
 local Game = {}
 
@@ -775,7 +776,7 @@ function world:shake(mag, force)
     self.shakeFatigue = math.min(1, fatigue + mag * F.gain)
     mag = mag * math.max(F.minMul, 1 - fatigue)
   end
-  mag = mag * J.shakeScale
+  mag = mag * J.shakeScale * Options.shakeMul   -- OPÇÕES > TREMOR DE TELA
   if mag > self.shakeMag then self.shakeMag = mag end
 end
 

@@ -36,6 +36,7 @@ local Post = {
   quality = "high",   -- resolved from Config.FX.quality in Post.load()
   blurOk = false,     -- the blur/gain shaders compiled
   sceneOk = false,    -- the composite shader compiled
+  distortion = true,  -- shockwaves and RGB split on (OPÇÕES; Post.setDistortion)
 }
 
 -- 9-tap gaussian with linear sampling: 5 fetches along `direction` (one
@@ -152,7 +153,14 @@ local function compile(name, src)
   return nil
 end
 
+local function release(c)
+  if c then c:release() end
+end
+
+-- Builds the glow levels and shaders for Config.FX.quality. Runs again when
+-- OPÇÕES changes the level (never mid-match): the old canvases are freed.
 function Post.load()
+  release(a); release(b); release(sa); release(sb); release(wa); release(wb)
   Post.quality = resolveQuality()
   -- "off" still uses the glow layer, just unblurred (the shader-less path).
   local preset = FX.glow[Post.quality == "off" and "low" or Post.quality]
@@ -199,6 +207,7 @@ end
 -- overrides the preset's final radius (to match a gameplay radius). Takes a
 -- free slot, or the one closest to its end.
 function Post.shockwave(x, y, preset, radius)
+  if not Post.distortion then return end
   local slot, left = 1, math.huge
   for i = 1, WAVE_SLOTS do
     local w = waves[i]
@@ -213,8 +222,22 @@ end
 
 -- RGB split pulse (px at the arena side edges); the strongest one wins.
 function Post.aberrate(amount)
+  if not Post.distortion then return end
   local AB = FX.aberration
   aberration = math.min(AB.max, math.max(aberration, amount))
+end
+
+-- OPÇÕES > DISTORÇÃO: off drops new shockwaves and RGB splits (and any
+-- still running). The glow, the vignette and its hurt tint stay.
+function Post.setDistortion(on)
+  Post.distortion = on and true or false
+  if not on then
+    for i = 1, WAVE_SLOTS do
+      local w = waves[i]
+      w.t, w.life, w.strength = 1, 1, 0
+    end
+    aberration = 0
+  end
 end
 
 -- Red vignette pulse (0..1 of Config.FX.vignette.hurt).

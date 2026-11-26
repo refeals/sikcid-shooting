@@ -5,13 +5,19 @@
 -- sem precisar entrar na partida.
 --
 -- Como abrir:
---   love . --inputtest     (entra direto, em vez do lobby)
+--   love . --inputtest     (entra direto, em vez do menu)
 --   F5                     (abre/fecha por cima de qualquer tela)
+--   OPÇÕES > TESTAR CONTROLES (the way in on Batocera, which has no keyboard)
+--
+-- BACK (any device, or VOLTAR on the touch screen) closes it: back to the
+-- screen below, or to the main menu when opened standalone. Down scrolls the
+-- list when there are more devices than fit.
 
 local Config = require("src.config")
 local Input  = require("src.input")
 local State  = require("src.state")
 local UI     = require("src.ui")
+local Nav    = require("src.nav")
 
 local InputTest = {}
 
@@ -97,13 +103,25 @@ function InputTest:enter(standalone)
   -- standalone = entrou por --inputtest (não há tela por baixo para voltar).
   self.standalone = standalone or false
   scroll = 0
+  if Config.SMOKE then require("src.smoke").bump("menus") end
 end
 
-function InputTest:update(dt) -- luacheck: ignore
-  -- Rola a lista quando há mais devices do que cabe na tela.
-  if Input.count > MAX_ROWS then
-    local d = Input.find(function(dev) return dev:pressed("back") end)
-    if d then scroll = (scroll + 1) % math.max(1, Input.count - MAX_ROWS + 1) end
+-- Closes the screen (also F5, in main.lua).
+function InputTest:close()
+  if self.standalone then
+    State.switch(require("src.states.menu"))
+  else
+    State.pop()
+  end
+end
+
+function InputTest:update()
+  local cmd = Nav.poll()
+  if cmd == "back" then
+    self:close()
+  elseif cmd == "down" and Input.count > MAX_ROWS then
+    -- Rola a lista quando há mais devices do que cabe na tela.
+    scroll = (scroll + 1) % math.max(1, Input.count - MAX_ROWS + 1)
   end
 end
 
@@ -150,11 +168,12 @@ function InputTest:draw()
   end
 
   love.graphics.setColor(C.textDim)
-  local hint = self.standalone and "F5 VAI PARA O LOBBY" or "F5 FECHA"
+  local hint = self.standalone and "BACK OU F5 VAI PARA O MENU" or "BACK OU F5 FECHA"
   -- The browser build has no quit (see Input).
   if not Config.WEB then hint = hint .. "   -   SEGURE ESC/SELECT PARA SAIR" end
-  if Input.count > MAX_ROWS then hint = "BACK ROLA A LISTA   -   " .. hint end
+  if Input.count > MAX_ROWS then hint = "BAIXO ROLA A LISTA   -   " .. hint end
   love.graphics.printf(hint, 0, H - 16, W, "center")
+  Nav.drawTouchBack(H - 44)
   love.graphics.setColor(1, 1, 1, 1)
 end
 

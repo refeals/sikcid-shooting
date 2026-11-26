@@ -16,8 +16,9 @@ local Transition = require("src.transition")
 local Background = require("src.background")
 local UI      = require("src.ui")
 local Touch   = require("src.touch")
+local Options = require("src.options")
 
-local Lobby     = require("src.states.lobby")
+local Menu      = require("src.states.menu")
 local InputTest = require("src.states.inputtest")
 
 local MAX_DT = 1 / 30   -- clamp anti-espiral da morte em frames longos
@@ -48,9 +49,11 @@ local function parseArgs(args)
       Config.START_UPGRADES = tonumber(args[i + 1]) or 0   -- start with N random upgrades
       i = i + 1
     elseif a == "--inputtest" then
-      Config.INPUT_TEST = true   -- abre a tela de diagnóstico em vez do lobby
+      Config.INPUT_TEST = true   -- opens the input test instead of the menu
     elseif a == "--mute" then
-      Config.AUDIO.master = 0
+      Config.MUTE = true         -- both volumes at 0 this session (src/options.lua)
+    elseif a == "--batocera" then
+      Config.BATOCERA = true     -- the Batocera launcher: always fullscreen
     elseif a == "--shots" then
       Config.SMOKE_SHOTS = true  -- smoke saves screenshots of each screen
     elseif a == "--smokesound" then
@@ -60,8 +63,8 @@ local function parseArgs(args)
     elseif a == "--smoketouch" then
       Config.SMOKE_TOUCH = true  -- smoke bot 1 plays through synthetic touches
     elseif a == "--fx" then
-      -- Glow quality: high | low | off (see Config.FX).
-      if args[i + 1] then Config.FX.quality = args[i + 1]; i = i + 1 end
+      -- Glow quality: high | low | off (see Config.FX); locks the OPÇÕES item.
+      if args[i + 1] then Config.FX_FLAG = args[i + 1]; i = i + 1 end
     elseif a == "--media" then
       Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
     elseif a == "--powerup" then
@@ -80,7 +83,7 @@ local function parseArgs(args)
   end
   -- O smoke continua chamando Audio.play (o caminho é exercitado), mas com
   -- volume zero para não tocar som durante testes automáticos.
-  if Config.SMOKE and not Config.SMOKE_SOUND then Config.AUDIO.master = 0 end
+  if Config.SMOKE and not Config.SMOKE_SOUND then Config.MUTE = true end
 end
 
 function love.load(args)
@@ -109,10 +112,18 @@ function love.load(args)
   love.graphics.setLineStyle("rough")
   math.randomseed(os.time())
 
-  -- Smoke test e --windowed rodam em janela para não sequestrar a tela.
-  if Config.SMOKE or Config.WINDOWED then
+  -- The saved options (and the flags over them). Before the modules: it sets
+  -- the FX quality Post.load reads.
+  Options.load()
+
+  -- Smoke test and --windowed run in a window so they don't take over the
+  -- screen; so does a PC whose OPÇÕES turned fullscreen off (conf.lua can't
+  -- read the save, so it opens fullscreen and switches here).
+  if Options.startWindowed() then
+    local win = Config.OPTIONS.window
     love.window.setFullscreen(false)
-    love.window.setMode(1280, 720, { resizable = true, vsync = Config.SMOKE and 0 or 1 })
+    love.window.setMode(win.w, win.h, { resizable = true, vsync = Config.SMOKE and 0 or 1,
+      minwidth = Config.VIRTUAL_W, minheight = Config.VIRTUAL_H })
   end
 
   Screen.load()
@@ -126,13 +137,14 @@ function love.load(args)
   Save.load()
   Audio.load()
   Music.load()
+  Options.apply()   -- volumes, shake, distortion
   Input.load()
   if Config.SMOKE then Smoke.reset() end
 
   if Config.INPUT_TEST then
     State.push(InputTest, true)
   else
-    State.push(Lobby)
+    State.push(Menu)
   end
 end
 
@@ -180,7 +192,7 @@ function love.keypressed(key, scancode, isrepeat)
   if key == "f5" then
     local cur = State.current()
     if cur == InputTest then
-      if cur.standalone then State.switch(Lobby) else State.pop() end
+      cur:close()
     else
       State.push(InputTest, false)
     end

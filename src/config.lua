@@ -10,6 +10,7 @@ local Config = {}
 Config.DEBUG = false          -- F1..F4 e overlay de FPS/entidades
 Config.SMOKE = false          -- ligado por --smoke (teste automatizado)
 Config.WEB = love.system.getOS() == "Web"   -- browser build (love.js, itch.io)
+Config.BATOCERA = false       -- set by --batocera (the Batocera launcher): always fullscreen
 
 Config.VIRTUAL_W = 640
 Config.VIRTUAL_H = 360
@@ -88,9 +89,53 @@ Config.PLAYER_COLORS = {
 
 -- Lobby color picker.
 Config.LOBBY = {
-  stickThreshold = 0.5,   -- left stick x past this counts as a left/right press
+  -- Left stick past this counts as a d-pad press (left/right in the lobby,
+  -- also up/down in the menus).
+  stickThreshold = 0.5,
   arrowSize = 6,          -- picker arrow height (px)
   arrowGap = 30,          -- arrow distance from the ship preview center (px)
+}
+
+-- ---------------------------------------------------------------------------
+-- Main menu and options (src/states/menu.lua, options.lua, credits.lua)
+-- ---------------------------------------------------------------------------
+-- Player options, saved in `file` in the LÖVE save folder (next to
+-- highscores.dat). A missing value uses its default; the smoke test always
+-- runs on the defaults. --fx, --mute and --windowed override an item for the
+-- session without saving it (see src/options.lua).
+Config.OPTIONS = {
+  file = "options.dat",
+  volumeSteps = 10,       -- volume sliders go 0..volumeSteps
+  -- Screen shake levels, % of every shake (Config.JUICE.shakeScale).
+  shakeSteps = { 0, 25, 50, 75, 100 },
+  defaults = {
+    fx = "auto",          -- "high" | "low" | "off"; "auto" = low in the browser, high elsewhere
+    -- 8 of 10: sound effects at 0.8 and the music at 0.8 x MUSIC.volume.
+    music = 8,
+    sfx = 8,
+    shake = 100,
+    distortion = true,    -- chromatic aberration and shockwave ripples
+    fullscreen = true,    -- PC only: the browser and Batocera keep their own mode
+  },
+  window = { w = 1280, h = 720 },   -- windowed size (fullscreen off, --windowed, smoke)
+}
+
+-- Layout of the menu screens (logical px).
+Config.MENU = {
+  titleY = 40,            -- the game name on the main menu
+  screenTitleY = 12,      -- the big title of the other menu screens
+  subtitleY = 70,
+  listY = 104,            -- top of the main menu item panel
+  listW = 200,
+  rowH = 28,              -- main menu row height (tall enough for "Õ" in the highlight)
+  rowPad = 8,             -- panel padding around the rows
+  hintY = 304,            -- prompt lines at the bottom of each menu screen
+  -- OPÇÕES: one window, a label column and a value column.
+  options = { w = 520, y = 46, rowH = 22, pad = 10, valueW = 160, barW = 100, arrowSize = 5 },
+  -- CRÉDITOS: section heading and line heights, gap between sections.
+  credits = { headH = 16, lineH = 12, gap = 8 },
+  -- The VOLTAR button touch screens get under each menu screen.
+  touchBack = { w = 120, h = 20, y = 326 },
 }
 
 -- ---------------------------------------------------------------------------
@@ -973,14 +1018,14 @@ Config.RESPAWN = {
 --   * sfxr: "<id>.wav" (ou .ogg), gerado por tools/gen_sfx.py. É o som dos
 --     ids sem `src` e o fallback dos que têm, se nenhuma variação carregar.
 -- Som sem arquivo é ignorado em silêncio, então dá para ir adicionando aos poucos.
---   vol      -- volume base (0..1), multiplicado por AUDIO.master
+--   vol      -- base volume (0..1), times the sound effects volume (OPÇÕES,
+--               Config.OPTIONS)
 --   voices   -- cópias pré-carregadas: quantas instâncias tocam ao mesmo tempo.
 --               Com variações, é o total, repartido entre elas (mínimo 1 cada)
 --   pitch    -- pitch base (1 = original), antes da variação aleatória
 --   pitchVar -- variação aleatória de pitch (0.05 = +-5%): evita repetição robótica
 --   minGap   -- intervalo mínimo entre dois disparos do mesmo som (s)
 Config.AUDIO = {
-  master = 0.8,
   dir = "assets/sfx/",
 }
 
@@ -1092,7 +1137,9 @@ Config.SFX = {
 -- of fadeTime). A role always restarts from its beginning once faded out.
 Config.MUSIC = {
   dir = "assets/music/",
-  volume = 0.45,          -- below the SFX, so shots/explosions stand out
+  -- Music at full volume in OPÇÕES; below the SFX, so shots/explosions
+  -- stand out. The music slider scales it (Config.OPTIONS).
+  volume = 0.45,
   duck = 0.3,             -- volume fraction while paused
   fadeTime = 0.6,         -- default fade in/out and crossfade (s)
   gameOverDelay = 2.5,    -- silence on game over before its music comes in

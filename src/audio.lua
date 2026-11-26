@@ -26,7 +26,7 @@ local Audio = {
   variants = 0,      -- variações Kenney carregadas (somando todos os sons)
   fallback = 0,      -- sons com `src` que caíram no arquivo sfxr
   missing = 0,
-  master = Config.AUDIO.master,
+  master = 1,        -- sound effects volume (0..1), set by Options.apply
 }
 
 local EXTENSIONS = { ".wav", ".ogg" }
@@ -68,7 +68,6 @@ end
 function Audio.load()
   Audio.sounds = {}
   Audio.loaded, Audio.variants, Audio.fallback, Audio.missing = 0, 0, 0, 0
-  Audio.master = Config.AUDIO.master   -- já com --mute aplicado pelo main
 
   -- Sem módulo de áudio (desligado no conf ou sem dispositivo): tudo no-op.
   if not love.audio or not love.sound then

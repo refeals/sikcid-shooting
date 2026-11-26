@@ -234,7 +234,8 @@ LOG="${LOG_DIR}/sikcid-shootin.log"
     exit 1
   fi
 
-  ./love/AppRun SikCidShootin.love
+  # --batocera: always fullscreen (no TELA CHEIA item in OPCOES).
+  ./love/AppRun SikCidShootin.love --batocera
   echo "LOVE saiu com codigo $?"
 } > "$LOG" 2>&1
 EOF

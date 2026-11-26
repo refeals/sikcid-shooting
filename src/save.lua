@@ -54,7 +54,10 @@ function Save.load()
   return Save.data
 end
 
+-- The smoke test never writes: its bots' scores (and its trip through
+-- APAGAR RECORDES) stay in memory, away from the real records.
 function Save.write()
+  if Config.SMOKE then return true end
   local d = Save.data
   local out = string.format("solo=%d\nduo=%d\ncoop=%d\ncolor1=%d\ncolor2=%d\n",
     d.solo, d.duo, d.coop, d.color1, d.color2)
@@ -77,6 +80,13 @@ function Save.setColors(c1, c2)
   if c1 and c1 ~= d.color1 then d.color1 = c1; changed = true end
   if c2 and c2 ~= d.color2 then d.color2 = c2; changed = true end
   if changed then Save.write() end
+end
+
+-- OPÇÕES > APAGAR RECORDES: zeroes the records and writes the file. The
+-- color picks stay.
+function Save.clearRecords()
+  for i = 1, #KEYS do Save.data[KEYS[i]] = 0 end
+  return Save.write()
 end
 
 -- Registra o resultado de uma partida. Devolve uma tabela dizendo quais

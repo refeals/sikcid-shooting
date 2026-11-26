@@ -177,10 +177,15 @@ em `Config.FX.emit`; ganho e raio em `Config.FX.glow`.
 
 Os efeitos correm no tempo do jogo: congelam no hit-stop e ficam em câmera
 lenta no game over. No máximo 4 shockwaves ao mesmo tempo. Com DEBUG, **F6**
-dispara uma shockwave com aberração no centro, para tunar.
+dispara uma shockwave com aberração no centro, para tunar. O item DISTORÇÃO
+das opções desliga as shockwaves e a aberração (o brilho e a vinheta ficam),
+e TREMOR DE TELA escala todo tremor (por cima de `Config.JUICE.shakeScale`).
 
-**Qualidade:** `Config.FX.quality`, ou `love . --fx high|low|off` na linha de
-comando. Em `auto`, usa `low` no navegador e `high` no resto.
+**Qualidade:** o item EFEITOS VISUAIS das opções (ALTO, BAIXO, DESLIGADO), ou
+`love . --fx high|low|off` na linha de comando, que trava o item na sessão.
+O padrão (`Config.OPTIONS.defaults.fx = "auto"`) é `low` no navegador e
+`high` no resto. Trocar nas opções recria a camada de brilho na hora
+(`Post.load`); o teto de partículas vale a partir da próxima partida.
 
 | Qualidade | Brilho | Composição da cena |
 |---|---|---|

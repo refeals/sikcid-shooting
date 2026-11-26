@@ -10,6 +10,9 @@
 --
 -- Ações lógicas: "start", "back", "fire", "dash" (RB / LB / B, Shift, botão
 -- touch) e, no lobby, "left", "right" e "random" (seletor de cor).
+-- Menu screens also read "up" and "down" (d-pad, left stick, W/S, arrows),
+-- "accept" (A, Space: confirms like START) and "cancel" (B, Backspace: goes
+-- back like BACK).
 
 local Config = require("src.config")
 local Util   = require("src.util")
@@ -50,6 +53,11 @@ local KEY_MAP = {
   left   = { "a", "left" },
   right  = { "d", "right" },
   random = { "r" },
+  -- Menus: up/down with W/S or the arrows, Space confirms, Backspace backs.
+  up     = { "w", "up" },
+  down   = { "s", "down" },
+  accept = { "space" },
+  cancel = { "backspace" },
 }
 
 -- ---------------------------------------------------------------------------
@@ -117,6 +125,12 @@ function Device:poll(dt)
     down.left   = j:isGamepadDown("dpleft") or lx < -th
     down.right  = j:isGamepadDown("dpright") or lx > th
     down.random = j:isGamepadDown("y")
+    -- Menus: the same rule on the vertical axis; A confirms, B goes back.
+    local ly = j:getGamepadAxis("lefty") or 0
+    down.up     = j:isGamepadDown("dpup") or ly < -th
+    down.down   = j:isGamepadDown("dpdown") or ly > th
+    down.accept = j:isGamepadDown("a")
+    down.cancel = j:isGamepadDown("b")
     for i = 1, #ANY_BUTTONS do
       if j:isGamepadDown(ANY_BUTTONS[i]) then any = true; break end
     end
@@ -144,10 +158,13 @@ function Device:poll(dt)
     down.right = Touch.actionDown("right")
     down.dash  = Touch.actionDown("dash")
     down.fire, down.random = false, false
+    -- Menu screens read their own touch buttons (src/nav.lua).
+    down.up, down.down, down.accept, down.cancel = false, false, false, false
     any = down.start
   else
     down.start, down.back, down.fire, down.dash = false, false, false, false
     down.left, down.right, down.random = false, false, false
+    down.up, down.down, down.accept, down.cancel = false, false, false, false
   end
   self.anyDown = any
 

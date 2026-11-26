@@ -43,6 +43,7 @@ opções salva no `love.filesystem`, como o `highscores.dat`:
 
 ### Outras ideias
 
+- Adicionar seletor de linguagem para EN, ES e PT-BR, com padrão EN.
 - Ranking geral na nuvem (Firebase?).
 - Inimigo MINADOR (guardado na etapa 2 de gameplay).
 - Power-ups TORRETA e ESCOPETA (guardados na etapa 6 de gameplay).

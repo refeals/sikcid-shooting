@@ -28,6 +28,7 @@ local Music = {
   current = nil,    -- role that should be audible
   duckOn = false,
   duckLevel = 1,    -- 1 = normal, M.duck = pause (interpolated)
+  level = 1,        -- music volume (0..1), set by Options.apply
 }
 
 local EXTENSIONS = { ".ogg", ".wav" }
@@ -141,6 +142,11 @@ function Music.stop()
   Music.current = nil
 end
 
+-- Music volume from OPÇÕES (0..1); Music.update applies it every frame.
+function Music.setLevel(v)
+  Music.level = v
+end
+
 -- Pause: lowers the music instead of stopping it.
 function Music.duck(on)
   Music.duckOn = on and true or false
@@ -158,7 +164,7 @@ end
 -- playlists fed.
 function Music.update(dt)
   Music.duckLevel = Util.approach(Music.duckLevel, Music.duckOn and M.duck or 1, dt / M.fadeTime)
-  local master = Config.AUDIO.master * M.volume * Music.duckLevel
+  local master = Music.level * M.volume * Music.duckLevel
   local pitchMoved = Music.pitch ~= Music.pitchTarget
   Music.pitch = Util.approach(Music.pitch, Music.pitchTarget, dt / PITCH_EASE)
 

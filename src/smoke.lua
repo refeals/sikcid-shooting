@@ -17,17 +17,55 @@ local Smoke = {
 -- Gamepad falso, criado em Smoke.reset quando --fakepad está ligado.
 local pad = nil
 
--- Timeline: {tempo, device, ação, valor} para botões, ou {tempo, 0, "fn", fn}.
--- Um pulso de botão = press + release. O device 2 só existe com --smoke2p.
-local EVENTS = {
-  -- Regressão: o LÖVE reanuncia os controles já ligados no boot. Adicionar o
-  -- MESMO joystick de novo não pode criar um segundo device (senão o mesmo
-  -- controle vira P1 e P2 no lobby).
-  { 0.20, 0, "fn", function()
-      if pad then love.joystickadded(pad.j); love.joystickadded(pad.j) end
-    end },
-  { 0.40, 1, "start", true  },   -- vincula o Jogador 1
-  { 0.50, 1, "start", false },
+-- Timeline: {tempo, device, ação, valor[, toque]} para botões, ou
+-- {tempo, 0, "fn", fn}. Um pulso de botão = press + release. O device 2 só
+-- existe com --smoke2p. `toque`: the button the --smoketouch bot taps
+-- instead of the action (on the menus a tap on an item is the whole step);
+-- without it, an action with no button on screen is skipped for that bot.
+--
+-- First the main menu walk (MENU_WALK, the first MENU_T seconds), then the
+-- lobby and the match (MATCH_EVENTS, shifted by MENU_T: their times are
+-- those of the old timeline, which bound Player 1 at 0.40, as JOGAR now
+-- does at MENU_T + 0.40).
+local MENU_T = 2.90
+
+-- { time, action, touch button }: one pulse of bot 1 each. Rows of OPÇÕES
+-- (PC): visual effects, music, effects, shake, distortion, fullscreen
+-- (locked by the smoke), test controls, restore, wipe records.
+local MENU_WALK = {
+  { 0.30, "down" },                            -- OPÇÕES
+  { 0.40, "start", "menu_options" },
+  { 0.55, "left",  "opt_fx_l" },               -- EFEITOS VISUAIS: BAIXO (Post.load again)
+  { 0.65, "down" },
+  { 0.75, "down" },
+  { 0.85, "down" },                            -- TREMOR DE TELA
+  { 0.95, "left",  "opt_shake_l" },            -- 75%
+  { 1.05, "down" },                            -- DISTORÇÃO
+  { 1.15, "start", "opt_distortion_l" },       -- DESLIGADA
+  { 1.25, "down" },                            -- TELA CHEIA (locked: no change)
+  { 1.35, "right" },
+  { 1.45, "down" },                            -- TESTAR CONTROLES
+  { 1.55, "start", "opt_test" },
+  { 1.75, "back",  "back" },                   -- closes the input test
+  { 1.85, "down" },                            -- RESTAURAR PADRÕES: asks, then runs
+  { 1.95, "start", "opt_restore" },
+  { 2.05, "start", "opt_restore" },
+  { 2.15, "down" },                            -- APAGAR RECORDES: asks twice
+  { 2.25, "start", "opt_wipe" },
+  { 2.35, "start", "opt_wipe" },
+  { 2.45, "start", "opt_wipe" },
+  { 2.60, "back",  "back" },                   -- back to the menu
+  { 2.70, "down" },                            -- CRÉDITOS
+  { 2.80, "start", "menu_credits" },
+  { 3.00, "back",  "back" },
+  { 3.10, "up" },
+  { 3.20, "up" },                              -- JOGAR: binds the bot as Player 1
+  { 3.30, "start", "menu_play" },
+}
+-- The walk is over (the bot is in the lobby) from here on.
+local WALK_END = MENU_WALK[#MENU_WALK][1] + 0.1
+
+local MATCH_EVENTS = {
   -- Seletor de cor: o P1 avança uma cor (depois do debounce do vínculo)...
   { 0.68, 1, "right", true  },
   { 0.72, 1, "right", false },
@@ -72,10 +110,36 @@ local EVENTS = {
   { 9.60, 1, "start", false },
 }
 
+local EVENTS = {
+  -- Regressão: o LÖVE reanuncia os controles já ligados no boot. Adicionar o
+  -- MESMO joystick de novo não pode criar um segundo device (senão o mesmo
+  -- controle vira P1 e P2 no lobby).
+  { 0.20, 0, "fn", function()
+      if pad then love.joystickadded(pad.j); love.joystickadded(pad.j) end
+    end },
+}
+for i = 1, #MENU_WALK do
+  local w = MENU_WALK[i]
+  EVENTS[#EVENTS + 1] = { w[1], 1, w[2], true, w[3] }
+  EVENTS[#EVENTS + 1] = { w[1] + 0.04, 1, w[2], false, w[3] }
+end
+for i = 1, #MATCH_EVENTS do
+  local e = MATCH_EVENTS[i]
+  EVENTS[#EVENTS + 1] = { e[1] + MENU_T, e[2], e[3], e[4], e[5] }
+end
+
 -- With --shots: screenshots at these script times, chosen to land on each
--- screen of the timeline (lobby with both slots, briefing, arena, pause,
--- arena again). Files go to the LÖVE save directory (path printed at the end).
-local SHOT_TIMES = { 1.00, 1.62, 3.50, 4.35, 7.00, 12.00 }
+-- screen of the timeline: main menu (JOGAR, then OPÇÕES selected), OPÇÕES
+-- (FX changed, then shake), input test, RESTAURAR asking, APAGAR asking
+-- twice and done, CRÉDITOS; then
+-- (MENU_T later than in the old timeline) lobby with both slots, briefing,
+-- arena, pause, arena again. Files go to the LÖVE save directory (path
+-- printed at the end).
+local SHOT_TIMES = { 0.25, 0.37, 0.60, 1.00, 1.70, 2.00, 2.40, 2.55, 2.95 }
+do
+  local MATCH_SHOTS = { 1.00, 1.62, 3.50, 4.35, 7.00, 12.00 }
+  for i = 1, #MATCH_SHOTS do SHOT_TIMES[#SHOT_TIMES + 1] = MATCH_SHOTS[i] + MENU_T end
+end
 
 -- O consumo do roteiro é sequencial, então a lista tem que estar em ordem de
 -- tempo (evita que um evento novo fora de lugar engula os seguintes).
@@ -113,7 +177,7 @@ end
 -- está ligado; o resto continua no device sintético.
 -- Logical action -> fake gamepad button (anything else keeps its own name).
 local PAD_BUTTONS = { fire = "a", left = "dpleft", right = "dpright", random = "y",
-                      dash = "rightshoulder" }
+                      dash = "rightshoulder", up = "dpup", down = "dpdown" }
 
 -- --smoketouch: bot 1 is a finger. A button press taps the on-screen button
 -- for that action (pause, color arrows, ABANDONAR) or, for START with no
@@ -204,6 +268,7 @@ function Smoke.reset()
   Smoke.stats = {}
   Smoke.goTimer, Smoke.goPressed, Smoke.goReleased, Smoke.goReleaseAt = 0, false, false, 0
   Smoke.nextShot = 1
+  Smoke.walkChecked = false
   dashHeld[1], dashHeld[2] = false, false
   upPlan[1].active, upPlan[2].active = false, false
   Smoke.upT = 0
@@ -234,17 +299,24 @@ local function finish(code)
   print(string.format(
     "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d bosses=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
     "dashes=%d charges=%d splits=%d snipes=%d launches=%d upgrades=%d blades=%d bounces=%d shocks=%d recharges=%d subbosses=%d guards=%d laserTicks=%d orbBlocks=%d slowmos=%d combo=%d pausas=%d esperas=%d peakEnemies=%d " ..
-    "peakBullets=%d peakParticles=%d denied=%d deniedFx=%d cores=%s",
+    "peakBullets=%d peakParticles=%d denied=%d deniedFx=%d cores=%s menus=%d",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
     s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0, s.dashes or 0,
     s.charges or 0, s.splits or 0, s.snipes or 0, s.launches or 0, s.upgrades or 0,
     s.blades or 0, s.bounces or 0, s.shocks or 0, s.recharges or 0, s.subbosses or 0, s.guards or 0,
     s.laserTicks or 0, s.orbBlocks or 0, s.slowmos or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
-    s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
+    s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?"), s.menus or 0))
   -- Both players ending on the same color means the picker's skip rule broke.
   if (s.colorClash or 0) > 0 then
     print("[smoke] FALHA: os dois jogadores terminaram com a mesma cor")
+    code = 1
+  end
+  -- The menu walk opens OPÇÕES, the input test and CRÉDITOS and ends in the
+  -- lobby: otherwise a step missed its item and the rest of the timeline
+  -- drifted (see Smoke.update).
+  if (s.walkLost or 0) > 0 then
+    print("[smoke] FALHA: o roteiro do menu se perdeu (não passou pelas telas ou não chegou ao lobby)")
     code = 1
   end
   if Config.SMOKE_SHOTS then
@@ -273,7 +345,13 @@ function Smoke.update(dt)
 
   while EVENTS[Smoke.nextEvent] and Smoke.t >= EVENTS[Smoke.nextEvent][1] do
     local e = EVENTS[Smoke.nextEvent]
-    if e[3] == "fn" then e[4]() else press(e[2], e[3], e[4]) end
+    if e[3] == "fn" then
+      e[4]()
+    elseif e[2] == 1 and Config.SMOKE_TOUCH and e[5] then
+      press(1, e[5], e[4])   -- the touch bot taps the item's button instead
+    else
+      press(e[2], e[3], e[4])
+    end
     Smoke.nextEvent = Smoke.nextEvent + 1
   end
 
@@ -285,15 +363,32 @@ function Smoke.update(dt)
 
   -- Movement in circles of different periods: covers every direction and
   -- wall collisions. No aiming: the auto-aim targets and fires by itself.
+  -- Sticks still during the menu walk: the fake pad's stick counts as the
+  -- d-pad there and would scroll the menus at random.
   local t = Smoke.t
-  axis(1, math.cos(t * 1.7), math.sin(t * 1.3))
-  -- O segundo bot anda em contrafase, para os dois não ficarem colados.
-  axis(2, math.cos(t * 1.1 + 2.2), math.sin(t * 1.9 + 1.0))
+  if t < WALK_END then
+    axis(1, 0, 0)
+    axis(2, 0, 0)
+  else
+    axis(1, math.cos(t * 1.7), math.sin(t * 1.3))
+    -- O segundo bot anda em contrafase, para os dois não ficarem colados.
+    axis(2, math.cos(t * 1.1 + 2.2), math.sin(t * 1.9 + 1.0))
+  end
 
   -- No game over, aperta START uma vez para exercitar a volta ao lobby.
   local State = require("src.state")
   -- Before that, START once the arena's GAME OVER accepts it.
   local Game = require("src.states.game")
+
+  -- The menu walk has to end in the lobby, with the bot as Player 1.
+  if not Smoke.walkChecked and t >= WALK_END then
+    Smoke.walkChecked = true
+    local Lobby = require("src.states.lobby")
+    -- OPÇÕES, the input test and CRÉDITOS opened on the way (3 screens).
+    if State.current() ~= Lobby or not Lobby.getSlots()[1] or (Smoke.stats.menus or 0) < 3 then
+      Smoke.bump("walkLost")
+    end
+  end
 
   -- Dash when threatened: an enemy or an enemy shot close by and the dash
   -- ready. Pressed for one frame (released on the next).
