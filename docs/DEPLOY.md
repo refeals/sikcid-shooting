@@ -245,6 +245,7 @@ love . --media        # regrava media/cover.png, logo.png, banner.png, fanart.pn
 A cena (posição do boss, dos jogadores, inimigos, tiros e explosões), o tema do
 céu, as cores dos jogadores e o texto do logo ficam em
 [tools/media.lua](../tools/media.lua) (`SCENE`, `LOGO_LINES`, `SUBTITLE`). O
+subtítulo é sempre em inglês, o idioma padrão do jogo. O
 gerador fica em `tools/`, então **não entra no `.love`**: `--media` só
 funciona rodando da pasta do projeto. Depois de mexer na arte do jogo, rode de
 novo e faça commit dos PNGs.

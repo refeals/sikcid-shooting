@@ -12,6 +12,11 @@
 --
 -- Items a command line flag holds this session are dimmed, show the flag
 -- and don't change (see src/options.lua). TELA CHEIA only exists on a PC.
+--
+-- IDIOMA comes first and its values are the languages' own names (ENGLISH,
+-- ESPAÑOL, PORTUGUÊS), so a player who switched by mistake finds the way
+-- back. Every label is read from src/i18n.lua as it is drawn: a switch
+-- shows on this screen in the same frame.
 
 local Config = require("src.config")
 local Input  = require("src.input")
@@ -23,41 +28,52 @@ local UI     = require("src.ui")
 local Assets = require("src.assets")
 local Nav    = require("src.nav")
 local Opts   = require("src.options")
+local I18n   = require("src.i18n")
 local Background = require("src.background")
 
 local OptionsScreen = {}
 
 local O = Config.OPTIONS
 local L = Config.MENU.options
+local S = I18n.S
 
 -- Value rows: "choice" steps through `choices` (left = less, right = more;
--- `names` and `fonts` per choice), "volume" goes 0..O.volumeSteps. Action
--- rows have an `id`; `asks` are the questions before it runs.
+-- per choice, `names` holds the text as is and `namesKey` the src/lang key
+-- of a list of names; `fonts` the font role), "volume" goes 0..O.volumeSteps.
+-- Action rows have an `id`; `asks` is the src/lang key of the questions
+-- before it runs. `label` is a src/lang key too.
 local SHAKE_NAMES, SHAKE_FONTS = {}, {}
 for i = 1, #O.shakeSteps do
   local s = O.shakeSteps[i]
-  -- Numbers in the digits font: Rocket Square draws "0" as a box.
-  SHAKE_NAMES[i] = s == 0 and "DESLIGADO" or (s .. "%")
+  -- Numbers in the digits font: Rocket Square draws "0" as a box. The 0 is
+  -- a word (S.opt_off, see valueName).
+  SHAKE_NAMES[i] = s ~= 0 and (s .. "%")
   SHAKE_FONTS[i] = s == 0 and "title" or "digits"
 end
 
 local ROWS = {
-  { key = "fx", label = "EFEITOS VISUAIS", kind = "choice",
-    choices = { "off", "low", "high" }, names = { "DESLIGADO", "BAIXO", "ALTO" } },
-  { key = "music", label = "MÚSICA", kind = "volume" },
-  { key = "sfx", label = "EFEITOS SONOROS", kind = "volume" },
-  { key = "shake", label = "TREMOR DE TELA", kind = "choice",
+  { key = "lang", label = "opt_lang", kind = "choice",
+    choices = I18n.CODES, names = I18n.NATIVE },
+  { key = "fx", label = "opt_fx", kind = "choice",
+    choices = { "off", "low", "high" }, namesKey = "opt_fx_levels" },
+  { key = "music", label = "opt_music", kind = "volume" },
+  { key = "sfx", label = "opt_sfx", kind = "volume" },
+  { key = "shake", label = "opt_shake", kind = "choice",
     choices = O.shakeSteps, names = SHAKE_NAMES, fonts = SHAKE_FONTS },
-  { key = "distortion", label = "DISTORÇÃO", kind = "choice",
-    choices = { false, true }, names = { "DESLIGADA", "LIGADA" } },
-  { key = "fullscreen", label = "TELA CHEIA", kind = "choice", pcOnly = true,
-    choices = { false, true }, names = { "NÃO", "SIM" } },
-  { id = "test", label = "TESTAR CONTROLES", kind = "action" },
-  { id = "restore", label = "RESTAURAR PADRÕES", kind = "action",
-    asks = { "RESTAURAR? APERTE DE NOVO" } },
-  { id = "wipe", label = "APAGAR RECORDES", kind = "action",
-    asks = { "APAGAR OS RECORDES?", "TEM CERTEZA? NÃO TEM VOLTA" } },
+  { key = "distortion", label = "opt_distortion", kind = "choice",
+    choices = { false, true }, namesKey = "opt_distortion_values" },
+  { key = "fullscreen", label = "opt_fullscreen", kind = "choice", pcOnly = true,
+    choices = { false, true }, namesKey = "opt_no_yes" },
+  { id = "test", label = "opt_test", kind = "action" },
+  { id = "restore", label = "opt_restore", kind = "action", asks = "opt_restore_asks" },
+  { id = "wipe", label = "opt_wipe", kind = "action", asks = "opt_wipe_asks" },
 }
+
+-- Text of choice `idx` of a value row.
+local function valueName(r, idx)
+  if r.namesKey then return S[r.namesKey][idx] end
+  return r.names[idx] or S.opt_off   -- the shake's 0
+end
 
 -- Touch actions and volume digits, built once.
 for i = 1, #ROWS do
@@ -74,7 +90,7 @@ for v = 0, O.volumeSteps do VOLUME_TEXT[v] = tostring(v) end
 local rows = {}        -- rows on screen (built in enter: TELA CHEIA is PC only)
 local cursor = 1
 local ask = 0          -- questions answered on the cursor's action row
-local status, statusT = nil, 0   -- feedback line ("PADRÕES RESTAURADOS")
+local status, statusT = nil, 0   -- feedback line, a src/lang key ("opt_restored")
 
 local arrowColor = { 1, 1, 1, 1 }
 
@@ -132,7 +148,7 @@ local function runAction(r)
     State.push(require("src.states.inputtest"), false)
     return
   end
-  if ask < #r.asks then
+  if ask < #S[r.asks] then
     ask = ask + 1
     Audio.play("menu_move")
     return
@@ -140,10 +156,10 @@ local function runAction(r)
   ask = 0
   if r.id == "restore" then
     Opts.restore()
-    status = "PADRÕES RESTAURADOS"
+    status = "opt_restored"
   elseif r.id == "wipe" then
     Save.clearRecords()
-    status = "RECORDES APAGADOS"
+    status = "opt_wiped"
   end
   statusT = 2.0
   Audio.play("menu_confirm")
@@ -235,9 +251,9 @@ local function drawValue(r, vx, ry, ink, locked, selected)
   else
     local font = r.fonts and r.fonts[idx] or "title"
     if font == "digits" then
-      UI.digits("digits", r.names[idx], cx, UI.midY("digits", ry, h), ink, cw, "center")
+      UI.digits("digits", valueName(r, idx), cx, UI.midY("digits", ry, h), ink, cw, "center")
     else
-      UI.textMid(font, r.names[idx], cx, ry, h, ink, cw, "center")
+      UI.textMid(font, valueName(r, idx), cx, ry, h, ink, cw, "center")
     end
   end
 end
@@ -248,7 +264,7 @@ function OptionsScreen:draw()
   local M = Config.MENU
 
   Background.draw()
-  UI.text("big", "OPÇÕES", 0, M.screenTitleY, C.text, W, "center")
+  UI.text("big", S.menu_options, 0, M.screenTitleY, C.text, W, "center")
 
   local n = #rows
   local wx = math.floor((W - L.w) * 0.5)
@@ -261,11 +277,11 @@ function OptionsScreen:draw()
     local ry = L.y + L.pad + (i - 1) * L.rowH
     local selected = i == cursor
     local locked = r.lockTag ~= nil
-    if selected then UI.tab(C.textWarn, nil, rx, ry + 1, rw, L.rowH - 2) end
+    if selected then UI.tab(C.textWarn, nil, rx, ry - L.hlRise, rw, L.rowH + L.hlRise + 1) end
     local ink = selected and UI.inkFor(C.textWarn) or (locked and C.textDim or C.text)
 
-    local label = r.label
-    if selected and ask > 0 then label = r.asks[ask] end
+    local label = S[r.label]
+    if selected and ask > 0 then label = S[r.asks][ask] end
     UI.textMid("title", label, rx + 8, ry, L.rowH, ink)
     if locked then
       UI.textMid("body", r.lockTag, rx + 16 + titleFont:getWidth(label), ry, L.rowH, ink)
@@ -279,10 +295,9 @@ function OptionsScreen:draw()
   end
 
   if status and statusT > 0 then
-    UI.text("title", status, 0, M.hintY - 34, C.textWarn, W, "center")
+    UI.text("title", S[status], 0, L.statusY, C.textWarn, W, "center")
   end
-  local hint = Input.usingTouch() and "TOQUE NAS SETAS PARA MUDAR"
-    or "D-PAD OU SETAS: ESCOLHER E MUDAR   -   BACK OU B: VOLTAR"
+  local hint = Input.usingTouch() and S.opt_hint_touch or S.opt_hint
   UI.text("body", hint, 0, M.hintY, C.text, W, "center")
   UI.exitBar(W * 0.5, M.hintY + 16)
   Nav.drawTouchBack()

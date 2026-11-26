@@ -14,6 +14,7 @@
 -- "tap", which counts as START. Fixed slots: nothing is allocated per touch.
 
 local Config = require("src.config")
+local S      = require("src.i18n").S
 
 local Touch = {}
 
@@ -208,12 +209,12 @@ function Touch.drawSticks(color)
   if not hasMove then
     love.graphics.setColor(C[1], C[2], C[3], a)
     love.graphics.circle("line", inset, H - inset, r)
-    UI.text("body", "MOVER", inset - 30, H - inset - 3, ghost, 60, "center")
+    UI.text("body", S.act_move, inset - 30, H - inset - 3, ghost, 60, "center")
   end
   if not hasAim then
     love.graphics.setColor(C[1], C[2], C[3], a)
     love.graphics.circle("line", W - inset, H - inset, r)
-    UI.text("body", "MIRAR", W - inset - 30, H - inset - 3, ghost, 60, "center")
+    UI.text("body", S.act_aim, W - inset - 30, H - inset - 3, ghost, 60, "center")
   end
   love.graphics.setColor(1, 1, 1, 1)
 end

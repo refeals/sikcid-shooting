@@ -15,6 +15,7 @@ local Audio  = require("src.audio")
 local Music  = require("src.music")
 local UI     = require("src.ui")
 local Screen = require("src.screen")
+local S      = require("src.i18n").S
 
 local Pause = {}
 
@@ -42,7 +43,7 @@ function Pause:enter(world, mode, playerIndex)
       local id = p.upgradeOrder[k]
       parts[k] = Upgrades.label(Upgrades.byId(id), p.upgrades[id])
     end
-    self.upgradeText[i] = #parts > 0 and table.concat(parts, ",  ") or "NENHUM AINDA"
+    self.upgradeText[i] = #parts > 0 and table.concat(parts, ",  ") or S.pause_none
     if #parts > 0 then self.anyUpgrades = true end
   end
 end
@@ -129,24 +130,24 @@ function Pause:draw()
   local title, tab, headline, headColor, line1, line2
   if self.mode == "waiting" then
     local idx = self.playerIndex or 1
-    title, tab = "CONTROLE DESCONECTADO", Config.PLAYER_COLORS[idx]
-    headline, headColor = string.format("AGUARDANDO O JOGADOR %d", idx), Config.PLAYER_COLORS[idx]
-    line1 = "RECONECTE O CONTROLE PARA CONTINUAR"
-    line2 = "BACK ABANDONA A PARTIDA"
+    title, tab = S.pause_disconnected, Config.PLAYER_COLORS[idx]
+    headline, headColor = string.format(S.pause_waiting, idx), Config.PLAYER_COLORS[idx]
+    line1 = S.pause_reconnect
+    line2 = S.pause_back_quits
   elseif self.confirmQuit then
     -- No accents in tab titles: they would sit on the tab's bevel (see
     -- Config.ART.ui.tabH).
-    title, tab = "CONFIRMAR", C.doorWarn
-    headline, headColor = "ABANDONAR A PARTIDA?", C.doorWarn
-    line1 = "BACK CONFIRMA   -   START CONTINUA JOGANDO"
-    line2 = "O PROGRESSO DESTA PARTIDA É PERDIDO"
+    title, tab = S.pause_confirm, C.doorWarn
+    headline, headColor = S.pause_quit_ask, C.doorWarn
+    line1 = S.pause_confirm_hint
+    line2 = S.pause_lost
   else
     -- No tab: it would just repeat the big headline.
     title, tab = nil, nil
-    headline, headColor = "PAUSA", C.text
-    line1 = "START CONTINUA   -   BACK ABANDONA A PARTIDA"
+    headline, headColor = S.pause_title, C.text
+    line1 = S.pause_hint
     -- The browser build has no quit (see Input).
-    line2 = not Config.WEB and "SEGURE SELECT PARA SAIR DO JOGO" or nil
+    line2 = not Config.WEB and S.hold_select_quit or nil
   end
 
   -- Touch: a tap anywhere is START; BACK gets its own button under the window.
@@ -154,18 +155,18 @@ function Pause:draw()
   local backLabel = nil
   if touch then
     if self.mode == "waiting" then
-      line2, backLabel = nil, "ABANDONAR"
+      line2, backLabel = nil, S.pause_quit_button
     elseif self.confirmQuit then
-      line1, backLabel = "TOQUE FORA PARA CONTINUAR JOGANDO", "CONFIRMAR"
+      line1, backLabel = S.pause_confirm_tap, S.pause_confirm
     else
-      line1, line2, backLabel = "TOQUE PARA CONTINUAR", nil, "ABANDONAR"
+      line1, line2, backLabel = S.pause_tap, nil, S.pause_quit_button
     end
   end
 
   local pw, ph = 360, 102
   local px, py = math.floor((W - pw) * 0.5), math.floor((H - ph) * 0.5)
   local top = UI.window(px, py, pw, ph, title, tab)
-  -- Rocket Square is wide: only the short "PAUSA" fits the big size.
+  -- Rocket Square is wide: only the short S.pause_title fits the big size.
   local big = self.mode ~= "waiting" and not self.confirmQuit
   UI.text(big and "big" or "title", headline, px, top + (big and 8 or 14), headColor, pw, "center")
   UI.text("body", line1, px, top + 44, C.text, pw, "center")
@@ -185,7 +186,7 @@ function Pause:draw()
     local n = self.world.playerCount
     local uw, uh = 440, 50
     local ux, uy = math.floor((W - uw) * 0.5), py + ph + 40
-    local utop = UI.window(ux, uy, uw, uh, "UPGRADES")
+    local utop = UI.window(ux, uy, uw, uh, S.upgrades_title)
     local colW = (uw - 16) / n
     for i = 1, n do
       UI.text("body", self.upgradeText[i], ux + 8 + (i - 1) * colW, utop + 6,

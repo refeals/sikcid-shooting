@@ -30,7 +30,9 @@ love .
 ```
 
 O jogo abre no menu principal (JOGAR, COMO JOGAR, RECORDES, OPÇÕES, CRÉDITOS,
-SAIR). Sem controle conectado, o jogador 1 joga no teclado: **WASD** move, **setas** miram,
+SAIR), em inglês na primeira vez: o idioma (inglês, espanhol ou português) se
+escolhe em OPTIONS e fica salvo. Sem controle conectado, o jogador 1 joga no
+teclado: **WASD** move, **setas** miram,
 **Shift** dá dash, **Enter** = start, **ESC** = back (segurar 0,5s sai do
 jogo); nos menus, setas ou W/S navegam e Espaço/Backspace também confirmam e
 voltam. Controles completos em [docs/DESIGN.md](docs/DESIGN.md#controles); as
@@ -84,16 +86,17 @@ normalmente. O build **não apaga** o `dist/`: só troca o
 | `--upgrades N` | começa com N upgrades permanentes aleatórios |
 | `--powerup id,id` | dá esses power-ups a todos no início de cada wave |
 | `--fx high\|low\|off` | qualidade do pós-processamento (ver [docs/VISUAL.md](docs/VISUAL.md#pós-processamento)) |
+| `--lang en\|es\|pt` | idioma do texto (ver [docs/DESIGN.md](docs/DESIGN.md#idioma)) |
 | `--mute` | sem som |
 | `--batocera` | sempre em tela cheia, sem o item TELA CHEIA (o launcher do Batocera passa) |
 | `--inputtest` | abre a tela de teste de input em vez do menu |
-
-`--fx`, `--mute` e `--windowed` valem só para a sessão: o item correspondente
-das opções fica travado e o `options.dat` não muda.
 | `--touchmouse` | o mouse vale como um dedo (testar o touch no PC) |
 | `--curve` | imprime a curva de waves no console e sai |
-| `--media` | regrava as imagens de divulgação em `media/` |
+| `--media` | regrava as imagens de divulgação em `media/` (sempre em inglês) |
 | `--smoke` e companhia | teste automatizado, ver [Teste automatizado](#teste-automatizado) |
+
+`--fx`, `--lang`, `--mute` e `--windowed` valem só para a sessão: o item
+correspondente das opções fica travado e o `options.dat` não muda.
 
 ## Debug e testes
 
@@ -147,6 +150,7 @@ love . --smoke 20 --fakepad    # jogador 1 entra por um gamepad falso
 love . --smoke 20 --smokegod   # bots invencíveis (mede FPS sem game over)
 love . --smoke 20 --wave 30    # começa numa wave alta
 love . --smoke 16 --smoke2p --shots   # salva screenshots de cada tela
+love . --smoke 20 --lang es    # roda em espanhol (es ou pt; o padrão é inglês)
 love . --smoke 20 --smoketouch # jogador 1 joga só por toques sintéticos
 love . --smoke 60 --upgrades 12 --wave 15   # começa com 12 upgrades aleatórios
 love . --smoke 60 --smokelog   # grava o registro de partidas em runs-smoke.csv
@@ -161,13 +165,15 @@ inimigo ou tiro chega perto.
 Os bots só andam (em círculos de períodos diferentes): nunca miram. A mira e
 o tiro ficam com o auto-aim, como um jogador que só pilota.
 
-Antes do lobby, o roteiro passa pelo menu principal (os primeiros ~4,4 s):
+Antes do lobby, o roteiro passa pelo menu principal (os primeiros ~4,7 s):
 abre COMO JOGAR e vira para a página das regras, abre RECORDES, abre OPÇÕES,
-muda alguns itens (incluindo a qualidade dos efeitos, que recria o brilho),
-abre e fecha o TESTAR CONTROLES, usa RESTAURAR PADRÕES e APAGAR RECORDES,
-visita CRÉDITOS e escolhe JOGAR. Se ele não passar por essas telas (as duas
-páginas do COMO JOGAR incluídas) ou não terminar no lobby com o bot como
-Jogador 1, o smoke falha (código 1). O roteiro conta com a ordem do menu e
+troca o idioma para ESPAÑOL e de volta, muda alguns itens (incluindo a
+qualidade dos efeitos, que recria o brilho), abre e fecha o TESTAR CONTROLES,
+usa RESTAURAR PADRÕES e APAGAR RECORDES, visita CRÉDITOS e escolhe JOGAR. Se
+ele não passar por essas telas (as duas páginas do COMO JOGAR incluídas), não
+fizer as duas trocas de idioma (nenhuma com `--lang`, que trava o item) ou não
+terminar no lobby com o bot como Jogador 1, o smoke falha (código 1). O
+roteiro conta com a ordem do menu e
 com as linhas das opções do PC (sem `--batocera`); quem mexer em uma delas
 refaz as contagens de ↓/↑ do `MENU_WALK`, o `MENU_T` e o `SHOT_TIMES` em
 [src/smoke.lua](src/smoke.lua).
@@ -191,6 +197,13 @@ terminarem com a mesma cor. `menus=` conta as telas de menu abertas. O smoke
 nunca grava nada no save (recordes, cores, opções) e roda com as opções
 padrão, ignorando o `options.dat`.
 
+Antes de tudo, o smoke confere os idiomas (`src/lang/`): as três línguas
+precisam ter as mesmas chaves, do mesmo tipo, e as mesmas sequências de
+`%d`/`%s`/`%.1f` nas strings de formato. Qualquer diferença é listada no
+console e o smoke sai com código 1. As screenshots do `--shots` levam a língua
+da sessão no nome (`smoke_en_01.00.png`, `smoke_es_01.00.png`), então dá para
+rodar as três e comparar lado a lado.
+
 `--fakepad` injeta um gamepad falso que implementa a Gamepad API do LÖVE, para
 exercitar o mesmo caminho de código dos controles reais em máquinas que não
 enxergam joystick (WSL, CI).
@@ -211,6 +224,8 @@ src/state.lua         -- pilha de estados de tela
 src/save.lua          -- recordes, acumulados da máquina e cores escolhidas,
                          em love.filesystem (highscores.dat)
 src/options.lua       -- opções do menu (options.dat), flags por cima, aplicação
+src/i18n.lua          -- idioma atual: a tabela de texto S, troca, checagem do smoke
+src/lang/             -- o texto do jogo: en (padrão e referência), es, pt
 src/runlog.lua        -- registro de partidas (runs.csv)
 src/curve.lua         -- tabela da curva de waves (--curve)
 src/audio.lua         -- efeitos sonoros: variações Kenney, pool de vozes

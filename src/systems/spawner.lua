@@ -18,6 +18,7 @@ local Util   = require("src.util")
 local Audio  = require("src.audio")
 local Assets = require("src.assets")
 local RunLog = require("src.runlog")
+local Text   = require("src.i18n").S   -- game text (S is Config.SUBBOSS here)
 
 local Spawner = {}
 
@@ -137,8 +138,8 @@ local function setDebut(n)
     local m = Config.ENEMY_MIX[i]
     if m.debut and m.from == n then
       Spawner.introType = m.type
-      Spawner.introName = Config.ENEMIES[m.type].name or string.upper(m.type)
-      Spawner.introLabel = "NOVO: " .. Spawner.introName   -- the banner's line
+      Spawner.introName = Text.enemy_name[m.type] or string.upper(m.type)
+      Spawner.introLabel = string.format(Text.new_enemy, Spawner.introName)   -- the banner's line
       Spawner.introLeft = Config.WAVE.debutCount
       return
     end
@@ -300,7 +301,7 @@ function Spawner.update(dt, world)
     if Spawner.subState == "pending" and Spawner.spawned >= math.floor(Spawner.quota * S.at) then
       Spawner.subState, Spawner.subAlert = "alert", S.alertTime
       local k = Config.subbossIndex(Spawner.wave)
-      Spawner.subName = Config.ENEMIES[S.variants[(k - 1) % #S.variants + 1]].name
+      Spawner.subName = Text.enemy_name[S.variants[(k - 1) % #S.variants + 1]]
       Audio.play("subboss_alarm")
     elseif Spawner.subState == "alert" then
       Spawner.subAlert = Spawner.subAlert - dt

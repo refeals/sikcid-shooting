@@ -27,12 +27,13 @@ local pad = nil
 -- lobby and the match (MATCH_EVENTS, shifted by MENU_T: their times are
 -- those of the old timeline, which bound Player 1 at 0.40, as JOGAR now
 -- does at MENU_T + 0.40).
-local MENU_T = 3.95
+local MENU_T = 4.25
 
 -- { time, action, touch button }: one pulse of bot 1 each. Main menu: JOGAR,
--- COMO JOGAR, RECORDES, OPÇÕES, CRÉDITOS, SAIR. Rows of OPÇÕES (PC): visual
--- effects, music, effects, shake, distortion, fullscreen (locked by the
--- smoke), test controls, restore, wipe records.
+-- COMO JOGAR, RECORDES, OPÇÕES, CRÉDITOS, SAIR. Rows of OPÇÕES (PC):
+-- language, visual effects, music, effects, shake, distortion, fullscreen
+-- (locked by the smoke), test controls, restore, wipe records. The language
+-- goes to ESPAÑOL and back (the live switch; locked with --lang).
 local MENU_WALK = {
   { 0.30, "down" },                            -- COMO JOGAR
   { 0.40, "start", "menu_howto" },             -- page 1: the bot's controls
@@ -43,34 +44,37 @@ local MENU_WALK = {
   { 1.05, "back",  "back" },
   { 1.15, "down" },                            -- OPÇÕES
   { 1.25, "start", "menu_options" },
-  { 1.40, "left",  "opt_fx_l" },               -- EFEITOS VISUAIS: BAIXO (Post.load again)
-  { 1.50, "down" },
-  { 1.60, "down" },
-  { 1.70, "down" },                            -- TREMOR DE TELA
-  { 1.80, "left",  "opt_shake_l" },            -- 75%
-  { 1.90, "down" },                            -- DISTORÇÃO
-  { 2.00, "start", "opt_distortion_l" },       -- DESLIGADA
-  { 2.10, "down" },                            -- TELA CHEIA (locked: no change)
-  { 2.20, "right" },
-  { 2.30, "down" },                            -- TESTAR CONTROLES
-  { 2.40, "start", "opt_test" },
-  { 2.60, "back",  "back" },                   -- closes the input test
-  { 2.70, "down" },                            -- RESTAURAR PADRÕES: asks, then runs
-  { 2.80, "start", "opt_restore" },
-  { 2.90, "start", "opt_restore" },
-  { 3.00, "down" },                            -- APAGAR RECORDES: asks twice
-  { 3.10, "start", "opt_wipe" },
-  { 3.20, "start", "opt_wipe" },
-  { 3.30, "start", "opt_wipe" },
-  { 3.45, "back",  "back" },                   -- back to the menu
-  { 3.55, "down" },                            -- CRÉDITOS
-  { 3.65, "start", "menu_credits" },
-  { 3.85, "back",  "back" },
-  { 3.95, "up" },                              -- OPÇÕES
-  { 4.05, "up" },                              -- RECORDES
-  { 4.15, "up" },                              -- COMO JOGAR
-  { 4.25, "up" },                              -- JOGAR: binds the bot as Player 1
-  { 4.35, "start", "menu_play" },
+  { 1.40, "right", "opt_lang_r" },             -- IDIOMA: ESPAÑOL (the screen redraws)
+  { 1.50, "left",  "opt_lang_l" },             -- back to ENGLISH
+  { 1.60, "down" },                            -- EFEITOS VISUAIS
+  { 1.70, "left",  "opt_fx_l" },               -- BAIXO (Post.load again)
+  { 1.80, "down" },
+  { 1.90, "down" },
+  { 2.00, "down" },                            -- TREMOR DE TELA
+  { 2.10, "left",  "opt_shake_l" },            -- 75%
+  { 2.20, "down" },                            -- DISTORÇÃO
+  { 2.30, "start", "opt_distortion_l" },       -- DESLIGADA
+  { 2.40, "down" },                            -- TELA CHEIA (locked: no change)
+  { 2.50, "right" },
+  { 2.60, "down" },                            -- TESTAR CONTROLES
+  { 2.70, "start", "opt_test" },
+  { 2.90, "back",  "back" },                   -- closes the input test
+  { 3.00, "down" },                            -- RESTAURAR PADRÕES: asks, then runs
+  { 3.10, "start", "opt_restore" },
+  { 3.20, "start", "opt_restore" },
+  { 3.30, "down" },                            -- APAGAR RECORDES: asks twice
+  { 3.40, "start", "opt_wipe" },
+  { 3.50, "start", "opt_wipe" },
+  { 3.60, "start", "opt_wipe" },
+  { 3.75, "back",  "back" },                   -- back to the menu
+  { 3.85, "down" },                            -- CRÉDITOS
+  { 3.95, "start", "menu_credits" },
+  { 4.15, "back",  "back" },
+  { 4.25, "up" },                              -- OPÇÕES
+  { 4.35, "up" },                              -- RECORDES
+  { 4.45, "up" },                              -- COMO JOGAR
+  { 4.55, "up" },                              -- JOGAR: binds the bot as Player 1
+  { 4.65, "start", "menu_play" },
 }
 -- The walk is over (the bot is in the lobby) from here on.
 local WALK_END = MENU_WALK[#MENU_WALK][1] + 0.1
@@ -140,15 +144,22 @@ end
 
 -- With --shots: screenshots at these script times, chosen to land on each
 -- screen of the timeline: main menu (JOGAR, then COMO JOGAR selected), COMO
--- JOGAR (controls, then rules), RECORDES, OPÇÕES (FX changed, then shake),
--- input test, RESTAURAR asking, APAGAR asking twice and done, CRÉDITOS;
--- then (MENU_T later than in the old timeline) lobby with both slots,
--- briefing, arena, pause, arena again. Files go to the LÖVE save directory
--- (path printed at the end).
-local SHOT_TIMES = { 0.25, 0.37, 0.50, 0.65, 1.00, 1.45, 1.85, 2.55, 2.85, 3.25, 3.40, 3.80 }
+-- JOGAR (controls, then rules), RECORDES, OPÇÕES (in ESPAÑOL, FX changed,
+-- then shake), input test, RESTAURAR asking, APAGAR asking twice and done,
+-- CRÉDITOS; then (MENU_T later than in the old timeline) lobby with both
+-- slots, briefing, arena, pause, arena again. Files go to the LÖVE save
+-- directory (path printed at the end), named after the session's language
+-- (smoke_en_01.00.png; see shotName).
+local SHOT_TIMES = { 0.25, 0.37, 0.50, 0.65, 1.00, 1.45, 1.75, 2.15, 2.85, 3.15, 3.55, 3.70, 4.10 }
 do
   local MATCH_SHOTS = { 1.00, 1.62, 3.50, 4.35, 7.00, 12.00 }
   for i = 1, #MATCH_SHOTS do SHOT_TIMES[#SHOT_TIMES + 1] = MATCH_SHOTS[i] + MENU_T end
+end
+
+-- "smoke_<language>_<name>.png": the language the session started in (the
+-- --lang one, or the default), so the three runs don't overwrite each other.
+local function shotName(name)
+  return string.format("smoke_%s_%s.png", Config.LANG_FLAG or require("src.i18n").DEFAULT, name)
 end
 
 -- O consumo do roteiro é sequencial, então a lista tem que estar em ordem de
@@ -367,7 +378,7 @@ function Smoke.update(dt)
 
   local shotAt = SHOT_TIMES[Smoke.nextShot]
   if Config.SMOKE_SHOTS and shotAt and Smoke.t >= shotAt then
-    love.graphics.captureScreenshot(string.format("smoke_%05.2f.png", shotAt))
+    love.graphics.captureScreenshot(shotName(string.format("%05.2f", shotAt)))
     Smoke.nextShot = Smoke.nextShot + 1
   end
 
@@ -400,6 +411,14 @@ function Smoke.update(dt)
       or (Smoke.stats.pages or 0) < 1 then
       Smoke.bump("walkLost")
     end
+    -- The language went to ESPAÑOL and back (2 switches), or stayed put
+    -- under --lang; either way the walk ends in the language it began in.
+    local I18n = require("src.i18n")
+    local switches = Config.LANG_FLAG and 0 or 2
+    if (Smoke.stats.langs or 0) ~= switches or I18n.code ~= (Config.LANG_FLAG or I18n.DEFAULT) then
+      print("[smoke] FALHA: a troca de idioma em OPÇÕES não aconteceu como esperado")
+      Smoke.bump("walkLost")
+    end
   end
 
   -- Dash when threatened: an enemy or an enemy shot close by and the dash
@@ -426,7 +445,7 @@ function Smoke.update(dt)
   if State.current() == Upgrade then
     Smoke.upT = (Smoke.upT or 0) + dt
     if Config.SMOKE_SHOTS and not Smoke.upgradeShot and Smoke.upT > 0.45 then
-      love.graphics.captureScreenshot("smoke_upgrade.png")
+      love.graphics.captureScreenshot(shotName("upgrade"))
       Smoke.upgradeShot = true
     end
     local count = Game.world.playerCount
@@ -465,7 +484,7 @@ function Smoke.update(dt)
     local Spawner = require("src.systems.spawner")
     if not Smoke.debutShot and Spawner.introLabel and Spawner.banner > 0
       and Spawner.banner < Config.WAVE.bannerTime - 0.4 then
-      love.graphics.captureScreenshot("smoke_debut.png")
+      love.graphics.captureScreenshot(shotName("debut"))
       Smoke.debutShot = true
     end
     -- LASER firing, and TEMPO LENTO's veil fully in.
@@ -473,29 +492,29 @@ function Smoke.update(dt)
     if p1 and not Smoke.laserShot and p1.laserOn then
       Smoke.laserT = (Smoke.laserT or 0) + dt
       if Smoke.laserT > 0.5 then
-        love.graphics.captureScreenshot("smoke_laser.png")
+        love.graphics.captureScreenshot(shotName("laser"))
         Smoke.laserShot = true
       end
     end
     -- LASER recharging, its charge glow nearly full.
     if p1 and not Smoke.chargeShot and p1.laserCd > 0
       and p1.laserCd < Config.POWERUPS.laser.offTime * 0.25 then
-      love.graphics.captureScreenshot("smoke_laser_charge.png")
+      love.graphics.captureScreenshot(shotName("laser_charge"))
       Smoke.chargeShot = true
     end
     if not Smoke.slowShot and (Game.world.slowFade or 0) >= 1 then
-      love.graphics.captureScreenshot("smoke_slowmo.png")
+      love.graphics.captureScreenshot(shotName("slowmo"))
       Smoke.slowShot = true
     end
     -- Sub-boss: its alert, then the fight a couple of seconds in.
     if not Smoke.subAlertShot and Spawner.subAlert > 0 and Spawner.subAlert < 0.8 then
-      love.graphics.captureScreenshot("smoke_subboss.png")
+      love.graphics.captureScreenshot(shotName("subboss"))
       Smoke.subAlertShot = true
     end
     if Spawner.subboss and not Spawner.subboss.dead then
       Smoke.subT = (Smoke.subT or 0) + dt
       if not Smoke.subFightShot and Smoke.subT > 2.5 then
-        love.graphics.captureScreenshot("smoke_subboss2.png")
+        love.graphics.captureScreenshot(shotName("subboss2"))
         Smoke.subFightShot = true
       end
     end
@@ -504,10 +523,10 @@ function Smoke.update(dt)
     for i = 1, pk.count do
       local p = pk.items[i]
       if not Smoke.pickupShot and p.age > 0.6 and p.life > 3 then
-        love.graphics.captureScreenshot("smoke_pickup.png")
+        love.graphics.captureScreenshot(shotName("pickup"))
         Smoke.pickupShot = true
       elseif not Smoke.pickupBlinkShot and p:blinkOn() then
-        love.graphics.captureScreenshot("smoke_pickupblink.png")
+        love.graphics.captureScreenshot(shotName("pickupblink"))
         Smoke.pickupBlinkShot = true
       end
     end
@@ -515,33 +534,33 @@ function Smoke.update(dt)
     for i = 1, en.count do
       local e = en.items[i]
       if not Smoke.aimShot and e.type == "kamikaze" and e.state == "aim" and e.stateT < 0.25 then
-        love.graphics.captureScreenshot("smoke_aim.png")
+        love.graphics.captureScreenshot(shotName("aim"))
         Smoke.aimShot = true
       end
       if not Smoke.sniperShot and e.type == "sniper" and e.state == "aim" and e.stateT < 0.3 then
-        love.graphics.captureScreenshot("smoke_sniper.png")
+        love.graphics.captureScreenshot(shotName("sniper"))
         Smoke.sniperShot = true
       end
       if not Smoke.carrierShot and e.type == "scout" and e.harmless > 0 and e.harmless < 0.15 then
-        love.graphics.captureScreenshot("smoke_carrier.png")
+        love.graphics.captureScreenshot(shotName("carrier"))
         Smoke.carrierShot = true
       end
       if not Smoke.splitShot and e.type == "fragment" and e.harmless > 0 and e.harmless < 0.2 then
-        love.graphics.captureScreenshot("smoke_split.png")
+        love.graphics.captureScreenshot(shotName("split"))
         Smoke.splitShot = true
       end
     end
   end
   local ds = Smoke.dashShots
   if ds and ds[1] and Smoke.t >= ds[1] then
-    love.graphics.captureScreenshot(ds[2] and "smoke_dash.png" or "smoke_dashring.png")
+    love.graphics.captureScreenshot(shotName(ds[2] and "dash" or "dashring"))
     table.remove(ds, 1)
   end
   if State.current() == Game and Game.isEnding() then
     -- The screenshot is saved at the end of the frame: take it one frame
     -- before START switches the screen.
     if Game.endAccepting() and Config.SMOKE_SHOTS and not Smoke.endShot then
-      love.graphics.captureScreenshot("smoke_gameover.png")
+      love.graphics.captureScreenshot(shotName("gameover"))
       Smoke.endShot = true
     elseif Game.endAccepting() and not Smoke.endPressed then
       press(1, "start", true)

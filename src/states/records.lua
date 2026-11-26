@@ -14,35 +14,36 @@ local Save   = require("src.save")
 local UI     = require("src.ui")
 local Nav    = require("src.nav")
 local Background = require("src.background")
+local S      = require("src.i18n").S
 
 local Records = {}
 
--- { label, save key[, format] } per column; rows of each window.
+-- { label (src/lang key), save key[, format] } per column; rows of each window.
 local SCORES = {
-  { "MELHOR SOLO", "solo" },
-  { "MELHOR EM DUPLA", "duo" },
-  { "SOMA DA DUPLA", "coop" },
+  { "best_solo", "solo" },
+  { "best_duo", "duo" },
+  { "duo_total", "coop" },
 }
 local BEST = {
-  { "WAVE SOLO", "waveSolo" },
-  { "WAVE EM DUPLA", "waveDuo" },
-  { "MAIOR COMBO", "combo" },
+  { "rec_wave_solo", "waveSolo" },
+  { "rec_wave_duo", "waveDuo" },
+  { "rec_combo", "combo" },
 }
 local STATS_TOP = {
-  { "PARTIDAS", "matches" },
-  { "INIMIGOS ABATIDOS", "kills" },
-  { "TEMPO JOGADO", "seconds", "time" },
+  { "rec_matches", "matches" },
+  { "rec_kills", "kills" },
+  { "rec_time", "seconds", "time" },
 }
 local STATS_BOTTOM = {
-  { "BOSSES", "bosses" },
-  { "SUB-BOSSES", "subbosses" },
+  { "rec_bosses", "bosses" },
+  { "rec_subbosses", "subbosses" },
 }
 local LISTS = { SCORES, BEST, STATS_TOP, STATS_BOTTOM }
 
 -- "14H 05M": hours, then minutes in two digits.
 local function playTime(seconds)
   local m = math.floor(seconds / 60)
-  return string.format("%dH %02dM", math.floor(m / 60), m % 60)
+  return string.format(S.rec_time_fmt, math.floor(m / 60), m % 60)
 end
 
 function Records:enter()
@@ -79,7 +80,7 @@ local function drawRow(list, x, y, w, n)
   for i = 1, #list do
     local c = list[i]
     local cx = x0 + (i - 1) * cw
-    UI.text("body", c[1], cx, y + R.labelY, C.textDim, cw, "center")
+    UI.text("body", S[c[1]], cx, y + R.labelY, C.textDim, cw, "center")
     UI.digits("digits", c.text, cx, y + R.valueY, C.textWarn, cw, "center")
   end
 end
@@ -91,23 +92,22 @@ function Records:draw()
   local R = M.records
 
   Background.draw()
-  UI.text("big", "RECORDES", 0, M.screenTitleY, C.text, W, "center")
+  UI.text("big", S.menu_records, 0, M.screenTitleY, C.text, W, "center")
 
   local x = math.floor((W - R.w) * 0.5)
   local y = R.y
-  -- "PONTOS", not "PONTUAÇÃO": the tilde would touch the tab's top edge.
-  local top = UI.window(x, y, R.w, R.h, "PONTOS", C.textWarn)
+  local top = UI.window(x, y, R.w, R.h, S.rec_scores, C.textWarn)
   drawRow(SCORES, x, top, R.w, 3)
   y = y + R.h + R.gap
-  top = UI.window(x, y, R.w, R.h, "MELHOR PARTIDA", C.textWarn)
+  top = UI.window(x, y, R.w, R.h, S.rec_best_match, C.textWarn)
   drawRow(BEST, x, top, R.w, 3)
   y = y + R.h + R.gap
-  top = UI.window(x, y, R.w, R.statsH, "ESTA MÁQUINA")
+  top = UI.window(x, y, R.w, R.statsH, S.rec_machine)
   drawRow(STATS_TOP, x, top, R.w, 3)
   drawRow(STATS_BOTTOM, x, top + R.rowGap, R.w, 3)
 
   if not Input.usingTouch() then
-    UI.text("body", "START OU BACK VOLTA", 0, M.hintY, C.text, W, "center")
+    UI.text("body", S.start_back_returns, 0, M.hintY, C.text, W, "center")
   end
   UI.exitBar(W * 0.5, M.hintY + 16)
   Nav.drawTouchBack()

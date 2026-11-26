@@ -4,7 +4,8 @@
 --   page 1 -- the controls of that device: gamepad, keyboard or touch (the
 --             smoke's scripted bot reads as a gamepad)
 --   page 2 -- the rules: waves, combo, rest, upgrades, sub-bosses, boss,
---             with their numbers taken from Config (formatted once)
+--             with their numbers taken from Config (formatted once per
+--             language)
 --
 -- Left/right (on the touch screen, the arrows at the window's sides) turn
 -- the page, without wrapping. START/A on page 1 turns to page 2 and on page
@@ -19,54 +20,58 @@ local Audio  = require("src.audio")
 local UI     = require("src.ui")
 local Nav    = require("src.nav")
 local Assets = require("src.assets")
+local I18n   = require("src.i18n")
 local Background = require("src.background")
 
 local HowTo = {}
+
+local S = I18n.S
 
 local PAGES = 2
 local PAGE_TEXT = {}   -- "1/2", "2/2"
 for i = 1, PAGES do PAGE_TEXT[i] = i .. "/" .. PAGES end
 
 -- Controls per device kind: { action, binding[, pcOnly] } rows and a note
--- line under them. `pcOnly` rows (quitting) don't exist in the browser.
+-- line under them, all src/lang keys. `pcOnly` rows (quitting) don't exist
+-- in the browser.
 local CONTROLS = {
   gamepad = {
-    title = "CONTROLE",
+    title = "howto_pad",
     rows = {
-      { "MOVER", "ANALÓGICO ESQUERDO" },
-      { "MIRAR", "ANALÓGICO DIREITO" },
-      { "ATIRAR", "AUTOMÁTICO" },
-      { "DASH", "RB, LB OU B" },
-      { "PAUSAR", "START OU BACK" },
-      { "COR DA NAVE (LOBBY)", "D-PAD, Y SORTEIA" },
-      { "SAIR DO JOGO", "SEGURAR SELECT", pcOnly = true },
+      { "act_move", "pad_move" },
+      { "act_aim", "pad_aim" },
+      { "act_fire", "bind_auto" },
+      { "act_dash", "pad_dash" },
+      { "act_pause", "pad_pause" },
+      { "act_color", "pad_color" },
+      { "act_quit", "pad_quit", pcOnly = true },
     },
-    note = "MIRAR É OPCIONAL: SEM MIRA, A NAVE ATIRA SOZINHA NO INIMIGO MAIS PERTO. O D-PAD TAMBÉM MIRA.",
+    note = "pad_note",
   },
   keyboard = {
-    title = "TECLADO",
+    title = "howto_keyboard",
     rows = {
-      { "MOVER", "WASD" },
-      { "MIRAR", "SETAS" },
-      { "ATIRAR", "AUTOMÁTICO" },
-      { "DASH", "SHIFT" },
-      { "PAUSAR", "ENTER OU ESC" },
-      { "COR DA NAVE (LOBBY)", "A/D, R SORTEIA" },
-      { "SAIR DO JOGO", "SEGURAR ESC", pcOnly = true },
+      { "act_move", "kb_move" },
+      { "act_aim", "kb_aim" },
+      { "act_fire", "bind_auto" },
+      { "act_dash", "kb_dash" },
+      { "act_pause", "kb_pause" },
+      { "act_color", "kb_color" },
+      { "act_quit", "kb_quit", pcOnly = true },
     },
-    note = "MIRAR É OPCIONAL: SEM MIRA, A NAVE ATIRA SOZINHA NO INIMIGO MAIS PERTO.",
+    note = "kb_note",
   },
   touch = {
-    title = "TELA DE TOQUE",
+    title = "howto_touch",
     rows = {
-      { "MOVER", "METADE ESQUERDA" },
-      { "MIRAR", "METADE DIREITA" },
-      { "ATIRAR", "AUTOMÁTICO" },
-      { "DASH", "BOTÃO DASH" },
-      { "PAUSAR", "BOTÃO DE PAUSA" },
-      { "COR DA NAVE (LOBBY)", "SETAS DO SLOT" },
+      { "act_move", "touch_move" },
+      { "act_aim", "touch_aim" },
+      { "act_fire", "bind_auto" },
+      { "act_dash", "touch_dash" },
+      { "act_pause", "touch_pause" },
+      { "act_color", "touch_color" },
     },
-    note = "ONDE O DEDO ENCOSTA VIRA O CENTRO DO ANALÓGICO. SEM DEDO NA DIREITA, A NAVE MIRA SOZINHA.",
+    note = "touch_note",
   },
 }
 
@@ -78,31 +83,29 @@ for _, c in pairs(CONTROLS) do
   end
 end
 
--- "2,5" (PT-BR decimal comma); whole numbers without decimals.
-local function num(v)
-  if v == math.floor(v) then return string.format("%d", v) end
-  return (string.format("%.1f", v):gsub("%.", ","))
-end
-
 -- { heading, text }: headings in the Rocket Square font, which draws "0" as
--- a box, so they carry no digits; the numbers go in the text.
-local RULES
+-- a box, so they carry no digits; the numbers go in the text. Built in the
+-- current language, again only after a switch (I18n.version).
+local RULES, rulesVersion
 local function buildRules()
-  local CB, S = Config.COMBO, Config.SUBBOSS
+  local CB, SB = Config.COMBO, Config.SUBBOSS
+  local num = I18n.num
   RULES = {
-    { "WAVES", "OS INIMIGOS ENTRAM PELAS QUATRO PORTAS, EM LOTES (A PORTA PISCA ANTES). "
-      .. "A WAVE ACABA QUANDO NÃO SOBRA NINGUÉM." },
-    { "COMBO", string.format("CADA ABATE RENOVA UMA JANELA DE %s S. A CADA %d ABATES SEGUIDOS, "
-      .. "O MULTIPLICADOR DOS PONTOS SOBE UM DEGRAU, ATÉ X%d.", num(CB.window), CB.perMult, CB.maxMult) },
-    { "RESPIRO", string.format("ENTRE AS WAVES: BÔNUS, UM POWER-UP GARANTIDO E %s S DE RESPIRO, "
-      .. "COM OS TIMERS DE COMBO E DE POWER-UP PARADOS.", num(Config.WAVE.restTime)) },
-    { "UPGRADES", string.format("A CADA %d WAVES, CADA JOGADOR ESCOLHE UM UPGRADE PERMANENTE, "
-      .. "QUE VALE ATÉ O FIM DA PARTIDA.", Config.UPGRADES.every) },
-    { "SUB-BOSS", string.format("NAS WAVES %d, %d, %d... UM SUB-BOSS ENTRA NO MEIO DA WAVE "
-      .. "E DEIXA POWER-UPS AO CAIR.", S.offset, S.offset + S.every, S.offset + 2 * S.every) },
-    { "BOSS", string.format("A CADA %d WAVES, UMA WAVE DE BOSS. CADA UM É MAIS FORTE QUE O ANTERIOR.",
-      Config.BOSS.every) },
+    { S.rule_waves_h, S.rule_waves },
+    { S.rule_combo_h, string.format(S.rule_combo, num(CB.window), CB.perMult, CB.maxMult) },
+    { S.rule_rest_h, string.format(S.rule_rest, num(Config.WAVE.restTime)) },
+    { S.rule_upgrades_h, string.format(S.rule_upgrades, Config.UPGRADES.every) },
+    { S.rule_subboss_h, string.format(S.rule_subboss, SB.offset, SB.offset + SB.every, SB.offset + 2 * SB.every) },
+    { S.rule_boss_h, string.format(S.rule_boss, Config.BOSS.every) },
   }
+  -- Lines each rule's text wraps into (the font exists by now).
+  local H = Config.MENU.howto
+  local font = Assets.font("body")
+  for i = 1, #RULES do
+    local _, lines = font:getWrap(RULES[i][2], H.w - 2 * H.pad)
+    RULES[i].lines = #lines
+  end
+  rulesVersion = I18n.version
 end
 
 local page = 1
@@ -113,16 +116,7 @@ function HowTo:enter(device)
   page = 1
   local kind = device and device.kind
   controls = CONTROLS[kind] or CONTROLS.gamepad   -- "scripted" (smoke) too
-  if not RULES then
-    buildRules()
-    -- Lines each rule's text wraps into (the font exists by now).
-    local H = Config.MENU.howto
-    local font = Assets.font("body")
-    for i = 1, #RULES do
-      local _, lines = font:getWrap(RULES[i][2], H.w - 2 * H.pad)
-      RULES[i].lines = #lines
-    end
-  end
+  if rulesVersion ~= I18n.version then buildRules() end
   if Config.SMOKE then
     local Smoke = require("src.smoke")
     Smoke.bump("menus")
@@ -188,11 +182,11 @@ local function drawControls(x, top)
   local y = top + H.pad * 0.5
   for i = 1, #rows do
     local r = rows[i]
-    UI.textMid("titleSmall", r[1], lx, y, H.rowH, C.textWarn, H.labelW, "right")
-    UI.textMid("title", r[2], bx, y, H.rowH, C.text)
+    UI.textMid("titleSmall", S[r[1]], lx, y, H.rowH, C.textWarn, H.labelW, "right")
+    UI.textMid("title", S[r[2]], bx, y, H.rowH, C.text)
     y = y + H.rowH
   end
-  UI.text("body", controls.note, lx, y + H.noteGap, C.textDim, H.w - 2 * H.pad, "center")
+  UI.text("body", S[controls.note], lx, y + H.noteGap, C.textDim, H.w - 2 * H.pad, "center")
 end
 
 local function drawRules(x, top)
@@ -217,10 +211,10 @@ function HowTo:draw()
   local H = M.howto
 
   Background.draw()
-  UI.text("big", "COMO JOGAR", 0, M.screenTitleY, C.text, W, "center")
+  UI.text("big", S.menu_howto, 0, M.screenTitleY, C.text, W, "center")
 
   local x = math.floor((W - H.w) * 0.5)
-  local top = UI.window(x, H.y, H.w, H.h, page == 1 and controls.title or "REGRAS", C.textWarn)
+  local top = UI.window(x, H.y, H.w, H.h, page == 1 and S[controls.title] or S.howto_rules, C.textWarn)
   if page == 1 then drawControls(x, top) else drawRules(x, top) end
 
   local cy = H.y + H.h * 0.5
@@ -228,8 +222,7 @@ function HowTo:draw()
   pageArrow(x + H.w + H.arrowX, cy, 1, page < PAGES, "howto_next")
   UI.digits("digits", PAGE_TEXT[page], 0, H.pageY, C.textDim, W, "center")
 
-  local hint = Input.usingTouch() and "TOQUE NAS SETAS PARA MUDAR A PÁGINA"
-    or "D-PAD OU SETAS: PÁGINA   -   START: AVANÇA   -   BACK OU B: VOLTA"
+  local hint = Input.usingTouch() and S.howto_hint_touch or S.howto_hint
   UI.text("body", hint, 0, M.hintY, C.text, W, "center")
   UI.exitBar(W * 0.5, M.hintY + 16)
   Nav.drawTouchBack()

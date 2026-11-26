@@ -10,6 +10,7 @@ local UI      = require("src.ui")
 local Post    = require("src.post")
 local Upgrades = require("src.systems.upgrades")
 local Combat  = require("src.systems.combat")
+local S       = require("src.i18n").S
 
 local P = Config.PLAYER
 local W = Config.WEAPON
@@ -458,7 +459,7 @@ function Player:updateRecharge(dt, world)
   local def = Powerups.byId("bubble")
   Powerups.give(self, def, world)
   world:ring(self.x, self.y, 26, def.color, 0.35)
-  world:floatText(self.x, self.y - 14, def.name, def.color)
+  world:floatText(self.x, self.y - 14, S.powerup_name[def.id], def.color)
   if Config.SMOKE then require("src.smoke").bump("recharges") end
 end
 

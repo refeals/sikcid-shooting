@@ -65,6 +65,9 @@ local function parseArgs(args)
     elseif a == "--fx" then
       -- Glow quality: high | low | off (see Config.FX); locks the OPÇÕES item.
       if args[i + 1] then Config.FX_FLAG = args[i + 1]; i = i + 1 end
+    elseif a == "--lang" then
+      -- Language this session: en | es | pt (src/i18n.lua); locks the OPÇÕES item.
+      if args[i + 1] then Config.LANG_FLAG = args[i + 1]; i = i + 1 end
     elseif a == "--media" then
       Config.MEDIA = true        -- renders the store/frontend art (tools/media.lua)
     elseif a == "--powerup" then
@@ -113,8 +116,19 @@ function love.load(args)
   math.randomseed(os.time())
 
   -- The saved options (and the flags over them). Before the modules: it sets
-  -- the FX quality Post.load reads.
+  -- the FX quality Post.load reads and the language.
   Options.load()
+
+  -- Smoke: the three languages must have the same keys (src/i18n.lua).
+  if Config.SMOKE then
+    local errors = require("src.i18n").check()
+    if #errors > 0 then
+      for i = 1, #errors do print("[i18n] " .. errors[i]) end
+      print(string.format("[smoke] FALHA: %d problema(s) nos idiomas (src/lang/)", #errors))
+      love.event.quit(1)
+      return
+    end
+  end
 
   -- Smoke test and --windowed run in a window so they don't take over the
   -- screen; so does a PC whose OPÇÕES turned fullscreen off (conf.lua can't

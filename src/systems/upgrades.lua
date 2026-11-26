@@ -13,51 +13,33 @@
 
 local Config = require("src.config")
 local Util   = require("src.util")
+local S      = require("src.i18n").S
 
 local U = Config.UPGRADES
 
 local Upgrades = {}
 
--- `desc` is one line per level (stats repeat the same line).
+-- Names and descriptions live in src/lang: S.upgrade_name[id] and
+-- S.upgrade_desc[id], one line per level (stats have one). The letter on
+-- the icon is the same in every language.
 Upgrades.DEFS = {
-  { id = "cadence", name = "CADÊNCIA", letter = "C", max = U.cadence.max,
-    desc = { "+20% DE CADÊNCIA DE TIRO" } },
-  { id = "motor", name = "MOTOR", letter = "M", max = U.motor.max,
-    desc = { "+12% DE VELOCIDADE" } },
-  { id = "thruster", name = "PROPULSOR", letter = "J", max = U.thruster.max,
-    desc = { "O DASH RECARREGA 20% MAIS RÁPIDO" } },
-  { id = "duration", name = "DURAÇÃO", letter = "T", max = U.duration.max,
-    desc = { "POWER-UPS DURAM 35% MAIS" } },
-  { id = "hull", name = "CASCO", letter = "A", max = U.hull.max,
-    desc = { "+1 VIDA AGORA E +1 NO MÁXIMO" } },
-  { id = "magnet", name = "ÍMÃ", letter = "I", max = U.magnet.max,
-    desc = { "PUXA OS POWER-UPS PARA VOCÊ" } },
-  { id = "pierce", name = "PERFURANTE", letter = "P", max = 3, unique = true,
-    desc = { "TIROS ATRAVESSAM 1 INIMIGO", "TIROS ATRAVESSAM 2 INIMIGOS",
-             "TIROS ATRAVESSAM TODOS OS INIMIGOS" } },
-  { id = "rear", name = "RETAGUARDA", letter = "R", max = 3, unique = true,
-    desc = { "TIRO PARA TRÁS (METADE DA CADÊNCIA)", "TIRO PARA TRÁS NA CADÊNCIA CHEIA",
-             "3 TIROS PARA TRÁS EM LEQUE" } },
-  { id = "loyal", name = "DRONE FIEL", letter = "D", max = 3, unique = true,
-    desc = { "DRONE PERMANENTE (METADE DA CADÊNCIA)", "O DRONE ATIRA NA CADÊNCIA CHEIA",
-             "UM SEGUNDO DRONE" } },
-  { id = "blade", name = "LÂMINA", letter = "L", max = 3, unique = true,
-    desc = { "DASH DÁ 3 DE DANO EM QUEM ATRAVESSA", "DASH DÁ 6 DE DANO",
-             "MATAR COM A LÂMINA RECARREGA O DASH" } },
-  { id = "recharge", name = "RECARGA", letter = "B", max = 3, unique = true,
-    desc = { "GANHA UMA BOLHA A CADA 30 S", "GANHA UMA BOLHA A CADA 20 S",
-             "A BOLHA ESTOURA COM UMA NOVA" } },
-  { id = "ricochet", name = "RICOCHETE", letter = "Q", max = 3, unique = true,
-    desc = { "TIROS QUICAM 1 VEZ NAS PAREDES", "TIROS QUICAM 2 VEZES",
-             "TIRO QUE QUICOU PERSEGUE INIMIGOS" } },
-  { id = "shock", name = "CHOQUE", letter = "Z", max = 3, unique = true,
-    desc = { "FIM DO DASH SOLTA UMA MINI-NOVA", "MINI-NOVA MAIOR E MAIS FORTE",
-             "MINI-NOVA TAMBÉM NO INÍCIO DO DASH" } },
+  { id = "cadence", letter = "C", max = U.cadence.max },
+  { id = "motor", letter = "M", max = U.motor.max },
+  { id = "thruster", letter = "J", max = U.thruster.max },
+  { id = "duration", letter = "T", max = U.duration.max },
+  { id = "hull", letter = "A", max = U.hull.max },
+  { id = "magnet", letter = "I", max = U.magnet.max },
+  { id = "pierce", letter = "P", max = 3, unique = true },
+  { id = "rear", letter = "R", max = 3, unique = true },
+  { id = "loyal", letter = "D", max = 3, unique = true },
+  { id = "blade", letter = "L", max = 3, unique = true },
+  { id = "recharge", letter = "B", max = 3, unique = true },
+  { id = "ricochet", letter = "Q", max = 3, unique = true },
+  { id = "shock", letter = "Z", max = 3, unique = true },
 }
 
 -- Filler card when nothing else is left to offer.
-Upgrades.LIFE_CARD = { id = "life", name = "+1 VIDA", letter = "+", max = math.huge,
-  desc = { "+1 VIDA NA HORA (ATÉ O MÁXIMO)" }, instant = true }
+Upgrades.LIFE_CARD = { id = "life", letter = "+", max = math.huge, instant = true }
 
 local byId = {}
 for i = 1, #Upgrades.DEFS do byId[Upgrades.DEFS[i].id] = Upgrades.DEFS[i] end
@@ -78,18 +60,20 @@ end
 local TIER_SUFFIX = { "", "+", "++" }
 
 function Upgrades.label(def, level)
-  if def.unique then return def.name .. (TIER_SUFFIX[level] or "") end
+  local name = S.upgrade_name[def.id]
+  if def.unique then return name .. (TIER_SUFFIX[level] or "") end
   if def.max > 1 and def.max < math.huge then
-    return string.format("%s %d/%d", def.name, level, def.max)
+    return string.format("%s %d/%d", name, level, def.max)
   end
-  return def.name
+  return name
 end
 
 -- Card title (narrow cards): uniques with their "+"/"++", stats just the
 -- name (their "N/MAX" goes in a corner, see Upgrades.count).
 function Upgrades.cardTitle(def, level)
-  if def.unique then return def.name .. (TIER_SUFFIX[level] or "") end
-  return def.name
+  local name = S.upgrade_name[def.id]
+  if def.unique then return name .. (TIER_SUFFIX[level] or "") end
+  return name
 end
 
 -- "N/MAX" for stacking stats, nil otherwise.
@@ -99,7 +83,8 @@ function Upgrades.count(def, level)
 end
 
 function Upgrades.desc(def, level)
-  return def.desc[math.min(level, #def.desc)]
+  local lines = S.upgrade_desc[def.id]
+  return lines[math.min(level, #lines)]
 end
 
 -- ---------------------------------------------------------------------------

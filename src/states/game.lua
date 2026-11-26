@@ -34,6 +34,7 @@ local Music     = require("src.music")
 local Input     = require("src.input")
 local Touch     = require("src.touch")
 local Options   = require("src.options")
+local Text      = require("src.i18n").S   -- game text (S is taken by locals here)
 
 local Game = {}
 
@@ -1000,7 +1001,7 @@ local bgWave, bgResting = 0, true
 local bgFocusX, bgFocusY = arena.cx, arena.cy
 -- HUD center text, reused every frame: a label plus its number (the number is
 -- drawn in the digits font, see UI.textNumber).
-local hudInfo = { titleLabel = "WAVE ", titleNum = "", subLabel = "", subNum = "" }
+local hudInfo = { titleLabel = "", titleNum = "", subLabel = "", subNum = "" }
 
 -- Number strings drawn every frame, re-formatted only when the value changes
 -- (no new string per frame). One slot per on-screen number.
@@ -1073,8 +1074,8 @@ local function drawGameOver()
   g.rectangle("fill", arena.x, arena.y, arena.w, arena.h)
 
   local cx, cy = arena.x, arena.cy
-  UI.text("big", "GAME OVER", cx, cy - 46, faded(C.doorWarn, a), arena.w, "center")
-  UI.textNumber("title", "digits", "WAVE ", numStr("goWave", Spawner.wave, "%d"), nil,
+  UI.text("big", Text.game_over, cx, cy - 46, faded(C.doorWarn, a), arena.w, "center")
+  UI.textNumber("title", "digits", Text.wave, numStr("goWave", Spawner.wave, "%d"), nil,
     cx, cy - 14, faded(C.text, a), arena.w, "center")
 
   if world.playerCount >= 2 then
@@ -1089,7 +1090,7 @@ local function drawGameOver()
   end
 
   if Game.endAccepting() and math.floor(world.endT * 2.5) % 2 == 0 then
-    UI.text("title", Input.usingTouch() and "TOQUE NA TELA" or "APERTE START",
+    UI.text("title", Input.usingTouch() and Text.tap_screen or Text.press_start,
       cx, cy + 44, C.text, arena.w, "center")
   end
   g.setColor(1, 1, 1, 1)
@@ -1146,7 +1147,7 @@ local function drawDashButton(p)
   local C = Config.COLORS.text
   dashTextColor[1], dashTextColor[2], dashTextColor[3] = C[1], C[2], C[3]
   dashTextColor[4] = ready and 0.9 or 0.45
-  UI.text("body", "DASH", x - r, y - 4, dashTextColor, r * 2, "center")
+  UI.text("body", Text.act_dash, x - r, y - 4, dashTextColor, r * 2, "center")
   g.setColor(1, 1, 1, 1)
   Touch.button("dash", x - r, y - r, r * 2, r * 2)
 end
@@ -1435,7 +1436,7 @@ function Game:update(dt)
           Powerups.give(p, pk.def, world)
           Particle.burst(particles, 6, pk.x, pk.y, pk.def.color, 4)
           world:ring(p.x, p.y, FXP.collectRing, pk.def.color, 0.35)
-          world:floatText(p.x, p.y - 14, pk.def.name, pk.def.color)
+          world:floatText(p.x, p.y - 14, Text.powerup_name[pk.def.id], pk.def.color)
           if Config.SMOKE then require("src.smoke").bump("pickups") end
           taken = true
           break
@@ -1575,7 +1576,7 @@ function Game:draw(covered)
     local by = arena.cy - 70 - (1 - t) * 10
     local tint = Config.FX.hud.bannerTint
     bannerColor[1], bannerColor[2], bannerColor[3], bannerColor[4] = tint[1], tint[2], tint[3], math.min(1, t * 2)
-    drawBannerText("big", "digitsBig", "WAVE ", waveNum, nil, by, 12, age, bannerColor)
+    drawBannerText("big", "digitsBig", Text.wave, waveNum, nil, by, 12, age, bannerColor)
     -- A type's debut wave: "NOVO: <NAME>" under it, in that enemy's color.
     if Spawner.introLabel then
       local ec = Config.COLORS[Config.ENEMIES[Spawner.introType].color]
@@ -1588,14 +1589,14 @@ function Game:draw(covered)
   local boss = world.boss
   if boss.state == "warn" then
     if math.floor(boss.timer * 4) % 2 == 0 then
-      UI.text("big", "ALERTA", arena.cx - 160, arena.cy - 60, C.doorWarn, 320, "center")
+      UI.text("big", Text.alert, arena.cx - 160, arena.cy - 60, C.doorWarn, 320, "center")
     end
-    UI.text("title", boss.variant.name, arena.cx - 160, arena.cy - 28, C.text, 320, "center")
+    UI.text("title", Text.boss_name[boss.variant.id], arena.cx - 160, arena.cy - 28, C.text, 320, "center")
   end
   -- Sub-boss alert: shorter and faster than the boss's, in the title font.
   if Spawner.subAlert > 0 and Spawner.subName then
     if math.floor(Spawner.subAlert * 8) % 2 == 0 then
-      UI.text("title", "ALERTA", arena.cx - 160, arena.cy - 60, C.doorWarn, 320, "center")
+      UI.text("title", Text.alert, arena.cx - 160, arena.cy - 60, C.doorWarn, 320, "center")
     end
     UI.text("title", Spawner.subName, arena.cx - 160, arena.cy - 40, C.text, 320, "center")
   end
@@ -1603,25 +1604,25 @@ function Game:draw(covered)
   -- Wave cleared notice during the breather.
   if Spawner.isResting() and Spawner.wave >= 1 then
     local age = Config.WAVE.restTime - Spawner.timer
-    drawBannerText("title", "digits", "WAVE ", waveNum, " COMPLETA", arena.cy - 58, 8, age, C.textWarn)
+    drawBannerText("title", "digits", Text.wave, waveNum, Text.wave_cleared, arena.cy - 58, 8, age, C.textWarn)
     -- Two numbers on one centered line: measured first, then drawn in two
     -- label+number blocks. The bonus counts up from 0.
     local HC = Config.FX.hud
     local kb = math.min(1, age / HC.bonusCount)
     kb = 1 - (1 - kb) * (1 - kb)
     local bonusNum = numStr("bonus", math.floor(Spawner.wave * Config.WAVE.clearBonus * kb + 0.5), "%d")
-    local w1 = UI.textNumberWidth("body", "digitsSmall", "BÔNUS ", bonusNum, "   -   ")
-    local w2 = UI.textNumberWidth("body", "digitsSmall", "PRÓXIMA EM ", restNum)
+    local w1 = UI.textNumberWidth("body", "digitsSmall", Text.bonus, bonusNum, "   -   ")
+    local w2 = UI.textNumberWidth("body", "digitsSmall", Text.next_in, restNum)
     local lx = arena.cx - (w1 + w2) * 0.5
-    UI.textNumber("body", "digitsSmall", "BÔNUS ", bonusNum, "   -   ", lx, arena.cy - 36, C.textDim)
-    UI.textNumber("body", "digitsSmall", "PRÓXIMA EM ", restNum, nil, lx + w1, arena.cy - 36, C.textDim)
+    UI.textNumber("body", "digitsSmall", Text.bonus, bonusNum, "   -   ", lx, arena.cy - 36, C.textDim)
+    UI.textNumber("body", "digitsSmall", Text.next_in, restNum, nil, lx + w1, arena.cy - 36, C.textDim)
   end
 
   -- Respawn countdown.
   for i = 1, world.playerCount do
     local p = world.players[i]
     if not p.alive and not p.out then
-      UI.text("body", string.format("P%d VOLTA EM %.1f", p.index, math.max(0, p.respawnTimer)),
+      UI.text("body", string.format(Text.respawn, p.index, math.max(0, p.respawnTimer)),
         arena.cx - 80, arena.cy - 22 + (i - 1) * 12, p.color, 160, "center")
     end
   end
@@ -1640,6 +1641,7 @@ function Game:draw(covered)
     boss:drawDebug()
   end
 
+  hudInfo.titleLabel = Text.wave
   hudInfo.titleNum = waveNum
   hudInfo.boss = nil
   hudInfo.sub = nil
@@ -1649,10 +1651,10 @@ function Game:draw(covered)
   elseif sub and not sub.dead and sub.def.subboss then
     hudInfo.sub = sub   -- its name and HP bar in place of the enemy count
   elseif Spawner.isResting() then
-    hudInfo.subLabel = "PRÓXIMA EM "
+    hudInfo.subLabel = Text.next_in
     hudInfo.subNum = restNum
   else
-    hudInfo.subLabel = "INIMIGOS "
+    hudInfo.subLabel = Text.enemies_left
     hudInfo.subNum = numStr("enemies", Spawner.remaining(world), "%d")
   end
   -- Touch: the sticks under the HUD, the pause button beside the WAVE title.

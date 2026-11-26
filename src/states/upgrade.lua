@@ -15,6 +15,7 @@ local Audio    = require("src.audio")
 local UI       = require("src.ui")
 local Screen   = require("src.screen")
 local Upgrades = require("src.systems.upgrades")
+local S        = require("src.i18n").S
 
 local U = Config.UPGRADES
 local CARDS = 3
@@ -153,13 +154,12 @@ local function drawSide(self, i, x, y, w, h, cardW, gap, iconSize, single)
   -- Tab titles stay unaccented (see Config.ART.ui.tabH).
   local title
   if single then
-    title = self.boss and "RECOMPENSA DO BOSS" or "UPGRADE"
+    title = self.boss and S.up_title_boss or S.up_title
   else
-    title = (i == 1 and "P1" or "P2") .. (self.boss and " - RECOMPENSA" or " - UPGRADE")
+    title = string.format(self.boss and S.up_title_p_boss or S.up_title_p, i)
   end
   local top = UI.window(x, y, w, h, title, single and Config.ART.ui.neutral or p.color)
-  UI.text("body", self.boss and "ESCOLHA UMA RECOMPENSA PERMANENTE" or "ESCOLHA UM UPGRADE PERMANENTE",
-    x, top + 6, C.textDim, w, "center")
+  UI.text("body", self.boss and S.up_pick_boss or S.up_pick, x, top + 6, C.textDim, w, "center")
 
   local total = s.n * cardW + (s.n - 1) * gap
   local cx = x + (w - total) * 0.5
@@ -173,7 +173,7 @@ local function drawSide(self, i, x, y, w, h, cardW, gap, iconSize, single)
     Touch.button(CARD_ACTIONS[i][k], bx, cy, cardW, cardH)
   end
   if s.confirmed then
-    UI.text("title", "PRONTO", x, y + h - 18, p.color, w, "center")
+    UI.text("title", S.ready, x, y + h - 18, p.color, w, "center")
   end
 end
 
@@ -196,9 +196,7 @@ function Upgrade:draw()
   end
 
   local touch = Input.usingTouch()
-  UI.text("body", touch and "TOQUE NA CARTA PARA ESCOLHER"
-    or "ESQUERDA / DIREITA ESCOLHE   -   START CONFIRMA",
-    0, y + h + 10, C.text, W, "center")
+  UI.text("body", touch and S.up_hint_touch or S.up_hint, 0, y + h + 10, C.text, W, "center")
   love.graphics.setColor(1, 1, 1, 1)
 end
 

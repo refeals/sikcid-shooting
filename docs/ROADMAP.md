@@ -26,8 +26,9 @@ etapa estão em [PROBLEMS.md](PROBLEMS.md#em-observação).
 
 ### Outras ideias
 
-- Adicionar seletor de linguagem para EN, ES e PT-BR, com padrão EN.
 - Ranking geral na nuvem (Firebase?).
+- Abrir no idioma do sistema no primeiro boot do Batocera (o launcher leria
+  o idioma do sistema e passaria para o jogo; hoje é sempre inglês).
 - Inimigo MINADOR (guardado na etapa 2 de gameplay).
 - Power-ups TORRETA e ESCOPETA (guardados na etapa 6 de gameplay).
 
@@ -40,6 +41,8 @@ etapa estão em [PROBLEMS.md](PROBLEMS.md#em-observação).
    COMO JOGAR (controles do device e regras) e RECORDES (recordes e
    acumulados da máquina) (7b). Detalhes em
    [DESIGN.md](DESIGN.md#menu-principal-e-opções).
+8. Idiomas: inglês (padrão), espanhol e português, escolhidos em OPÇÕES e
+   salvos no `options.dat`. Detalhes em [DESIGN.md](DESIGN.md#idioma).
 
 ### Gameplay e balanceamento (nov/2026)
 

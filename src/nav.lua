@@ -15,6 +15,7 @@ local Config = require("src.config")
 local Input  = require("src.input")
 local Touch  = require("src.touch")
 local UI     = require("src.ui")
+local S      = require("src.i18n").S
 
 local Nav = {}
 
@@ -58,7 +59,7 @@ function Nav.drawTouchBack(y)
   local B = Config.MENU.touchBack
   local x = math.floor((Config.VIRTUAL_W - B.w) * 0.5)
   y = y or B.y
-  UI.tab(Config.ART.ui.neutral, "VOLTAR", x, y, B.w, B.h, "titleSmall")
+  UI.tab(Config.ART.ui.neutral, S.back_button, x, y, B.w, B.h, "titleSmall")
   Touch.button("back", x, y, B.w, B.h)
 end
 

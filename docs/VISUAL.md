@@ -29,8 +29,9 @@ mudar o visual é uma mudança local, sem tocar em lógica:
 Cores de jogo em `Config.COLORS`; sprites, tamanhos, fontes e ajustes visuais
 em `Config.ART`.
 
-As cores dos jogadores vêm da paleta `Config.PLAYER_PALETTE` (8 cores com nome
-em PT-BR, sem o rosa dos tiros inimigos). O lobby escreve a cor escolhida de
+As cores dos jogadores vêm da paleta `Config.PLAYER_PALETTE` (8 cores, sem o
+rosa dos tiros inimigos; os nomes ficam em `S.color_name`, em `src/lang/`). O
+lobby escreve a cor escolhida de
 cada slot em `Config.PLAYER_COLORS`, que é a lista que todo visual de jogador
 lê (nave, tiros, HUD, pausa, game over). A cor inicial de cada slot fica em
 `Config.PLAYER_DEFAULT_COLOR`, e a escolha é salva como `color1`/`color2` no

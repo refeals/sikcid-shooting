@@ -28,6 +28,7 @@ local Player = require("src.entities.player")
 local UI     = require("src.ui")
 local Background = require("src.background")
 local Nav    = require("src.nav")
+local S      = require("src.i18n").S
 
 local Lobby = {}
 
@@ -233,7 +234,7 @@ local function drawSlot(index, x, y, w, h)
   local s = slots[index]
   local color = Config.PLAYER_COLORS[index]
 
-  local top = UI.window(x, y, w, h, "JOGADOR " .. index, s and color or Config.ART.ui.neutral)
+  local top = UI.window(x, y, w, h, string.format(S.player_n, index), s and color or Config.ART.ui.neutral)
 
   -- Ship preview in the slot color, gently swaying; grey while the slot is free.
   local cx, cy = x + w * 0.5, top + 24
@@ -249,18 +250,18 @@ local function drawSlot(index, x, y, w, h)
       Touch.button("left", cx - gap, cy - a, a, a * 2)
       Touch.button("right", cx + gap - a, cy - a, a, a * 2)
     end
-    UI.text("body", PALETTE[s.colorIndex].name, x, top + 44, color, w, "center")
+    UI.text("body", S.color_name[s.colorIndex], x, top + 44, color, w, "center")
     if s.device.connected then
-      UI.text("title", "PRONTO", x, top + 58, color, w, "center")
+      UI.text("title", S.ready, x, top + 58, color, w, "center")
     else
-      UI.text("title", "DESCONECTADO", x, top + 58, C.doorWarn, w, "center")
+      UI.text("title", S.disconnected, x, top + 58, C.doorWarn, w, "center")
     end
     UI.text("body", s.device:displayName(), x + 6, top + 82, C.textDim, w - 12, "center")
   else
     -- Pulsing invitation to bring the screen to life.
     local a = 0.55 + 0.45 * math.sin(blink * 4)
-    local invite = index == 1 and "PRESSIONE START" or "PRESSIONE QUALQUER BOTÃO"
-    if index == 1 and Input.usingTouch() then invite = "TOQUE NA TELA" end
+    local invite = index == 1 and S.lobby_press_start or S.lobby_press_any
+    if index == 1 and Input.usingTouch() then invite = S.tap_screen end
     UI.text("body", invite,
       x + 6, top + 60, { C.textDim[1], C.textDim[2], C.textDim[3], a }, w - 12, "center")
   end
@@ -280,7 +281,7 @@ function Lobby:draw()
   Background.draw()
 
   -- The game name lives on the main menu; here just the screen's header.
-  UI.text("title", "JOGADORES", 0, 26, C.text, W, "center")
+  UI.text("title", S.lobby_title, 0, 26, C.text, W, "center")
 
   local sw, sh = 200, 130
   drawSlot(1, W * 0.5 - sw - 12, 60, sw, sh)
@@ -289,28 +290,26 @@ function Lobby:draw()
   -- Records: best solo, best single score in a duo, best duo total.
   local rw = 2 * sw + 24
   local rx = W * 0.5 - rw * 0.5
-  local top = UI.window(rx, 198, rw, 62, "RECORDES", C.textWarn)
+  local top = UI.window(rx, 198, rw, 62, S.menu_records, C.textWarn)
   local cw = rw / 3
-  drawRecord("MELHOR SOLO", Save.get("solo"), rx, top + 8, cw)
-  drawRecord("MELHOR EM DUPLA", Save.get("duo"), rx + cw, top + 8, cw)
-  drawRecord("SOMA DA DUPLA", Save.get("coop"), rx + cw * 2, top + 8, cw)
+  drawRecord(S.best_solo, Save.get("solo"), rx, top + 8, cw)
+  drawRecord(S.best_duo, Save.get("duo"), rx + cw, top + 8, cw)
+  drawRecord(S.duo_total, Save.get("coop"), rx + cw * 2, top + 8, cw)
 
   local bound = boundCount() > 0
   local touch = Input.usingTouch()
   local hint
   if touch then
-    hint = bound and "TOQUE PARA COMEÇAR   -   AS SETAS TROCAM A COR" or "TOQUE PARA ENTRAR"
+    hint = bound and S.lobby_hint_touch_bound or S.lobby_hint_touch
   else
-    hint = bound
-      and "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT"
-      or  "START PARA ENTRAR   -   BACK VOLTA AO MENU"
+    hint = bound and S.lobby_hint_bound or S.lobby_hint
   end
   UI.text("body", hint, 0, 270, C.text, W, "center")
   if bound and not touch then
-    UI.text("body", "D-PAD TROCA A COR   -   Y SORTEIA", 0, 284, C.text, W, "center")
+    UI.text("body", S.lobby_color_hint, 0, 284, C.text, W, "center")
   end
   if not Config.WEB and not touch then   -- the browser build has no quit (see Input)
-    UI.text("body", "SEGURE SELECT PARA SAIR DO JOGO", 0, 298, C.textDim, W, "center")
+    UI.text("body", S.hold_select_quit, 0, 298, C.textDim, W, "center")
     UI.exitBar(W * 0.5, 314)
   end
   -- Touch: VOLTAR leaves the slot, then (lobby empty) goes to the menu.

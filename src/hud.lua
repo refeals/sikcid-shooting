@@ -14,6 +14,7 @@ local UI     = require("src.ui")
 local Player = require("src.entities.player")
 local Pickup = require("src.entities.pickup")
 local Upgrades = require("src.systems.upgrades")
+local S      = require("src.i18n").S
 
 local Hud = {}
 
@@ -139,7 +140,7 @@ local function drawPlayerPanel(p, x, y)
   local lx = sx + sw + 10
   local midY = y + PAD + tab.h * 0.5
   if p.out then
-    UI.text("body", "FORA", lx, midY - 3, C.textDim)
+    UI.text("body", S.hud_out, lx, midY - 3, C.textDim)
   else
     for i = 1, p.lives do
       Player.drawShip(p.color, lx + (i - 1) * LIFE_GAP, midY, -math.pi / 2, Config.ART.size.hudLife)
@@ -155,12 +156,12 @@ local function drawPlayerPanel(p, x, y)
     local jx = math.sin(p.comboLost * 70) * HC.lostShake * t
     local w = C.doorWarn
     lostColor[1], lostColor[2], lostColor[3], lostColor[4] = w[1], w[2], w[3], math.min(1, t * 2)
-    UI.text("body", "COMBO PERDIDO", x + PAD + 2 + jx, ry + HC.lostDrop * (1 - t), lostColor)
+    UI.text("body", S.hud_combo_lost, x + PAD + 2 + jx, ry + HC.lostDrop * (1 - t), lostColor)
   elseif p.combo and p.combo > 0 then
     local mult = Combo.mult(p)
     local pulse = (p.comboPulse or 0) > 0
     local color = pulse and C.flash or (mult > 1 and C.textWarn or C.textDim)
-    local text = string.format("COMBO %d  x%d", p.combo, mult)
+    local text = string.format(S.hud_combo, p.combo, mult)
     -- Punch on each step, bigger on a multiplier up.
     local ck = h and h.comboKick / HC.comboKick or 0
     local cpeak = (h and h.comboBig) and HC.bigKickScale or HC.kickScale
@@ -210,7 +211,7 @@ function Hud.draw(players, playerCount, info)
     if boss then
       -- Boss wave: its name and HP bar in place of the enemy count. The bar
       -- turns warning red while it rages.
-      local name = boss.variant.name
+      local name = S.boss_name[boss.variant.id]
       local nw = Assets.font("body"):getWidth(name)
       local bx = cx + (cw - (nw + 6 + BOSS_BAR_W)) * 0.5
       UI.text("body", name, bx, 22, C.text)
@@ -219,7 +220,7 @@ function Hud.draw(players, playerCount, info)
     elseif info.sub then
       -- Sub-boss alive: its name and HP bar, same layout as the boss's.
       local sub = info.sub
-      local name = sub.def.name
+      local name = S.enemy_name[sub.type]
       local nw = Assets.font("body"):getWidth(name)
       local bx = cx + (cw - (nw + 6 + BOSS_BAR_W)) * 0.5
       UI.text("body", name, bx, 22, C.text)
@@ -228,7 +229,7 @@ function Hud.draw(players, playerCount, info)
       UI.textNumber("body", "digitsSmall", info.subLabel, info.subNum, nil, cx, 22, C.textDim, cw, "center")
     end
   else
-    UI.text("title", "ARENA", cx, 3, C.text, cw, "center")
+    UI.text("title", S.hud_arena, cx, 3, C.text, cw, "center")
   end
 
   UI.exitBar(W * 0.5, Config.HUD_H - 7, 80)

@@ -13,6 +13,7 @@ local Music    = require("src.music")
 local Powerups = require("src.systems.powerups")
 local Pickup   = require("src.entities.pickup")
 local UI       = require("src.ui")
+local S        = require("src.i18n").S
 
 local Briefing = {}
 
@@ -34,11 +35,11 @@ end
 
 local WEAPON_LETTERS = lettersWhere(function(d) return d.weapon end)
 local STACK_LETTERS  = lettersWhere(function(d) return not d.weapon and not d.permanent end)
-local UPGRADE_LINE = string.format("A CADA %d WAVES: UPGRADE PERMANENTE", Config.UPGRADES.every)
 
--- Dash button per device kind (the smoke bots read as a pad).
+-- Dash button per device kind (the smoke bots read as a pad); a `false`
+-- one is a src/lang key instead (the touch button's place).
 local DASH_KEYS = { gamepad = "RB / LB / B", scripted = "RB / LB / B",
-                    keyboard = "SHIFT", touch = "BOTÃO ACIMA DE MIRAR" }
+                    keyboard = "SHIFT", touch = false }
 
 -- "DASH: <keys of every player's device, no repeats> - ...", built once.
 local function dashLine(world)
@@ -46,19 +47,23 @@ local function dashLine(world)
   for i = 1, world.playerCount do
     local d = world.players[i].device
     local k = d and DASH_KEYS[d.kind]
+    if k == false then k = S.brief_dash_touch end
     if k and not seen[k] then
       seen[k] = true
       keys[#keys + 1] = k
     end
   end
   if #keys == 0 then keys[1] = DASH_KEYS.gamepad end
-  return "DASH: " .. table.concat(keys, " OU ") .. "  -  ATRAVESSA INIMIGOS E TIROS"
+  return string.format(S.brief_dash, table.concat(keys, S.brief_or))
 end
 
 function Briefing:enter(world)
   self.world = world
   self.timer = 0
+  -- Lines built once per briefing (the language can't change during it).
   self.dashText = dashLine(world)
+  self.upgradeText = string.format(S.brief_upgrade, Config.UPGRADES.every)
+  self.stackText = string.format(S.brief_stack, WEAPON_LETTERS, STACK_LETTERS)
   if Config.SMOKE then require("src.smoke").note("state", "briefing") end
 end
 
@@ -111,9 +116,9 @@ function Briefing:draw()
   local ph = Config.ART.ui.tabH + 76 + rows * ROW_H   -- +24: the dash and upgrade lines
   local px = math.floor((W - pw) * 0.5)
   local py = math.floor(Config.HUD_H + (H - Config.HUD_H - ph) * 0.5) - 12
-  local top = UI.window(px, py, pw, ph, "POWER-UPS")
+  local top = UI.window(px, py, pw, ph, S.brief_title)
 
-  UI.text("body", "PASSE POR CIMA PARA PEGAR", px, top + 8, C.textDim, pw, "center")
+  UI.text("body", S.brief_pickup, px, top + 8, C.textDim, pw, "center")
 
   -- One cell per power-up, filled column by column: icon, name, description.
   local y0 = top + 24
@@ -124,27 +129,26 @@ function Briefing:draw()
     local cx = px + 10 + col * COL_W
     local cy = y0 + row * ROW_H + ICON * 0.5
     Pickup.drawIcon(d, cx + 14, cy, ICON)
-    UI.text("body", d.name, cx + 30, cy - 9, d.color)
-    UI.text("body", d.desc or "", cx + 30, cy + 1, C.text)
+    UI.text("body", S.powerup_name[d.id], cx + 30, cy - 9, d.color)
+    UI.text("body", S.powerup_desc[d.id], cx + 30, cy + 1, C.text)
   end
   local y = y0 + rows * ROW_H
 
   -- Stacking rule.
-  UI.text("body", string.format("%s SÃO ARMAS: PEGAR UMA TROCA A OUTRA.   %s ACUMULAM.",
-    WEAPON_LETTERS, STACK_LETTERS), px, y + 4, C.textDim, pw, "center")
+  UI.text("body", self.stackText, px, y + 4, C.textDim, pw, "center")
   -- The dash, with the button of each player's device.
   UI.text("body", self.dashText, px, y + 16, C.text, pw, "center")
   -- Permanent upgrades (src/states/upgrade.lua).
-  UI.text("body", UPGRADE_LINE, px, y + 28, Config.UPGRADES.uniqueColor, pw, "center")
+  UI.text("body", self.upgradeText, px, y + 28, Config.UPGRADES.uniqueColor, pw, "center")
 
   -- Pulsing call to start.
   local ready = self.timer >= ACCEPT_DELAY
   local a = ready and (0.6 + 0.4 * math.sin(self.timer * 5)) or 0.3
   local touch = Input.usingTouch()
-  UI.text("title", touch and "TOQUE PARA COMEÇAR" or "START COMEÇA A PARTIDA", 0, py + ph + 8,
+  UI.text("title", touch and S.brief_start_touch or S.brief_start, 0, py + ph + 8,
     { C.textWarn[1], C.textWarn[2], C.textWarn[3], a }, W, "center")
   if not touch then
-    UI.text("body", "BACK VOLTA PARA A SELEÇÃO", 0, py + ph + 30, C.textDim, W, "center")
+    UI.text("body", S.brief_back, 0, py + ph + 30, C.textDim, W, "center")
   end
 
   love.graphics.setColor(1, 1, 1, 1)

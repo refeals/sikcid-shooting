@@ -74,7 +74,9 @@ local LOGO_LINES = { "SIKCID", "SHOOTIN'" }
 local LOGO_FILL = { { 0.92, 0.94, 1.00 }, { 1.00, 0.84, 0.30 } }   -- text white, DOURADO
 local LOGO_EDGE = { 0.06, 0.05, 0.16 }
 local LOGO_GLOW = { 0.30, 0.62, 1.00 }                           -- AZUL, the P1 color
-local SUBTITLE = "TWIN-STICK SHOOTER DE ARENA - 1 OU 2 JOGADORES"
+-- Store art is always in English, whatever --lang says (the game itself
+-- defaults to English too).
+local SUBTITLE = "TWIN-STICK ARENA SHOOTER - 1 OR 2 PLAYERS"
 -- itch.io page color (theme BG = #0a0a0f, the HUD background); page-bg.png
 -- fades into it.
 local PAGE_BG = { 0x0a / 255, 0x0a / 255, 0x0f / 255 }

@@ -1,0 +1,297 @@
+-- Português (Brasil). Keys and rules in src/i18n.lua; every key here exists
+-- in en.lua and es.lua too (the smoke test checks).
+return {
+  decimal = ",",
+
+  -- Shared
+  back_button = "VOLTAR",
+  hold_select_quit = "SEGURE SELECT PARA SAIR DO JOGO",
+  start_back_returns = "START OU BACK VOLTA",
+  ready = "PRONTO",
+  disconnected = "DESCONECTADO",
+  player_n = "JOGADOR %d",
+  tap_screen = "TOQUE NA TELA",
+  best_solo = "MELHOR SOLO",
+  best_duo = "MELHOR EM DUPLA",
+  duo_total = "SOMA DA DUPLA",
+  upgrades_title = "UPGRADES",
+  act_move = "MOVER",
+  act_aim = "MIRAR",
+  wave = "WAVE ",
+
+  -- Main menu
+  menu_subtitle = "ARENA COOPERATIVA PARA 1-2 JOGADORES",
+  menu_play = "JOGAR",
+  menu_howto = "COMO JOGAR",
+  menu_records = "RECORDES",
+  menu_options = "OPÇÕES",
+  menu_credits = "CRÉDITOS",
+  menu_quit = "SAIR",
+  menu_hint_touch = "TOQUE NUMA OPÇÃO",
+  menu_hint = "D-PAD OU SETAS ESCOLHEM   -   START, A OU ENTER CONFIRMA",
+
+  -- OPÇÕES
+  opt_lang = "IDIOMA",
+  opt_fx = "EFEITOS VISUAIS",
+  opt_fx_levels = { "DESLIGADO", "BAIXO", "ALTO" },
+  opt_music = "MÚSICA",
+  opt_sfx = "EFEITOS SONOROS",
+  opt_shake = "TREMOR DE TELA",
+  opt_off = "DESLIGADO",
+  opt_distortion = "DISTORÇÃO",
+  opt_distortion_values = { "DESLIGADA", "LIGADA" },
+  opt_fullscreen = "TELA CHEIA",
+  opt_no_yes = { "NÃO", "SIM" },
+  opt_test = "TESTAR CONTROLES",
+  opt_restore = "RESTAURAR PADRÕES",
+  opt_restore_asks = { "RESTAURAR? APERTE DE NOVO" },
+  opt_wipe = "APAGAR RECORDES",
+  opt_wipe_asks = { "APAGAR OS RECORDES?", "TEM CERTEZA? NÃO TEM VOLTA" },
+  opt_restored = "PADRÕES RESTAURADOS",
+  opt_wiped = "RECORDES APAGADOS",
+  opt_hint_touch = "TOQUE NAS SETAS PARA MUDAR",
+  opt_hint = "D-PAD OU SETAS: ESCOLHER E MUDAR   -   BACK OU B: VOLTAR",
+
+  -- COMO JOGAR: controls page (action names, then each device's bindings)
+  howto_pad = "CONTROLE",
+  howto_keyboard = "TECLADO",
+  howto_touch = "TELA DE TOQUE",
+  howto_rules = "REGRAS",
+  act_fire = "ATIRAR",
+  act_dash = "DASH",
+  act_pause = "PAUSAR",
+  act_color = "COR DA NAVE (LOBBY)",
+  act_quit = "SAIR DO JOGO",
+  bind_auto = "AUTOMÁTICO",
+  pad_move = "ANALÓGICO ESQUERDO",
+  pad_aim = "ANALÓGICO DIREITO",
+  pad_dash = "RB, LB OU B",
+  pad_pause = "START OU BACK",
+  pad_color = "D-PAD, Y SORTEIA",
+  pad_quit = "SEGURAR SELECT",
+  pad_note = "MIRAR É OPCIONAL: SEM MIRA, A NAVE ATIRA SOZINHA NO INIMIGO MAIS PERTO. O D-PAD TAMBÉM MIRA.",
+  kb_move = "WASD",
+  kb_aim = "SETAS",
+  kb_dash = "SHIFT",
+  kb_pause = "ENTER OU ESC",
+  kb_color = "A/D, R SORTEIA",
+  kb_quit = "SEGURAR ESC",
+  kb_note = "MIRAR É OPCIONAL: SEM MIRA, A NAVE ATIRA SOZINHA NO INIMIGO MAIS PERTO.",
+  touch_move = "METADE ESQUERDA",
+  touch_aim = "METADE DIREITA",
+  touch_dash = "BOTÃO DASH",
+  touch_pause = "BOTÃO DE PAUSA",
+  touch_color = "SETAS DO SLOT",
+  touch_note = "ONDE O DEDO ENCOSTA VIRA O CENTRO DO ANALÓGICO. SEM DEDO NA DIREITA, A NAVE MIRA SOZINHA.",
+  -- COMO JOGAR: rules page. Headings in Rocket Square ("0" is a box there):
+  -- no digits in them.
+  rule_waves_h = "WAVES",
+  rule_waves = "OS INIMIGOS ENTRAM PELAS QUATRO PORTAS, EM LOTES (A PORTA PISCA ANTES). "
+    .. "A WAVE ACABA QUANDO NÃO SOBRA NINGUÉM.",
+  rule_combo_h = "COMBO",
+  rule_combo = "CADA ABATE RENOVA UMA JANELA DE %s S. A CADA %d ABATES SEGUIDOS, "
+    .. "O MULTIPLICADOR DOS PONTOS SOBE UM DEGRAU, ATÉ X%d.",
+  rule_rest_h = "RESPIRO",
+  rule_rest = "ENTRE AS WAVES: BÔNUS, UM POWER-UP GARANTIDO E %s S DE RESPIRO, "
+    .. "COM OS TIMERS DE COMBO E DE POWER-UP PARADOS.",
+  rule_upgrades_h = "UPGRADES",
+  rule_upgrades = "A CADA %d WAVES, CADA JOGADOR ESCOLHE UM UPGRADE PERMANENTE, "
+    .. "QUE VALE ATÉ O FIM DA PARTIDA.",
+  rule_subboss_h = "SUB-BOSS",
+  rule_subboss = "NAS WAVES %d, %d, %d... UM SUB-BOSS ENTRA NO MEIO DA WAVE "
+    .. "E DEIXA POWER-UPS AO CAIR.",
+  rule_boss_h = "BOSS",
+  rule_boss = "A CADA %d WAVES, UMA WAVE DE BOSS. CADA UM É MAIS FORTE QUE O ANTERIOR.",
+  howto_hint_touch = "TOQUE NAS SETAS PARA MUDAR A PÁGINA",
+  howto_hint = "D-PAD OU SETAS: PÁGINA   -   START: AVANÇA   -   BACK OU B: VOLTA",
+
+  -- RECORDES
+  rec_scores = "PONTOS",   -- not "PONTUAÇÃO": the tilde would touch the tab's top edge
+  rec_best_match = "MELHOR PARTIDA",
+  rec_machine = "ESTA MÁQUINA",
+  rec_wave_solo = "WAVE SOLO",
+  rec_wave_duo = "WAVE EM DUPLA",
+  rec_combo = "MAIOR COMBO",
+  rec_matches = "PARTIDAS",
+  rec_kills = "INIMIGOS ABATIDOS",
+  rec_time = "TEMPO JOGADO",
+  rec_time_fmt = "%dH %02dM",
+  rec_bosses = "BOSSES",
+  rec_subbosses = "SUB-BOSSES",
+
+  -- CRÉDITOS: { heading, line, line... } per section
+  credits = {
+    { "MÚSICA",
+      "MUSIC LOOP BUNDLE, DE ABSTRACTION (TALLBEARD STUDIOS) - CC0",
+      "SUNBURN, CLOAK OF DARKNESS, NEVER MISS E CRUSHING IT" },
+    { "ARTE, FONTES E SONS DE COMBATE",
+      "KENNEY (KENNEY.NL) - CC0",
+      "SPACE SHOOTER EXTENSION, SIMPLE SPACE, PLANETS, UI PACK (SCI-FI),",
+      "KENNEY FONTS E SCI-FI SOUNDS" },
+    { "DEMAIS EFEITOS SONOROS",
+      "GERADOS COM O SFXR (SFXR.ME)" },
+    { "FEITO COM",
+      "LÖVE (LOVE2D.ORG) - VERSÃO WEB COM LOVE.JS (MIT)" },
+  },
+
+  -- Lobby
+  lobby_title = "JOGADORES",
+  lobby_press_start = "PRESSIONE START",
+  lobby_press_any = "PRESSIONE QUALQUER BOTÃO",
+  lobby_hint_touch_bound = "TOQUE PARA COMEÇAR   -   AS SETAS TROCAM A COR",
+  lobby_hint_touch = "TOQUE PARA ENTRAR",
+  lobby_hint_bound = "START PARA COMEÇAR   -   BACK PARA SAIR DO SLOT",
+  lobby_hint = "START PARA ENTRAR   -   BACK VOLTA AO MENU",
+  lobby_color_hint = "D-PAD TROCA A COR   -   Y SORTEIA",
+  -- Lobby colors, by Config.PLAYER_PALETTE index
+  color_name = { "AZUL", "VERDE", "CIANO", "LIMA", "BRANCO", "LARANJA", "LILÁS", "DOURADO" },
+
+  -- Device names (lobby slot, input test)
+  dev_keyboard = "TECLADO",
+  dev_touch = "TOUCH",
+  dev_pad = "CONTROLE",
+  dev_pad_unknown = "CONTROLE ?",
+
+  -- Briefing
+  brief_title = "POWER-UPS",
+  brief_pickup = "PASSE POR CIMA PARA PEGAR",
+  brief_stack = "%s SÃO ARMAS: PEGAR UMA TROCA A OUTRA.   %s ACUMULAM.",
+  brief_dash = "DASH: %s  -  ATRAVESSA INIMIGOS E TIROS",
+  brief_or = " OU ",
+  brief_dash_touch = "BOTÃO ACIMA DE MIRAR",
+  brief_upgrade = "A CADA %d WAVES: UPGRADE PERMANENTE",
+  brief_start_touch = "TOQUE PARA COMEÇAR",
+  brief_start = "START COMEÇA A PARTIDA",
+  brief_back = "BACK VOLTA PARA A SELEÇÃO",
+
+  -- Power-ups, by id (src/systems/powerups.lua)
+  powerup_name = {
+    spread = "SPREAD", rapid = "RAPID FIRE", missiles = "MISSILES", boots = "SPEED BOOTS",
+    bubble = "BOLHA", drone = "DRONE", damage = "DANO X2", laser = "LASER",
+    orbital = "ESCUDO ORBITAL", slowmo = "TEMPO LENTO", nova = "NOVA", life = "EXTRA LIFE",
+  },
+  powerup_desc = {
+    spread = "3 tiros em leque",
+    rapid = "cadência de tiro em dobro",
+    missiles = "mísseis teleguiados, dano 3",
+    boots = "40% mais velocidade",
+    bubble = "segura 1 golpe e empurra",
+    drone = "drone que atira sozinho",
+    damage = "dobra o dano de qualquer arma",
+    laser = "raio que atravessa tudo",
+    orbital = "esferas que destroem tiros",
+    slowmo = "inimigos em câmera lenta",
+    nova = "onda de choque em volta (na hora)",
+    life = "+1 vida na hora (até o máximo)",
+  },
+
+  -- Permanent upgrades, by id (src/systems/upgrades.lua). `desc`: one line
+  -- per level (stats have one).
+  upgrade_name = {
+    cadence = "CADÊNCIA", motor = "MOTOR", thruster = "PROPULSOR", duration = "DURAÇÃO",
+    hull = "CASCO", magnet = "ÍMÃ", pierce = "PERFURANTE", rear = "RETAGUARDA",
+    loyal = "DRONE FIEL", blade = "LÂMINA", recharge = "RECARGA", ricochet = "RICOCHETE",
+    shock = "CHOQUE", life = "+1 VIDA",
+  },
+  upgrade_desc = {
+    cadence = { "+20% DE CADÊNCIA DE TIRO" },
+    motor = { "+12% DE VELOCIDADE" },
+    thruster = { "O DASH RECARREGA 20% MAIS RÁPIDO" },
+    duration = { "POWER-UPS DURAM 35% MAIS" },
+    hull = { "+1 VIDA AGORA E +1 NO MÁXIMO" },
+    magnet = { "PUXA OS POWER-UPS PARA VOCÊ" },
+    pierce = { "TIROS ATRAVESSAM 1 INIMIGO", "TIROS ATRAVESSAM 2 INIMIGOS",
+               "TIROS ATRAVESSAM TODOS OS INIMIGOS" },
+    rear = { "TIRO PARA TRÁS (METADE DA CADÊNCIA)", "TIRO PARA TRÁS NA CADÊNCIA CHEIA",
+             "3 TIROS PARA TRÁS EM LEQUE" },
+    loyal = { "DRONE PERMANENTE (METADE DA CADÊNCIA)", "O DRONE ATIRA NA CADÊNCIA CHEIA",
+              "UM SEGUNDO DRONE" },
+    blade = { "DASH DÁ 3 DE DANO EM QUEM ATRAVESSA", "DASH DÁ 6 DE DANO",
+              "MATAR COM A LÂMINA RECARREGA O DASH" },
+    recharge = { "GANHA UMA BOLHA A CADA 30 S", "GANHA UMA BOLHA A CADA 20 S",
+                 "A BOLHA ESTOURA COM UMA NOVA" },
+    ricochet = { "TIROS QUICAM 1 VEZ NAS PAREDES", "TIROS QUICAM 2 VEZES",
+                 "TIRO QUE QUICOU PERSEGUE INIMIGOS" },
+    shock = { "FIM DO DASH SOLTA UMA MINI-NOVA", "MINI-NOVA MAIOR E MAIS FORTE",
+              "MINI-NOVA TAMBÉM NO INÍCIO DO DASH" },
+    life = { "+1 VIDA NA HORA (ATÉ O MÁXIMO)" },
+  },
+
+  -- Upgrade screen. Tab titles stay unaccented (see Config.ART.ui.tabH).
+  up_title = "UPGRADE",
+  up_title_boss = "RECOMPENSA DO BOSS",
+  up_title_p = "P%d - UPGRADE",
+  up_title_p_boss = "P%d - RECOMPENSA",
+  up_pick = "ESCOLHA UM UPGRADE PERMANENTE",
+  up_pick_boss = "ESCOLHA UMA RECOMPENSA PERMANENTE",
+  up_hint_touch = "TOQUE NA CARTA PARA ESCOLHER",
+  up_hint = "ESQUERDA / DIREITA ESCOLHE   -   START CONFIRMA",
+
+  -- Enemies with a name on screen (debut banner, sub-boss alert and HP bar),
+  -- by Config.ENEMIES key; bosses by Config.BOSS.variants id. Names in the
+  -- big banner font: keep them unaccented.
+  enemy_name = {
+    kamikaze = "KAMIKAZE", divisor = "DIVISOR", sniper = "SNIPER", carrier = "PORTA-NAVES",
+    torre = "TORRE", ariete = "ARIETE", hidra = "HIDRA", colmeia = "COLMEIA",
+  },
+  boss_name = {
+    destroyer = "DESTRUIDOR", reaper = "CEIFADOR", devourer = "DEVORADOR",
+    colossus = "COLOSSO", sentinel = "SENTINELA",
+  },
+
+  -- In the arena
+  game_over = "GAME OVER",
+  press_start = "APERTE START",
+  wave_cleared = " COMPLETA",
+  bonus = "BÔNUS ",
+  next_in = "PRÓXIMA EM ",
+  enemies_left = "INIMIGOS ",
+  respawn = "P%d VOLTA EM %.1f",
+  alert = "ALERTA",
+  new_enemy = "NOVO: %s",
+  hud_out = "FORA",
+  hud_combo = "COMBO %d  x%d",
+  hud_combo_lost = "COMBO PERDIDO",
+  hud_arena = "ARENA",
+
+  -- Pause
+  pause_title = "PAUSA",   -- big font: Rocket Square is wide, keep it short
+  pause_hint = "START CONTINUA   -   BACK ABANDONA A PARTIDA",
+  pause_tap = "TOQUE PARA CONTINUAR",
+  pause_quit_button = "ABANDONAR",
+  pause_disconnected = "CONTROLE DESCONECTADO",
+  pause_waiting = "AGUARDANDO O JOGADOR %d",
+  pause_reconnect = "RECONECTE O CONTROLE PARA CONTINUAR",
+  pause_back_quits = "BACK ABANDONA A PARTIDA",
+  pause_confirm = "CONFIRMAR",   -- tab title: no accents
+  pause_quit_ask = "ABANDONAR A PARTIDA?",
+  pause_confirm_hint = "BACK CONFIRMA   -   START CONTINUA JOGANDO",
+  pause_confirm_tap = "TOQUE FORA PARA CONTINUAR JOGANDO",
+  pause_lost = "O PROGRESSO DESTA PARTIDA É PERDIDO",
+  pause_none = "NENHUM AINDA",
+
+  -- Results screen
+  go_title = "FIM DE JOGO",
+  go_reached = "WAVE ALCANÇADA: ",
+  go_cleared = "WAVES COMPLETAS: ",
+  go_combo = "COMBO MÁX  %d",
+  go_duo_total = "TOTAL DA DUPLA  ",
+  go_new_record = "NOVO RECORDE!",
+  go_back_touch = "TOQUE PARA VOLTAR AO LOBBY",
+  go_back = "START VOLTA AO LOBBY",
+
+  -- Input test
+  it_title = "TESTE DE INPUT",
+  it_header = "%d device(s)  -  %d joystick(s) no SDL  -  deadzone %.2f radial",
+  it_left = "ESQ",
+  it_right = "DIR",
+  it_quit = "SAIR",
+  it_none = "nenhum device",
+  it_unmapped = "SEM MAPEAMENTO DE GAMEPAD (SDL)",
+  it_unmapped_row = "%s  -  %d eixos, %d botões  -  guid %s",
+  it_no_sdl = "nenhum joystick visível para o SDL",
+  it_hint_standalone = "BACK OU F5 VAI PARA O MENU",
+  it_hint = "BACK OU F5 FECHA",
+  it_hint_quit = "   -   SEGURE ESC/SELECT PARA SAIR",
+  it_hint_scroll = "BAIXO ROLA A LISTA   -   ",
+}

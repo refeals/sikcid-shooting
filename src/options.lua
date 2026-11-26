@@ -6,17 +6,22 @@
 --   stored -- what the file holds (and what Options.save writes)
 --   values -- what the game uses this session
 -- They only differ for items a command line flag overrides (--fx, --mute,
--- --windowed, and the smoke test's own window and silence): the flag wins
+-- --windowed, --lang, and the smoke test's own window and silence): the flag wins
 -- for the session, the item is locked in the menu and the file keeps the
 -- player's own choice. The smoke test and --media never read or write the
 -- file: they run on the defaults.
 --
 -- Boot order (main.lua): Options.load() before the modules load (it sets
--- Config.FX.quality, which Post.load reads), Options.apply() after them.
--- At runtime the options screen calls Options.set(), which applies at once;
--- Options.save() writes the file when the screen closes.
+-- Config.FX.quality, which Post.load reads, and the language), Options.apply()
+-- after them. At runtime the options screen calls Options.set(), which
+-- applies at once; Options.save() writes the file when the screen closes.
+--
+-- The language (`lang`) is an option like the others, except that
+-- RESTAURAR PADRÕES leaves it alone: restoring the volumes must not drop a
+-- player into a language they don't read.
 
 local Config = require("src.config")
+local I18n   = require("src.i18n")
 
 local O = Config.OPTIONS
 
@@ -28,7 +33,7 @@ local Options = {
   shakeMul = 1,    -- the shake level as a 0..1 multiplier (world:shake)
 }
 
-local KEYS = { "fx", "music", "sfx", "shake", "distortion", "fullscreen" }
+local KEYS = { "lang", "fx", "music", "sfx", "shake", "distortion", "fullscreen" }
 local FX_LEVELS = { high = true, low = true, off = true }
 
 -- The browser opens in a window (fullscreen needs a click there) and the
@@ -67,7 +72,9 @@ local function sanitizeShake(v)
 end
 
 local function sanitize(key, v)
-  if key == "fx" then
+  if key == "lang" then
+    return I18n.valid(v) and v or default("lang")
+  elseif key == "fx" then
     return FX_LEVELS[v] and v or defaultFx()
   elseif key == "music" or key == "sfx" then
     return sanitizeVolume(v, key)
@@ -110,10 +117,15 @@ function Options.load()
     v.fullscreen = false
     locked.fullscreen = Config.SMOKE and "--smoke" or "--windowed"
   end
+  if Config.LANG_FLAG then
+    v.lang = I18n.valid(Config.LANG_FLAG) and Config.LANG_FLAG or default("lang")
+    locked.lang = "--lang"
+  end
   Options.dirty = false
 
   -- Read by Post.load, which runs after this.
   Config.FX.quality = v.fx
+  I18n.set(v.lang)
   return v
 end
 
@@ -125,7 +137,10 @@ end
 
 local function applyKey(key)
   local v = Options.values[key]
-  if key == "fx" then
+  if key == "lang" then
+    I18n.set(v)
+    if Config.SMOKE then require("src.smoke").bump("langs") end
+  elseif key == "fx" then
     Config.FX.quality = v
     require("src.post").load()   -- new glow canvases and shaders for the level
   elseif key == "music" then
@@ -161,9 +176,12 @@ function Options.set(key, value)
   return true
 end
 
--- Back to the defaults, except the items a flag holds this session.
+-- Back to the defaults, except the items a flag holds this session and the
+-- language.
 function Options.restore()
-  for i = 1, #KEYS do Options.set(KEYS[i], default(KEYS[i])) end
+  for i = 1, #KEYS do
+    if KEYS[i] ~= "lang" then Options.set(KEYS[i], default(KEYS[i])) end
+  end
 end
 
 -- Writes the file if anything changed (never in the smoke test or --media).
@@ -172,8 +190,8 @@ function Options.save()
   Options.dirty = false
   if Config.SMOKE or Config.MEDIA then return true end
   local s = Options.stored
-  local out = string.format("fx=%s\nmusic=%d\nsfx=%d\nshake=%d\ndistortion=%d\nfullscreen=%d\n",
-    s.fx, s.music, s.sfx, s.shake, s.distortion and 1 or 0, s.fullscreen and 1 or 0)
+  local out = string.format("lang=%s\nfx=%s\nmusic=%d\nsfx=%d\nshake=%d\ndistortion=%d\nfullscreen=%d\n",
+    s.lang, s.fx, s.music, s.sfx, s.shake, s.distortion and 1 or 0, s.fullscreen and 1 or 0)
   local ok, err = pcall(love.filesystem.write, O.file, out)
   if not ok then print("[options] could not write: " .. tostring(err)) end
   return ok

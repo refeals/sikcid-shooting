@@ -17,6 +17,7 @@
 local Config = require("src.config")
 local Util   = require("src.util")
 local Touch  = require("src.touch")
+local S      = require("src.i18n").S
 
 local Input = {
   devices = {},     -- todos os devices conhecidos (inclui desconectados)
@@ -95,11 +96,11 @@ local function newDevice(kind, joystick)
 end
 
 function Device:displayName()
-  if self.kind == "keyboard" then return "TECLADO" end
-  if self.kind == "touch" then return "TOUCH" end
+  if self.kind == "keyboard" then return S.dev_keyboard end
+  if self.kind == "touch" then return S.dev_touch end
   if self.kind == "scripted" then return "SMOKE BOT" end
-  if not self.joystick then return "CONTROLE ?" end
-  local name = self.joystick:getName() or "CONTROLE"
+  if not self.joystick then return S.dev_pad_unknown end
+  local name = self.joystick:getName() or S.dev_pad
   if #name > 22 then name = name:sub(1, 22) end
   return string.format("%s #%d", name:upper(), self.index)
 end

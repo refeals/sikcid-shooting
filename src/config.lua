@@ -65,16 +65,17 @@ Config.COLORS = {
 Config.COLORS.sniperShot = Config.COLORS.doorWarn
 
 -- Colors a player can pick in the lobby (left/right cycles, Y picks one at
--- random). Kept clear of the enemy-shot pink. `name` is shown in the lobby.
+-- random). Kept clear of the enemy-shot pink. The lobby shows each one's
+-- name (S.color_name, same order, in src/lang).
 Config.PLAYER_PALETTE = {
-  { name = "AZUL",    color = { 0.30, 0.62, 1.00, 1 } },
-  { name = "VERDE",   color = { 0.35, 0.90, 0.45, 1 } },
-  { name = "CIANO",   color = { 0.25, 0.90, 0.95, 1 } },
-  { name = "LIMA",    color = { 0.75, 0.95, 0.25, 1 } },
-  { name = "BRANCO",  color = { 0.92, 0.94, 1.00, 1 } },
-  { name = "LARANJA", color = { 1.00, 0.60, 0.20, 1 } },
-  { name = "LILÁS",   color = { 0.72, 0.55, 1.00, 1 } },
-  { name = "DOURADO", color = { 1.00, 0.84, 0.30, 1 } },
+  { color = { 0.30, 0.62, 1.00, 1 } },   -- blue
+  { color = { 0.35, 0.90, 0.45, 1 } },   -- green
+  { color = { 0.25, 0.90, 0.95, 1 } },   -- cyan
+  { color = { 0.75, 0.95, 0.25, 1 } },   -- lime
+  { color = { 0.92, 0.94, 1.00, 1 } },   -- white
+  { color = { 1.00, 0.60, 0.20, 1 } },   -- orange
+  { color = { 0.72, 0.55, 1.00, 1 } },   -- lilac
+  { color = { 1.00, 0.84, 0.30, 1 } },   -- gold
 }
 -- Palette index each slot starts with when the save has no choice yet.
 Config.PLAYER_DEFAULT_COLOR = { 1, 2 }
@@ -101,14 +102,15 @@ Config.LOBBY = {
 -- ---------------------------------------------------------------------------
 -- Player options, saved in `file` in the LÖVE save folder (next to
 -- highscores.dat). A missing value uses its default; the smoke test always
--- runs on the defaults. --fx, --mute and --windowed override an item for the
--- session without saving it (see src/options.lua).
+-- runs on the defaults. --fx, --mute, --windowed and --lang override an item
+-- for the session without saving it (see src/options.lua).
 Config.OPTIONS = {
   file = "options.dat",
   volumeSteps = 10,       -- volume sliders go 0..volumeSteps
   -- Screen shake levels, % of every shake (Config.JUICE.shakeScale).
   shakeSteps = { 0, 25, 50, 75, 100 },
   defaults = {
+    lang = "en",          -- "en" | "es" | "pt" (src/i18n.lua); RESTAURAR PADRÕES keeps it
     fx = "auto",          -- "high" | "low" | "off"; "auto" = low in the browser, high elsewhere
     -- 8 of 10: sound effects at 0.8 and the music at 0.8 x MUSIC.volume.
     music = 8,
@@ -130,8 +132,13 @@ Config.MENU = {
   rowH = 28,              -- main menu row height (tall enough for "Õ" in the highlight)
   rowPad = 8,             -- panel padding around the rows
   hintY = 304,            -- prompt lines at the bottom of each menu screen
-  -- OPÇÕES: one window, a label column and a value column.
-  options = { w = 520, y = 46, rowH = 22, pad = 10, valueW = 160, barW = 100, arrowSize = 5 },
+  -- OPÇÕES: one window, a label column and a value column. The highlight of
+  -- the selected row rises `hlRise` px above it, so the tall tildes ("Ñ", "Õ")
+  -- stay inside it with the text still centered. Ten rows end above
+  -- `statusY`, the feedback line ("PADRÕES RESTAURADOS"). `valueW` fits the
+  -- widest value ("PORTUGUÊS", plus the two arrows).
+  options = { w = 520, y = 42, rowH = 22, pad = 8, valueW = 170, barW = 100, arrowSize = 5,
+              hlRise = 2, statusY = 282 },
   -- CRÉDITOS: section heading and line heights, gap between sections.
   credits = { headH = 16, lineH = 12, gap = 8 },
   -- RECORDES: three stacked windows of label-over-value columns (`h` each;
@@ -542,14 +549,14 @@ Config.ENEMIES = {
   -- `aimTime` s along a red line (it follows the target until the last
   -- `lockTime` s, then freezes), then charges at `chargeSpeed` for up to
   -- `chargeTime` s through the other enemies. Hitting a wall stuns it for
-  -- `stunTime` s (spinning at `stunSpin` rad/s). `name` = debut banner.
+  -- `stunTime` s (spinning at `stunSpin` rad/s). Names: S.enemy_name (src/lang).
   kamikaze = { hp = 2, speed = 48, size = 12, radius = 6, points = 200, color = "kamikaze", contactDamage = true,
-               name = "KAMIKAZE", aimRange = 150, aimTime = 0.5, lockTime = 0.15,
+               aimRange = 150, aimTime = 0.5, lockTime = 0.15,
                chargeSpeed = 320, chargeTime = 0.9, reach = 288, stunTime = 1.0, stunSpin = 12,
                lineAlpha = 0.55, lineWidth = 1.5, sparkEvery = 0.15 },
   -- Dies into `splitCount` `splitInto` enemies fanned out at `splitSpeed`.
   divisor  = { hp = 3, speed = 45, size = 16, radius = 8, points = 250, color = "divisor", contactDamage = true,
-               name = "DIVISOR", splitInto = "fragment", splitCount = 3, splitSpeed = 110 },
+               splitInto = "fragment", splitCount = 3, splitSpeed = 110 },
   -- The divisor's pieces: fly out harmless for `harmlessTime` s, then act
   -- like small runners. Spawned outside the wave quota; never split again.
   fragment = { hp = 1, speed = 120, size = 8, radius = 4, points = 50, color = "divisor", contactDamage = true,
@@ -560,7 +567,7 @@ Config.ENEMIES = {
   -- one fast shot, then moves to a new spot; `fireInterval` s from a shot to
   -- the next aim. A target closer than `fleeRange` cancels the aim: it runs.
   sniper   = { hp = 2, speed = 60, size = 12, radius = 6, points = 300, color = "sniper", contactDamage = true,
-               name = "SNIPER", wallInset = 30, minRange = 180, fleeRange = 100, spotSamples = 10,
+               wallInset = 30, minRange = 180, fleeRange = 100, spotSamples = 10,
                aimTime = 1.0, lockTime = 0.25, fireInterval = 2.0,
                bulletSpeed = 450, bulletLife = 2.0, bulletRadius = 3,
                reach = 1000, lineAlpha = 0.45, lineWidth = 1 },
@@ -569,7 +576,7 @@ Config.ENEMIES = {
   -- out of its sides (`hatchOffset` px, at `launchSpeed`), `maxDrones` alive
   -- at most. Its drones blow up with it (no points).
   carrier  = { hp = 12, speed = 25, size = 26, radius = 12, points = 800, color = "carrier", contactDamage = true,
-               push = 3.0, hpBar = true, name = "PORTA-NAVES", keepDistance = 140,
+               push = 3.0, hpBar = true, keepDistance = 140,
                launchInterval = 4.0, hatchTime = 0.4, launchCount = 2, maxDrones = 4,
                launchSpeed = 90, hatchOffset = 13, spawn = "scout" },
   -- Carrier drone: flies out harmless for `harmlessTime` s, then homes in,
@@ -581,20 +588,20 @@ Config.ENEMIES = {
   -- TORRE: keeps `keepDistance`, spins a spiral of `arms` (+armsPerLap each
   -- lap of the cycle) slow stars, firing for fireTime s, pausing pauseTime s.
   torre    = { hp = 1, speed = 15, size = 30, radius = 26, points = 2000, color = "tank", contactDamage = true,
-               push = 8, hpBar = true, subboss = true, name = "TORRE", keepDistance = 150,
+               push = 8, hpBar = true, subboss = true, keepDistance = 150,
                arms = 4, armsPerLap = 2, spin = 1.2, fireEvery = 0.2, bulletSpeed = 90, bulletLife = 4,
                fireTime = 4, pauseTime = 1.5 },
   -- ARIETE: `charges` kamikaze charges in a row (aim line, charge to the
   -- wall, recoverTime s, aim again), then stunned for stunTime s.
   ariete   = { hp = 1, speed = 40, size = 18, radius = 14, points = 2000, color = "kamikaze", contactDamage = true,
-               push = 8, hpBar = true, subboss = true, name = "ARIETE", aimRange = 400,
+               push = 8, hpBar = true, subboss = true, aimRange = 400,
                aimTime = 0.8, lockTime = 0.2, chargeSpeed = 380, chargeTime = 2.0, charges = 3,
                recoverTime = 0.4, stunTime = 2.5, stunSpin = 9, reach = 1000,
                lineAlpha = 0.7, lineWidth = 3, sparkEvery = 0.08 },
   -- HIDRA: chases slowly and every spitEvery s spits spitCount fragments in
   -- a spitSpread fan at its target; dies into splitCount divisorM.
   hidra    = { hp = 1, speed = 30, size = 26, radius = 20, points = 2000, color = "divisor", contactDamage = true,
-               push = 8, hpBar = true, subboss = true, name = "HIDRA",
+               push = 8, hpBar = true, subboss = true,
                spitEvery = 3.0, spitCount = 3, spitSpread = math.rad(40), spitSpeed = 140,
                splitInto = "divisorM", splitCount = 2, splitSpeed = 80 },
   -- The HIDRA's halves: medium divisors (harmless for a moment, like the
@@ -605,7 +612,7 @@ Config.ENEMIES = {
   -- keeps `guards` guard drones orbiting it at guardRadius (one back every
   -- guardEvery s), which soak up the shots aimed at its core.
   colmeia  = { hp = 1, speed = 18, size = 30, radius = 26, points = 2000, color = "carrier", contactDamage = true,
-               push = 8, hpBar = true, subboss = true, name = "COLMEIA", keepDistance = 150,
+               push = 8, hpBar = true, subboss = true, keepDistance = 150,
                launchInterval = 2.5, hatchTime = 0.4, launchCount = 2, maxDrones = 8,
                launchSpeed = 90, hatchOffset = 30, spawn = "scout",
                guards = 4, guardEvery = 5, guardRadius = 46, guardSpin = 1.5 },
@@ -821,21 +828,21 @@ Config.BOSS = {
   -- white: dark colors (purple, red) barely light up when drawn additively.
   engine = { idle = 0.7, cruise = 1.0, enter = 1.4, ease = 4, lighten = 0.35,
              rageMul = 1.3, rageTint = 0.6, coreScale = 0.55, coreAlpha = 0.9 },
-  -- Boss n uses entry ((n - 1) % #variants) + 1. Names show in the alert
-  -- banner (big font: keep them unaccented) and on the HUD bar. `engines`:
+  -- Boss n uses entry ((n - 1) % #variants) + 1. Names (S.boss_name[id],
+  -- src/lang) show in the alert banner and on the HUD bar. `engines`:
   -- nozzles as { u, v, s }: u, v = spot on the sprite as authored (0..1 from
   -- its left/top; the ships point down, so the exhausts are near v = 0) and
   -- s = flame size as a fraction of the boss size.
   variants = {
-    { name = "DESTRUIDOR", sprite = "boss1", color = { 0.95, 0.25, 0.25 },
+    { id = "destroyer", sprite = "boss1", color = { 0.95, 0.25, 0.25 },
       engines = { { 0.28, 0.12, 0.30 }, { 0.72, 0.12, 0.30 } } },
-    { name = "CEIFADOR",   sprite = "boss2", color = { 0.70, 0.35, 1.00 },
+    { id = "reaper",    sprite = "boss2", color = { 0.70, 0.35, 1.00 },
       engines = { { 0.24, 0.06, 0.28 }, { 0.76, 0.06, 0.28 } } },
-    { name = "DEVORADOR",  sprite = "boss3", color = { 0.25, 0.95, 0.55 },
+    { id = "devourer",  sprite = "boss3", color = { 0.25, 0.95, 0.55 },
       engines = { { 0.50, 0.04, 0.42 } } },
-    { name = "COLOSSO",    sprite = "boss4", color = { 1.00, 0.60, 0.15 },
+    { id = "colossus",  sprite = "boss4", color = { 1.00, 0.60, 0.15 },
       engines = { { 0.32, 0.06, 0.30 }, { 0.66, 0.06, 0.30 } } },
-    { name = "SENTINELA",  sprite = "boss5", color = { 0.30, 0.75, 1.00 },
+    { id = "sentinel",  sprite = "boss5", color = { 0.30, 0.75, 1.00 },
       engines = { { 0.50, 0.04, 0.32 }, { 0.20, 0.06, 0.18 }, { 0.80, 0.06, 0.18 } } },
   },
 }

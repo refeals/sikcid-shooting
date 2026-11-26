@@ -22,17 +22,18 @@ local Music  = require("src.music")
 local UI     = require("src.ui")
 local Nav    = require("src.nav")
 local Background = require("src.background")
+local S      = require("src.i18n").S
 
 local Menu = {}
 
--- `action`: the touch button of the item (built once below).
+-- `label`: its key in src/lang; `action`: its touch button (built once below).
 local ITEMS = {
-  { id = "play",    label = "JOGAR" },
-  { id = "howto",   label = "COMO JOGAR" },
-  { id = "records", label = "RECORDES" },
-  { id = "options", label = "OPÇÕES" },
-  { id = "credits", label = "CRÉDITOS" },
-  { id = "quit",    label = "SAIR", desktopOnly = true },
+  { id = "play",    label = "menu_play" },
+  { id = "howto",   label = "menu_howto" },
+  { id = "records", label = "menu_records" },
+  { id = "options", label = "menu_options" },
+  { id = "credits", label = "menu_credits" },
+  { id = "quit",    label = "menu_quit", desktopOnly = true },
 }
 for i = 1, #ITEMS do ITEMS[i].action = "menu_" .. ITEMS[i].id end
 
@@ -104,7 +105,7 @@ function Menu:draw(covered)
   Background.draw()
 
   UI.text("big", "SIKCID SHOOTIN'", 0, M.titleY, C.text, W, "center")
-  UI.text("body", "ARENA COOPERATIVA PARA 1-2 JOGADORES", 0, M.subtitleY, C.textDim, W, "center")
+  UI.text("body", S.menu_subtitle, 0, M.subtitleY, C.textDim, W, "center")
 
   local n = #items
   local pw, ph = M.listW, n * M.rowH + 2 * M.rowPad
@@ -113,16 +114,16 @@ function Menu:draw(covered)
   local rx, rw = px + M.rowPad, pw - 2 * M.rowPad
   for i = 1, n do
     local ry = M.listY + M.rowPad + (i - 1) * M.rowH
+    local label = S[items[i].label]
     if i == cursor then
-      UI.tab(C.textWarn, items[i].label, rx, ry + 2, rw, M.rowH - 4, "title")
+      UI.tab(C.textWarn, label, rx, ry + 2, rw, M.rowH - 4, "title")
     else
-      UI.tab(NO_TAB, items[i].label, rx, ry + 2, rw, M.rowH - 4, "title", C.text)
+      UI.tab(NO_TAB, label, rx, ry + 2, rw, M.rowH - 4, "title", C.text)
     end
     Touch.button(items[i].action, rx, ry, rw, M.rowH)
   end
 
-  local hint = Input.usingTouch() and "TOQUE NUMA OPÇÃO"
-    or "D-PAD OU SETAS ESCOLHEM   -   START, A OU ENTER CONFIRMA"
+  local hint = Input.usingTouch() and S.menu_hint_touch or S.menu_hint
   UI.text("body", hint, 0, M.hintY, C.text, W, "center")
   UI.exitBar(W * 0.5, M.hintY + 16)
   love.graphics.setColor(1, 1, 1, 1)

@@ -21,24 +21,23 @@ local Powerups = {}
 -- weapon = true -> ocupa o "slot de arma" (substitui o anterior).
 -- permanent = true -> efeito imediato, não entra na lista de ativos; o
 -- grant recebe (player, world).
+-- Names and descriptions: S.powerup_name[id] and S.powerup_desc[id] (src/lang).
+-- The letter on the icon is the same in every language.
 Powerups.DEFS = {
   {
-    id = "spread", name = "SPREAD", letter = "S",
-    desc = "3 tiros em leque",
+    id = "spread", letter = "S",
     weapon = true, duration = N.spread.duration, weight = N.spread.weight,
     color = { 0.45, 0.85, 1.00, 1 },
     apply = function(m) m.weapon = "spread" end,
   },
   {
-    id = "rapid", name = "RAPID FIRE", letter = "R",
-    desc = "cadência de tiro em dobro",
+    id = "rapid", letter = "R",
     weapon = true, duration = N.rapid.duration, weight = N.rapid.weight,
     color = { 1.00, 0.85, 0.30, 1 },
     apply = function(m) m.fireRateMul = m.fireRateMul * N.rapid.fireMul end,
   },
   {
-    id = "missiles", name = "MISSILES", letter = "M",
-    desc = "mísseis teleguiados, dano 3",
+    id = "missiles", letter = "M",
     weapon = true, duration = N.missiles.duration, weight = N.missiles.weight,
     color = { 1.00, 0.55, 0.35, 1 },
     apply = function(m)
@@ -47,36 +46,31 @@ Powerups.DEFS = {
     end,
   },
   {
-    id = "boots", name = "SPEED BOOTS", letter = "V",
-    desc = "40% mais velocidade",
+    id = "boots", letter = "V",
     duration = N.boots.duration, weight = N.boots.weight,
     color = { 0.55, 1.00, 0.55, 1 },
     apply = function(m) m.speedMul = m.speedMul * N.boots.speedMul end,
   },
   {
-    id = "bubble", name = "BOLHA", letter = "B",
-    desc = "segura 1 golpe e empurra",
+    id = "bubble", letter = "B",
     duration = N.bubble.duration, weight = N.bubble.weight,
     color = { 0.60, 0.95, 1.00, 1 },
     apply = function(m) m.bubble = true end,
   },
   {
-    id = "drone", name = "DRONE", letter = "D",
-    desc = "drone que atira sozinho",
+    id = "drone", letter = "D",
     duration = N.drone.duration, weight = N.drone.weight,
     color = { 0.75, 0.75, 1.00, 1 },
     apply = function(m) m.drone = true end,
   },
   {
-    id = "damage", name = "DANO X2", letter = "X",
-    desc = "dobra o dano de qualquer arma",
+    id = "damage", letter = "X",
     duration = N.damage.duration, weight = N.damage.weight,
     color = N.damage.color,
     apply = function(m) m.damageMul = m.damageMul * N.damage.mul end,
   },
   {
-    id = "laser", name = "LASER", letter = "L",
-    desc = "raio que atravessa tudo",
+    id = "laser", letter = "L",
     weapon = true, duration = N.laser.duration, weight = N.laser.weight,
     color = N.laser.color,
     apply = function(m) m.weapon = "laser" end,
@@ -86,15 +80,13 @@ Powerups.DEFS = {
     end,
   },
   {
-    id = "orbital", name = "ESCUDO ORBITAL", letter = "O",
-    desc = "esferas que destroem tiros",
+    id = "orbital", letter = "O",
     duration = N.orbital.duration, weight = N.orbital.weight,
     color = N.orbital.color,
     apply = function(m) m.orbital = true end,
   },
   {
-    id = "slowmo", name = "TEMPO LENTO", letter = "T",
-    desc = "inimigos em câmera lenta",
+    id = "slowmo", letter = "T",
     duration = N.slowmo.duration, weight = N.slowmo.weight,
     color = N.slowmo.color,
     apply = function(m) m.slowmo = true end,
@@ -107,8 +99,7 @@ Powerups.DEFS = {
     end,
   },
   {
-    id = "nova", name = "NOVA", letter = "N",
-    desc = "onda de choque em volta (na hora)",
+    id = "nova", letter = "N",
     sound = "nova",
     permanent = true, duration = 1, weight = N.nova.weight,
     color = { 1.00, 0.95, 0.60, 1 },
@@ -117,8 +108,7 @@ Powerups.DEFS = {
     end,
   },
   {
-    id = "life", name = "EXTRA LIFE", letter = "+",
-    desc = "+1 vida na hora (até o máximo)",
+    id = "life", letter = "+",
     sound = "pickup_life",    -- som próprio (os outros usam "pickup")
     permanent = true, duration = 1, weight = N.life.weight,
     color = { 1.00, 0.45, 0.55, 1 },

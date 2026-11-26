@@ -18,6 +18,7 @@ local Input  = require("src.input")
 local State  = require("src.state")
 local UI     = require("src.ui")
 local Nav    = require("src.nav")
+local S      = require("src.i18n").S
 
 local InputTest = {}
 
@@ -67,7 +68,7 @@ local function drawDevice(d, y)
   love.graphics.setColor(C.textDim)
   love.graphics.print(string.format("[%s]%s%s",
     d.kind,
-    d.connected and "" or "  DESCONECTADO",
+    d.connected and "" or ("  " .. S.disconnected),
     d.boundTo and ("  P" .. d.boundTo) or ""), 14, y + 22)
 
   local mx, my = d:moveVector()
@@ -77,8 +78,8 @@ local function drawDevice(d, y)
   love.graphics.print(string.format("move %+.2f %+.2f", mx, my), 14, y + 38)
   love.graphics.print(string.format("aim  %+.2f %+.2f", ax, ay), 14, y + 52)
 
-  drawStick(210, y + 32, 22, mx, my, color, "ESQ")
-  drawStick(272, y + 32, 22, ax, ay, color, "DIR")
+  drawStick(210, y + 32, 22, mx, my, color, S.it_left)
+  drawStick(272, y + 32, 22, ax, ay, color, S.it_right)
   drawStick(334, y + 32, 22, dx, dy, color, "DPAD")
 
   local bx0 = 380
@@ -90,7 +91,7 @@ local function drawDevice(d, y)
   local barW = BTN_W * 3 + 8
   local p = d:exitProgress()
   love.graphics.setColor(C.textDim)
-  love.graphics.print("SAIR", bx0, y + 34)
+  love.graphics.print(S.it_quit, bx0, y + 34)
   love.graphics.setColor(C.hudLine)
   love.graphics.rectangle("line", bx0 + 34.5, y + 39.5, barW - 34, 7)
   if p > 0 then
@@ -132,9 +133,9 @@ function InputTest:draw()
   love.graphics.setColor(0, 0, 0, self.standalone and 1 or 0.85)
   love.graphics.rectangle("fill", 0, 0, W, H)
 
-  UI.text("title", "TESTE DE INPUT", 0, 2, C.text, W, "center")
+  UI.text("title", S.it_title, 0, 2, C.text, W, "center")
   love.graphics.setColor(C.textDim)
-  love.graphics.printf(string.format("%d device(s)  -  %d joystick(s) no SDL  -  deadzone %.2f radial",
+  love.graphics.printf(string.format(S.it_header,
     Input.count, love.joystick.getJoystickCount(), Config.DEADZONE), 0, 22, W, "center")
 
   local y = 42
@@ -148,30 +149,30 @@ function InputTest:draw()
 
   if Input.count == 0 then
     love.graphics.setColor(C.textDim)
-    love.graphics.printf("nenhum device", 0, 120, W, "center")
+    love.graphics.printf(S.it_none, 0, 120, W, "center")
   end
 
   -- Joysticks que o SDL vê mas não sabe mapear: aparecem aqui para não
   -- ficar a impressão de que o jogo simplesmente ignorou o controle.
   if Input.unmappedCount > 0 then
     love.graphics.setColor(C.doorWarn)
-    love.graphics.printf("SEM MAPEAMENTO DE GAMEPAD (SDL)", 0, y + 2, W, "center")
+    love.graphics.printf(S.it_unmapped, 0, y + 2, W, "center")
     love.graphics.setColor(C.textDim)
     for i = 1, Input.unmappedCount do
       local u = Input.unmapped[i]
-      love.graphics.printf(string.format("%s  -  %d eixos, %d botões  -  guid %s",
+      love.graphics.printf(string.format(S.it_unmapped_row,
         u.name, u.axes, u.buttons, u.guid:sub(1, 16)), 0, y + 16 + (i - 1) * 12, W, "center")
     end
   elseif love.joystick.getJoystickCount() == 0 then
     love.graphics.setColor(C.textDim)
-    love.graphics.printf("nenhum joystick visível para o SDL", 0, y + 4, W, "center")
+    love.graphics.printf(S.it_no_sdl, 0, y + 4, W, "center")
   end
 
   love.graphics.setColor(C.textDim)
-  local hint = self.standalone and "BACK OU F5 VAI PARA O MENU" or "BACK OU F5 FECHA"
+  local hint = self.standalone and S.it_hint_standalone or S.it_hint
   -- The browser build has no quit (see Input).
-  if not Config.WEB then hint = hint .. "   -   SEGURE ESC/SELECT PARA SAIR" end
-  if Input.count > MAX_ROWS then hint = "BAIXO ROLA A LISTA   -   " .. hint end
+  if not Config.WEB then hint = hint .. S.it_hint_quit end
+  if Input.count > MAX_ROWS then hint = S.it_hint_scroll .. hint end
   love.graphics.printf(hint, 0, H - 16, W, "center")
   Nav.drawTouchBack(H - 44)
   love.graphics.setColor(1, 1, 1, 1)

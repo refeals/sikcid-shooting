@@ -8,23 +8,11 @@ local Audio  = require("src.audio")
 local UI     = require("src.ui")
 local Nav    = require("src.nav")
 local Background = require("src.background")
+local S      = require("src.i18n").S
 
 local Credits = {}
 
--- { heading, line, line... } per section.
-local SECTIONS = {
-  { "MÚSICA",
-    "MUSIC LOOP BUNDLE, DE ABSTRACTION (TALLBEARD STUDIOS) - CC0",
-    "SUNBURN, CLOAK OF DARKNESS, NEVER MISS E CRUSHING IT" },
-  { "ARTE, FONTES E SONS DE COMBATE",
-    "KENNEY (KENNEY.NL) - CC0",
-    "SPACE SHOOTER EXTENSION, SIMPLE SPACE, PLANETS, UI PACK (SCI-FI),",
-    "KENNEY FONTS E SCI-FI SOUNDS" },
-  { "DEMAIS EFEITOS SONOROS",
-    "GERADOS COM O SFXR (SFXR.ME)" },
-  { "FEITO COM",
-    "LÖVE (LOVE2D.ORG) - VERSÃO WEB COM LOVE.JS (MIT)" },
-}
+-- The sections ({ heading, line, line... } each) are S.credits.
 
 function Credits:enter()
   if Config.SMOKE then
@@ -48,8 +36,9 @@ function Credits:draw()
   local M = Config.MENU
 
   Background.draw()
-  UI.text("big", "CRÉDITOS", 0, M.screenTitleY, C.text, W, "center")
+  UI.text("big", S.menu_credits, 0, M.screenTitleY, C.text, W, "center")
 
+  local SECTIONS = S.credits
   local CR = M.credits
   local h = 2 * CR.gap
   for i = 1, #SECTIONS do
@@ -72,7 +61,7 @@ function Credits:draw()
   end
 
   if not Input.usingTouch() then
-    UI.text("body", "START OU BACK VOLTA", 0, M.hintY, C.text, W, "center")
+    UI.text("body", S.start_back_returns, 0, M.hintY, C.text, W, "center")
   end
   UI.exitBar(W * 0.5, M.hintY + 16)
   Nav.drawTouchBack()

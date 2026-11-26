@@ -333,6 +333,9 @@ tela de resultados. Tempos e efeitos ficam em `Config.GAME_OVER`.
 
 ## Menu principal e opções
 
+Os nomes de telas e itens desta seção são os da versão em português. O jogo
+abre em inglês na primeira vez (ver [Idioma](#idioma)).
+
 O jogo abre no menu principal: o nome do jogo e a lista **JOGAR**, **COMO
 JOGAR**, **RECORDES**, **OPÇÕES**, **CRÉDITOS** e **SAIR** (SAIR não existe na
 web). Qualquer controle navega, vinculado ou não; o cursor sempre começa em
@@ -395,6 +398,7 @@ ficam em `Config.OPTIONS`.
 
 | Item | Valores | O que faz |
 |------|---------|-----------|
+| IDIOMA | ENGLISH / ESPAÑOL / PORTUGUÊS (padrão ENGLISH) | língua de todo o texto do jogo (ver [Idioma](#idioma)) |
 | EFEITOS VISUAIS | DESLIGADO / BAIXO / ALTO | qualidade do pós-processamento e o teto de partículas; padrão BAIXO na web, ALTO no resto |
 | MÚSICA | 0 a 10 (padrão 8) | volume da música |
 | EFEITOS SONOROS | 0 a 10 (padrão 8) | volume dos efeitos |
@@ -402,13 +406,42 @@ ficam em `Config.OPTIONS`.
 | DISTORÇÃO | LIGADA / DESLIGADA | aberração cromática e ondas de choque (por conforto); brilho e vinheta ficam |
 | TELA CHEIA | SIM / NÃO | só no PC: a web abre em janela e o Batocera é sempre tela cheia |
 | TESTAR CONTROLES | — | abre a tela de teste de input (o caminho no Batocera, que não tem F5) |
-| RESTAURAR PADRÕES | — | pede confirmação (mais um START) |
+| RESTAURAR PADRÕES | — | pede confirmação (mais um START); não mexe no idioma |
 | APAGAR RECORDES | — | pede confirmação duas vezes; zera tudo da tela RECORDES (recordes e acumulados da máquina), mas não apaga as cores nem as opções |
 
 ←/→ mudam o valor; START/A num item de valor avança e dá a volta (menos nos
 volumes). Mudar de linha ou BACK cancela uma confirmação pendente. Uma flag de
-linha de comando (`--fx`, `--mute`, `--windowed`) trava o item na sessão: ele
-aparece apagado com a flag ao lado e o valor dela nunca vai para o arquivo.
+linha de comando (`--lang`, `--fx`, `--mute`, `--windowed`) trava o item na
+sessão: ele aparece apagado com a flag ao lado e o valor dela nunca vai para o
+arquivo.
+
+### Idioma
+
+Inglês, espanhol e português do Brasil. O padrão é **inglês**: a primeira vez
+que o jogo abre (sem `options.dat`, ou com um arquivo de uma versão antiga)
+ele está em inglês, em todo lugar (PC, Batocera e web). Não há detecção do
+idioma do sistema.
+
+- A escolha fica na primeira linha de OPÇÕES e vai para o `options.dat`
+  (`lang=en|es|pt`), então o jogo abre na mesma língua da próxima vez.
+- Os valores aparecem sempre no nome da própria língua (ENGLISH, ESPAÑOL,
+  PORTUGUÊS), em qualquer idioma: quem trocar sem querer acha o caminho de
+  volta.
+- A troca vale na hora: a própria tela de OPÇÕES já redesenha na língua nova.
+  O idioma só muda pelo menu principal, nunca no meio de uma partida.
+- RESTAURAR PADRÕES não mexe no idioma, para ninguém cair numa língua que não
+  lê.
+- Os termos de jogo ficam em inglês nas três línguas: WAVE, BOSS, SUB-BOSS,
+  COMBO, DASH, UPGRADE, POWER-UP. O espanhol é neutro latino (trata por
+  "tú").
+- As letras dos ícones de power-up e upgrade são as mesmas em toda língua (são
+  parte do ícone).
+- As imagens de divulgação (`--media`) são sempre em inglês.
+
+Todo o texto fica em `src/lang/` (`en.lua`, `es.lua`, `pt.lua`), com as
+mesmas chaves nos três; o inglês é a referência e cobre uma chave que falte nos
+outros. O smoke confere que os três têm as mesmas chaves e os mesmos `%d`/`%s`
+e falha se não tiverem.
 
 ## Lobby e briefing
 
