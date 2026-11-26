@@ -29,8 +29,8 @@ No PC, dentro da pasta do projeto:
 love .
 ```
 
-O jogo abre no menu principal (JOGAR, OPÇÕES, CRÉDITOS, SAIR). Sem controle
-conectado, o jogador 1 joga no teclado: **WASD** move, **setas** miram,
+O jogo abre no menu principal (JOGAR, COMO JOGAR, RECORDES, OPÇÕES, CRÉDITOS,
+SAIR). Sem controle conectado, o jogador 1 joga no teclado: **WASD** move, **setas** miram,
 **Shift** dá dash, **Enter** = start, **ESC** = back (segurar 0,5s sai do
 jogo); nos menus, setas ou W/S navegam e Espaço/Backspace também confirmam e
 voltam. Controles completos em [docs/DESIGN.md](docs/DESIGN.md#controles); as
@@ -161,14 +161,19 @@ inimigo ou tiro chega perto.
 Os bots só andam (em círculos de períodos diferentes): nunca miram. A mira e
 o tiro ficam com o auto-aim, como um jogador que só pilota.
 
-Antes do lobby, o roteiro passa pelo menu principal (os primeiros ~3,3 s):
-abre OPÇÕES, muda alguns itens (incluindo a qualidade dos efeitos, que recria
-o brilho), abre e fecha o TESTAR CONTROLES, usa RESTAURAR PADRÕES e APAGAR
-RECORDES, visita CRÉDITOS e escolhe JOGAR. Se ele não passar por essas telas
-ou não terminar no lobby com o bot como Jogador 1, o smoke falha (código 1).
-O roteiro conta com as linhas das opções do PC (sem `--batocera`).
+Antes do lobby, o roteiro passa pelo menu principal (os primeiros ~4,4 s):
+abre COMO JOGAR e vira para a página das regras, abre RECORDES, abre OPÇÕES,
+muda alguns itens (incluindo a qualidade dos efeitos, que recria o brilho),
+abre e fecha o TESTAR CONTROLES, usa RESTAURAR PADRÕES e APAGAR RECORDES,
+visita CRÉDITOS e escolhe JOGAR. Se ele não passar por essas telas (as duas
+páginas do COMO JOGAR incluídas) ou não terminar no lobby com o bot como
+Jogador 1, o smoke falha (código 1). O roteiro conta com a ordem do menu e
+com as linhas das opções do PC (sem `--batocera`); quem mexer em uma delas
+refaz as contagens de ↓/↑ do `MENU_WALK`, o `MENU_T` e o `SHOT_TIMES` em
+[src/smoke.lua](src/smoke.lua).
 
-`--smoketouch` faz o jogador 1 tocar na tela para escolher os itens do menu,
+`--smoketouch` faz o jogador 1 tocar na tela para escolher os itens do menu
+(e virar a página do COMO JOGAR pelas setas),
 entrar, começar, pausar (pelo botão ‖) e voltar, com um dedo no analógico de
 movimento durante a
 partida (com `--shots`, também salva o GAME OVER da arena). Para testar o
@@ -203,7 +208,8 @@ src/input.lua         -- devices (gamepad/teclado/touch), deadzone radial, hotpl
 src/touch.lua         -- analógicos flutuantes e botões de toque
 src/nav.lua           -- entrada das telas de menu (qualquer device, toque nos itens)
 src/state.lua         -- pilha de estados de tela
-src/save.lua          -- recordes e cores escolhidas em love.filesystem
+src/save.lua          -- recordes, acumulados da máquina e cores escolhidas,
+                         em love.filesystem (highscores.dat)
 src/options.lua       -- opções do menu (options.dat), flags por cima, aplicação
 src/runlog.lua        -- registro de partidas (runs.csv)
 src/curve.lua         -- tabela da curva de waves (--curve)
@@ -219,8 +225,8 @@ src/post.lua          -- pós-processamento: brilho, sombras, shockwave, aberra�
 src/transition.lua    -- varredura diagonal entre telas (só visual)
 src/profiler.lua      -- aviso de frame lento (DEBUG)
 src/smoke.lua         -- piloto automático de teste (--smoke)
-src/states/           -- menu, options, credits, lobby, briefing, game, pause,
-                         upgrade, gameover, inputtest
+src/states/           -- menu, howto, records, options, credits, lobby,
+                         briefing, game, pause, upgrade, gameover, inputtest
 src/entities/         -- player, enemy (inclui os sub-bosses), boss, bullet,
                          pickup, particle
 src/systems/          -- spawner, combat, powerups, upgrades, combo

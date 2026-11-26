@@ -87,7 +87,8 @@ repõe sozinho o bit de execução que a cópia via Windows perde.
 </details>
 
 O save fica em `/userdata/system/.local/share/love/sikcid-shootin/`:
-`highscores.dat` (recordes e cores) e `options.dat` (opções do menu).
+`highscores.dat` (recordes, acumulados da máquina e cores) e `options.dat`
+(opções do menu).
 
 Estrutura esperada no Batocera:
 

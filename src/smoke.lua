@@ -27,40 +27,50 @@ local pad = nil
 -- lobby and the match (MATCH_EVENTS, shifted by MENU_T: their times are
 -- those of the old timeline, which bound Player 1 at 0.40, as JOGAR now
 -- does at MENU_T + 0.40).
-local MENU_T = 2.90
+local MENU_T = 3.95
 
--- { time, action, touch button }: one pulse of bot 1 each. Rows of OPÇÕES
--- (PC): visual effects, music, effects, shake, distortion, fullscreen
--- (locked by the smoke), test controls, restore, wipe records.
+-- { time, action, touch button }: one pulse of bot 1 each. Main menu: JOGAR,
+-- COMO JOGAR, RECORDES, OPÇÕES, CRÉDITOS, SAIR. Rows of OPÇÕES (PC): visual
+-- effects, music, effects, shake, distortion, fullscreen (locked by the
+-- smoke), test controls, restore, wipe records.
 local MENU_WALK = {
-  { 0.30, "down" },                            -- OPÇÕES
-  { 0.40, "start", "menu_options" },
-  { 0.55, "left",  "opt_fx_l" },               -- EFEITOS VISUAIS: BAIXO (Post.load again)
-  { 0.65, "down" },
-  { 0.75, "down" },
-  { 0.85, "down" },                            -- TREMOR DE TELA
-  { 0.95, "left",  "opt_shake_l" },            -- 75%
-  { 1.05, "down" },                            -- DISTORÇÃO
-  { 1.15, "start", "opt_distortion_l" },       -- DESLIGADA
-  { 1.25, "down" },                            -- TELA CHEIA (locked: no change)
-  { 1.35, "right" },
-  { 1.45, "down" },                            -- TESTAR CONTROLES
-  { 1.55, "start", "opt_test" },
-  { 1.75, "back",  "back" },                   -- closes the input test
-  { 1.85, "down" },                            -- RESTAURAR PADRÕES: asks, then runs
-  { 1.95, "start", "opt_restore" },
-  { 2.05, "start", "opt_restore" },
-  { 2.15, "down" },                            -- APAGAR RECORDES: asks twice
-  { 2.25, "start", "opt_wipe" },
-  { 2.35, "start", "opt_wipe" },
-  { 2.45, "start", "opt_wipe" },
-  { 2.60, "back",  "back" },                   -- back to the menu
-  { 2.70, "down" },                            -- CRÉDITOS
-  { 2.80, "start", "menu_credits" },
-  { 3.00, "back",  "back" },
-  { 3.10, "up" },
-  { 3.20, "up" },                              -- JOGAR: binds the bot as Player 1
-  { 3.30, "start", "menu_play" },
+  { 0.30, "down" },                            -- COMO JOGAR
+  { 0.40, "start", "menu_howto" },             -- page 1: the bot's controls
+  { 0.55, "right", "howto_next" },             -- page 2: the rules
+  { 0.70, "back",  "back" },                   -- back to the menu
+  { 0.80, "down" },                            -- RECORDES
+  { 0.90, "start", "menu_records" },
+  { 1.05, "back",  "back" },
+  { 1.15, "down" },                            -- OPÇÕES
+  { 1.25, "start", "menu_options" },
+  { 1.40, "left",  "opt_fx_l" },               -- EFEITOS VISUAIS: BAIXO (Post.load again)
+  { 1.50, "down" },
+  { 1.60, "down" },
+  { 1.70, "down" },                            -- TREMOR DE TELA
+  { 1.80, "left",  "opt_shake_l" },            -- 75%
+  { 1.90, "down" },                            -- DISTORÇÃO
+  { 2.00, "start", "opt_distortion_l" },       -- DESLIGADA
+  { 2.10, "down" },                            -- TELA CHEIA (locked: no change)
+  { 2.20, "right" },
+  { 2.30, "down" },                            -- TESTAR CONTROLES
+  { 2.40, "start", "opt_test" },
+  { 2.60, "back",  "back" },                   -- closes the input test
+  { 2.70, "down" },                            -- RESTAURAR PADRÕES: asks, then runs
+  { 2.80, "start", "opt_restore" },
+  { 2.90, "start", "opt_restore" },
+  { 3.00, "down" },                            -- APAGAR RECORDES: asks twice
+  { 3.10, "start", "opt_wipe" },
+  { 3.20, "start", "opt_wipe" },
+  { 3.30, "start", "opt_wipe" },
+  { 3.45, "back",  "back" },                   -- back to the menu
+  { 3.55, "down" },                            -- CRÉDITOS
+  { 3.65, "start", "menu_credits" },
+  { 3.85, "back",  "back" },
+  { 3.95, "up" },                              -- OPÇÕES
+  { 4.05, "up" },                              -- RECORDES
+  { 4.15, "up" },                              -- COMO JOGAR
+  { 4.25, "up" },                              -- JOGAR: binds the bot as Player 1
+  { 4.35, "start", "menu_play" },
 }
 -- The walk is over (the bot is in the lobby) from here on.
 local WALK_END = MENU_WALK[#MENU_WALK][1] + 0.1
@@ -129,13 +139,13 @@ for i = 1, #MATCH_EVENTS do
 end
 
 -- With --shots: screenshots at these script times, chosen to land on each
--- screen of the timeline: main menu (JOGAR, then OPÇÕES selected), OPÇÕES
--- (FX changed, then shake), input test, RESTAURAR asking, APAGAR asking
--- twice and done, CRÉDITOS; then
--- (MENU_T later than in the old timeline) lobby with both slots, briefing,
--- arena, pause, arena again. Files go to the LÖVE save directory (path
--- printed at the end).
-local SHOT_TIMES = { 0.25, 0.37, 0.60, 1.00, 1.70, 2.00, 2.40, 2.55, 2.95 }
+-- screen of the timeline: main menu (JOGAR, then COMO JOGAR selected), COMO
+-- JOGAR (controls, then rules), RECORDES, OPÇÕES (FX changed, then shake),
+-- input test, RESTAURAR asking, APAGAR asking twice and done, CRÉDITOS;
+-- then (MENU_T later than in the old timeline) lobby with both slots,
+-- briefing, arena, pause, arena again. Files go to the LÖVE save directory
+-- (path printed at the end).
+local SHOT_TIMES = { 0.25, 0.37, 0.50, 0.65, 1.00, 1.45, 1.85, 2.55, 2.85, 3.25, 3.40, 3.80 }
 do
   local MATCH_SHOTS = { 1.00, 1.62, 3.50, 4.35, 7.00, 12.00 }
   for i = 1, #MATCH_SHOTS do SHOT_TIMES[#SHOT_TIMES + 1] = MATCH_SHOTS[i] + MENU_T end
@@ -312,9 +322,9 @@ local function finish(code)
     print("[smoke] FALHA: os dois jogadores terminaram com a mesma cor")
     code = 1
   end
-  -- The menu walk opens OPÇÕES, the input test and CRÉDITOS and ends in the
-  -- lobby: otherwise a step missed its item and the rest of the timeline
-  -- drifted (see Smoke.update).
+  -- The menu walk opens COMO JOGAR (both pages), RECORDES, OPÇÕES, the
+  -- input test and CRÉDITOS and ends in the lobby: otherwise a step missed
+  -- its item and the rest of the timeline drifted (see Smoke.update).
   if (s.walkLost or 0) > 0 then
     print("[smoke] FALHA: o roteiro do menu se perdeu (não passou pelas telas ou não chegou ao lobby)")
     code = 1
@@ -384,8 +394,10 @@ function Smoke.update(dt)
   if not Smoke.walkChecked and t >= WALK_END then
     Smoke.walkChecked = true
     local Lobby = require("src.states.lobby")
-    -- OPÇÕES, the input test and CRÉDITOS opened on the way (3 screens).
-    if State.current() ~= Lobby or not Lobby.getSlots()[1] or (Smoke.stats.menus or 0) < 3 then
+    -- COMO JOGAR (turned to its 2nd page), RECORDES, OPÇÕES, the input
+    -- test and CRÉDITOS opened on the way (5 screens).
+    if State.current() ~= Lobby or not Lobby.getSlots()[1] or (Smoke.stats.menus or 0) < 5
+      or (Smoke.stats.pages or 0) < 1 then
       Smoke.bump("walkLost")
     end
   end

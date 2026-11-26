@@ -1,9 +1,12 @@
 -- Main menu: the title screen, first thing after the boot.
 --
---   JOGAR     -> the lobby, with the device that picked it already Player 1
---   OPÇÕES    -> src/states/options.lua (pushed: back here on BACK)
---   CRÉDITOS  -> src/states/credits.lua (pushed)
---   SAIR      -> quits (not in the browser, which has no quit)
+--   JOGAR      -> the lobby, with the device that picked it already Player 1
+--   COMO JOGAR -> src/states/howto.lua (pushed: back here on BACK), showing
+--                 the controls of the device that picked it
+--   RECORDES   -> src/states/records.lua (pushed)
+--   OPÇÕES     -> src/states/options.lua (pushed)
+--   CRÉDITOS   -> src/states/credits.lua (pushed)
+--   SAIR       -> quits (not in the browser, which has no quit)
 --
 -- Any device navigates (src/nav.lua): up/down move, START or A confirm. BACK
 -- does nothing here (holding SELECT still quits, on every screen). On the
@@ -25,6 +28,8 @@ local Menu = {}
 -- `action`: the touch button of the item (built once below).
 local ITEMS = {
   { id = "play",    label = "JOGAR" },
+  { id = "howto",   label = "COMO JOGAR" },
+  { id = "records", label = "RECORDES" },
   { id = "options", label = "OPÇÕES" },
   { id = "credits", label = "CRÉDITOS" },
   { id = "quit",    label = "SAIR", desktopOnly = true },
@@ -52,6 +57,12 @@ local function choose(item, device)
     -- Lobby:enter binds the device (and plays the confirm sound).
     require("src.transition").start()
     State.switch(require("src.states.lobby"), device)
+  elseif item.id == "howto" then
+    Audio.play("menu_confirm")
+    State.push(require("src.states.howto"), device)
+  elseif item.id == "records" then
+    Audio.play("menu_confirm")
+    State.push(require("src.states.records"))
   elseif item.id == "options" then
     Audio.play("menu_confirm")
     State.push(require("src.states.options"))

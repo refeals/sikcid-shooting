@@ -125,7 +125,7 @@ Config.MENU = {
   titleY = 40,            -- the game name on the main menu
   screenTitleY = 12,      -- the big title of the other menu screens
   subtitleY = 70,
-  listY = 104,            -- top of the main menu item panel
+  listY = 92,             -- top of the main menu item panel
   listW = 200,
   rowH = 28,              -- main menu row height (tall enough for "Õ" in the highlight)
   rowPad = 8,             -- panel padding around the rows
@@ -134,6 +134,16 @@ Config.MENU = {
   options = { w = 520, y = 46, rowH = 22, pad = 10, valueW = 160, barW = 100, arrowSize = 5 },
   -- CRÉDITOS: section heading and line heights, gap between sections.
   credits = { headH = 16, lineH = 12, gap = 8 },
+  -- RECORDES: three stacked windows of label-over-value columns (`h` each;
+  -- the machine stats one is `statsH`, two rows `rowGap` apart).
+  records = { w = 520, y = 44, gap = 6, h = 60, statsH = 96, rowGap = 34, labelY = 8, valueY = 14 },
+  -- COMO JOGAR: one window of fixed height for both pages. Controls page:
+  -- action name right-aligned in `labelW`, then the binding; rules page:
+  -- heading over its text (wrapped, `lineH` per line). Page arrows `arrowX`
+  -- px out from the window's sides; `pageY` is the "1/2" line.
+  howto = { w = 520, y = 44, h = 208, pad = 12, rowH = 22, labelW = 190, colGap = 14,
+            noteGap = 6, headH = 11, lineH = 10, ruleGap = 6,
+            arrowX = 16, arrowSize = 8, arrowHitW = 36, arrowHitH = 64, pageY = 264 },
   -- The VOLTAR button touch screens get under each menu screen.
   touchBack = { w = 120, h = 20, y = 326 },
 }

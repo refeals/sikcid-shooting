@@ -393,6 +393,7 @@ local function finale(self, world)
   -- The sky moves on to the next block's palette right away.
   Background.setTheme(Background.themeForWave(self.wave + 1))
   Music.play("game")
+  world.tally.bosses = world.tally.bosses + 1   -- machine stats (RECORDES)
   if Config.SMOKE then require("src.smoke").bump("bosses") end
   self.state = "done"
   self.dead = true

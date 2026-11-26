@@ -69,6 +69,9 @@ local world = {
   players = {},
   playerCount = 0,
   godMode = false,
+  -- This match's share of the machine stats (RECORDES), added to the save
+  -- once when it ends (commitTally). `done` until a match starts.
+  tally = { kills = 0, bosses = 0, subbosses = 0, seconds = 0, done = true },
 }
 
 -- ---------------------------------------------------------------------------
@@ -847,6 +850,7 @@ function world:subbossDown(enemy)
   self:hitStop(S.deathHitStop, true)
   Audio.play("boss_die", 0.8, 0.9)
   if Spawner.subboss == enemy then Spawner.subboss = nil end
+  self.tally.subbosses = self.tally.subbosses + 1
   if Config.SMOKE then require("src.smoke").bump("subbosses") end
 end
 
@@ -893,6 +897,7 @@ function world:onEnemyKilled(enemy, killerIndex)
     Audio.play("enemy_die")
   end
 
+  self.tally.kills = self.tally.kills + 1
   if Config.SMOKE then
     local Smoke = require("src.smoke")
     Smoke.bump("kills")
@@ -959,7 +964,11 @@ function world:onGameOver()
   -- brings the music in, timed from it.
   summary.sinceJingle = world.endJingle and (world.endT - Config.GAME_OVER.textDelay) or nil
 
-  local beat = Save.submitMatch(self.playerCount, summary.scores)
+  local combo = 0
+  for i = 1, self.playerCount do
+    if (summary.combos[i] or 0) > combo then combo = summary.combos[i] end
+  end
+  local beat = Save.submitMatch(self.playerCount, summary.scores, summary.wave, combo)
   summary.beat.solo, summary.beat.duo, summary.beat.coop = beat.solo, beat.duo, beat.coop
 
   -- Shake is only updated by the arena: clear it or the next screen inherits
@@ -1183,6 +1192,9 @@ function Game:enter(devices, count)
     end
   end
 
+  local T = world.tally
+  T.kills, T.bosses, T.subbosses, T.seconds, T.done = 0, 0, 0, 0, false
+
   -- A arena já está montada; o briefing fica por cima (tudo congelado) até
   -- alguém apertar START.
   RunLog.begin(world)
@@ -1259,11 +1271,28 @@ function Game:focus(focused)
   State.push(require("src.states.pause"), world, "paused")
 end
 
+-- The match's machine stats (RECORDES) go into the save once, however it
+-- ends. No game time means it never left the briefing: not a match.
+local function commitTally()
+  local T = world.tally
+  if T.done then return end
+  T.done = true
+  if T.seconds <= 0 then return end
+  Save.addPlayed(T.kills, T.bosses, T.subbosses, T.seconds)
+end
+
 -- Leaving the arena: to the results (the run log already closed the match
 -- at the last death) or quitting from the pause menu (closes it as quit).
+-- Both add the match to the machine stats.
 function Game:leave()
   RunLog.finish(world, "abandono")
+  commitTally()
   Music.setPitch(1)   -- TEMPO LENTO's pitch never outlives the match
+end
+
+-- The game is closing (love.quit): a match still going counts as played.
+function Game.quit()
+  commitTally()
 end
 
 function Game:update(dt)
@@ -1277,6 +1306,7 @@ function Game:update(dt)
     dt = dt * gameOverTimeScale(world.endT)
   else
     RunLog.tick(dt)   -- match time (no pause, no overlay: they skip this update)
+    world.tally.seconds = world.tally.seconds + dt
   end
 
   for i = 1, world.playerCount do

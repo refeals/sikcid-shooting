@@ -17,7 +17,8 @@ Pilares:
 - **Pilotar acima de mirar.** O auto-aim cuida do tiro; a mira manual serve
   para priorizar um alvo (o sniper, por exemplo).
 - **Progressão dentro da partida.** Power-ups temporários e upgrades
-  permanentes valem só até o game over; entre partidas ficam só os recordes.
+  permanentes valem só até o game over; entre partidas ficam só os recordes
+  e os acumulados da máquina.
 - **Cada wave diferente da anterior.** A dificuldade cresce em densidade e em
   composição (tipos novos, elites, sub-bosses, bosses), não em duração.
 - **Legível no caos.** Cada ameaça tem cor própria e avisa antes de atacar:
@@ -332,20 +333,59 @@ tela de resultados. Tempos e efeitos ficam em `Config.GAME_OVER`.
 
 ## Menu principal e opções
 
-O jogo abre no menu principal: o nome do jogo e a lista **JOGAR**,
-**OPÇÕES**, **CRÉDITOS** e **SAIR** (SAIR não existe na web). Qualquer
-controle navega, vinculado ou não; o cursor sempre começa em JOGAR. BACK não
-faz nada aqui (segurar SELECT continua saindo do jogo).
+O jogo abre no menu principal: o nome do jogo e a lista **JOGAR**, **COMO
+JOGAR**, **RECORDES**, **OPÇÕES**, **CRÉDITOS** e **SAIR** (SAIR não existe na
+web). Qualquer controle navega, vinculado ou não; o cursor sempre começa em
+JOGAR. BACK não faz nada aqui (segurar SELECT continua saindo do jogo).
 
 - **JOGAR** vai para o lobby com o controle que confirmou já como Jogador 1:
   mais um START começa a partida solo, o mesmo número de toques de antes do
   menu.
+- **COMO JOGAR** e **RECORDES** (abaixo).
 - **OPÇÕES** (abaixo).
 - **CRÉDITOS**: música, arte, sons, LÖVE e love.js (os mesmos do README).
 - **SAIR** fecha o jogo na hora.
 
+COMO JOGAR, RECORDES, OPÇÕES e CRÉDITOS abrem por cima do menu: BACK (ou o
+botão VOLTAR no touch) volta para ele com o cursor onde estava.
+
 A partida não volta para o menu: game over e abandonar levam ao lobby, para a
 revanche ser rápida. BACK no lobby vazio volta ao menu.
+
+### Como jogar
+
+Duas páginas; ←/→ (no touch, as setas dos lados da janela) mudam a página,
+sem dar a volta. START/A na página 1 vai para a 2 e, na 2, fecha a tela.
+
+1. **Controles** do device que escolheu COMO JOGAR: controle, teclado ou
+   touch. SAIR DO JOGO não aparece na web nem no touch.
+2. **Regras:** waves pelas quatro portas, combo, respiro entre waves, upgrade
+   a cada `Config.UPGRADES.every` waves, sub-boss nas waves 5, 15, 25... e
+   boss a cada 10. Os números saem do `Config` (`COMBO`, `WAVE.restTime`,
+   `UPGRADES`, `SUBBOSS`, `BOSS`), então a página acompanha o tuning. Os
+   power-ups ficam com o briefing, que já lista todos.
+
+### Recordes
+
+Três janelas:
+
+| Janela | Valores | Quando conta |
+|---|---|---|
+| PONTOS | melhor solo, melhor em dupla, soma da dupla (os mesmos do lobby) | só no game over |
+| MELHOR PARTIDA | wave alcançada solo, wave alcançada em dupla, maior combo (a maior sequência de abates, de qualquer modo) | só no game over |
+| ESTA MÁQUINA | partidas, inimigos abatidos, tempo jogado, bosses, sub-bosses | toda partida |
+
+- Os acumulados são da máquina, não de um jogador. Contam a partida que
+  acaba no game over, a abandonada pela pausa e a que estava rolando quando o
+  jogo fechou. Sair pelo briefing (sem tempo de jogo) não é partida.
+- **Inimigos abatidos:** tudo que um jogador derruba (fragmentos, drones,
+  guardas e sub-bosses incluídos). Não contam os que explodem sozinhos:
+  os drones quando o PORTA-NAVES morre e os inimigos varridos pela morte do
+  boss.
+- **Tempo jogado:** tempo de partida sem pausas e sem as telas por cima (o
+  mesmo do registro de partidas), mostrado como "14H 05M".
+- Tudo fica no `highscores.dat`, ao lado das cores do lobby. Um arquivo de
+  uma versão antiga carrega normalmente, com os valores novos em zero.
 
 ### Opções
 
@@ -363,7 +403,7 @@ ficam em `Config.OPTIONS`.
 | TELA CHEIA | SIM / NÃO | só no PC: a web abre em janela e o Batocera é sempre tela cheia |
 | TESTAR CONTROLES | — | abre a tela de teste de input (o caminho no Batocera, que não tem F5) |
 | RESTAURAR PADRÕES | — | pede confirmação (mais um START) |
-| APAGAR RECORDES | — | pede confirmação duas vezes; não apaga as cores nem as opções |
+| APAGAR RECORDES | — | pede confirmação duas vezes; zera tudo da tela RECORDES (recordes e acumulados da máquina), mas não apaga as cores nem as opções |
 
 ←/→ mudam o valor; START/A num item de valor avança e dá a volta (menos nos
 volumes). Mudar de linha ou BACK cancela uma confirmação pendente. Uma flag de

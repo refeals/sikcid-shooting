@@ -235,9 +235,13 @@ function love.mousereleased(_, _, button, istouch)
   end
 end
 
--- Closing the game mid-match still closes its run log entry ("saiu").
+-- Closing the game mid-match still closes its run log entry ("saiu") and
+-- adds the match to the machine stats (RECORDES).
 function love.quit()
   require("src.runlog").quit()
+  -- Only if a match ever started (no need to load the arena to quit the menu).
+  local Game = package.loaded["src.states.game"]
+  if Game then Game.quit() end
   return false
 end
 
