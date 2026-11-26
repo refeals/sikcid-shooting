@@ -144,8 +144,14 @@ Config.ART = {
     sniper       = { "simple:ship_I", rot = -math.pi / 2 },   -- long and thin
     carrier      = { "simple:ship_sidesB", rot = -math.pi / 2 },  -- wide, side pods
     scout        = { "simple:ship_D", rot = -math.pi / 2 },   -- carrier drones
-    torre        = { "simple:station_C" },                     -- sub-boss (tank)
-    ariete       = { "simple:ship_G", rot = -math.pi / 2 },   -- sub-boss (kamikaze)
+    -- Sub-bosses: simpleSpace has no 2x sheet, so their sprites are rebuilt
+    -- `upscale` x bigger at load (crisp outline, see Assets upscaleSprite).
+    torre        = { "simple:station_C", upscale = 4 },        -- sub-boss (tank)
+    ariete       = { "simple:ship_G", rot = -math.pi / 2, upscale = 4 },   -- sub-boss (kamikaze)
+    hidra        = { "simple:enemy_E", rot = -math.pi / 2, upscale = 4 },  -- sub-boss (divisor)
+    divisorM     = { "simple:enemy_E", rot = -math.pi / 2 },  -- the hidra's halves
+    colmeia      = { "simple:ship_sidesB", rot = -math.pi / 2, upscale = 4 },  -- sub-boss (carrier)
+    guard        = { "simple:station_A" },                     -- the colmeia's guards
     puff1        = { "ss2:spaceEffects_009" },
     puff2        = { "ss2:spaceEffects_011" },
     puff3        = { "ss2:spaceEffects_013" },
@@ -206,6 +212,10 @@ Config.ART = {
     sniperShot = 14,        -- length of the sniper's streak
     torre = 72,             -- sub-bosses: ~2.5x their base enemy
     ariete = 46,
+    hidra = 56,
+    divisorM = 32,
+    colmeia = 72,
+    guard = 15,
     pickup = 14,
     hudLife = 9,
   },
@@ -526,6 +536,25 @@ Config.ENEMIES = {
                aimTime = 0.8, lockTime = 0.2, chargeSpeed = 380, chargeTime = 2.0, charges = 3,
                recoverTime = 0.4, stunTime = 2.5, stunSpin = 9, reach = 1000,
                lineAlpha = 0.7, lineWidth = 3, sparkEvery = 0.08 },
+  -- HIDRA: chases slowly and every spitEvery s spits spitCount fragments in
+  -- a spitSpread fan at its target; dies into splitCount divisorM.
+  hidra    = { hp = 1, speed = 30, size = 26, radius = 20, points = 2000, color = "divisor", contactDamage = true,
+               push = 8, hpBar = true, subboss = true, name = "HIDRA",
+               spitEvery = 3.0, spitCount = 3, spitSpread = math.rad(40), spitSpeed = 140,
+               splitInto = "divisorM", splitCount = 2, splitSpeed = 80 },
+  -- The HIDRA's halves: medium divisors (harmless for a moment, like the
+  -- fragments), each dying into 3 fragments.
+  divisorM = { hp = 20, speed = 40, size = 20, radius = 11, points = 300, color = "divisor", contactDamage = true,
+               harmlessTime = 0.3, splitInto = "fragment", splitCount = 3, splitSpeed = 110 },
+  -- COLMEIA: a giant carrier (drones like the carrier's, more of them) that
+  -- keeps `guards` guard drones orbiting it at guardRadius (one back every
+  -- guardEvery s), which soak up the shots aimed at its core.
+  colmeia  = { hp = 1, speed = 18, size = 30, radius = 26, points = 2000, color = "carrier", contactDamage = true,
+               push = 8, hpBar = true, subboss = true, name = "COLMEIA", keepDistance = 150,
+               launchInterval = 2.5, hatchTime = 0.4, launchCount = 2, maxDrones = 8,
+               launchSpeed = 90, hatchOffset = 30, spawn = "scout",
+               guards = 4, guardEvery = 5, guardRadius = 46, guardSpin = 1.5 },
+  guard    = { hp = 4, speed = 0, size = 10, radius = 7, points = 100, color = "carrier", contactDamage = true },
 }
 
 -- Spacing between enemies (steering in src/entities/enemy.lua, hard overlap
@@ -637,7 +666,7 @@ Config.SUBBOSS = {
   alertTime = 1.2,
   hp = { base = 150, perSub = 90 },
   drops = 2,
-  variants = { "torre", "ariete" },
+  variants = { "torre", "ariete", "hidra", "colmeia" },
   aura = { color = { 0.55, 0.05, 0.08, 1 }, radius = 0.7, alpha = 0.22, pulse = 2, glow = 0.1 },
   deathShake = 7, deathHitStop = 0.1, deathScale = 0.6,   -- x the boss explosion preset
 }

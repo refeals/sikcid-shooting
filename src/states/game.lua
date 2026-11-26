@@ -810,7 +810,11 @@ function world:onEnemyKilled(enemy, killerIndex)
     Audio.play("enemy_die")
   end
 
-  if Config.SMOKE then require("src.smoke").bump("kills") end
+  if Config.SMOKE then
+    local Smoke = require("src.smoke")
+    Smoke.bump("kills")
+    if enemy.type == "guard" then Smoke.bump("guards") end
+  end
 end
 
 function world:onPlayerHit(player, cause)

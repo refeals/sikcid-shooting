@@ -65,6 +65,9 @@ function Enemy.new()
     subN = 0, lap = 1,
     spinAngle = 0,
     chargesLeft = 0,
+    slot = 0,           -- COLMEIA guard: its place on the orbit (1..guards)
+    guardT = 0,         -- COLMEIA: s until the next guard comes back
+    ringOut = false,    -- COLMEIA: its first ring of guards is out
   }, Enemy)
 end
 
@@ -99,6 +102,8 @@ function Enemy:reset(kind, x, y)
   self.elite, self.speedMul = false, 1
   self.subN, self.lap, self.spinAngle = 0, 1, 0
   self.chargesLeft = def.charges or 0
+  self.slot, self.guardT, self.ringOut = 0, 0, false
+  if def.spitEvery then self.fireTimer = def.spitEvery end   -- HIDRA
   if def.fireTime then self.state, self.stateT = "fire", def.fireTime end   -- TORRE
 end
 
@@ -361,7 +366,7 @@ local function launchDrones(self, world)
   local alive = 0
   for i = 1, pool.count do
     local e = pool.items[i]
-    if e.parent == self and not e.dead then alive = alive + 1 end
+    if e.parent == self and e.type == def.spawn and not e.dead then alive = alive + 1 end
   end
   local n = math.min(def.launchCount, def.maxDrones - alive)
   if n <= 0 then return end
@@ -523,6 +528,112 @@ BEHAVIORS.ariete = function(self, dt, world)
   end
 end
 
+-- HIDRA: chases slowly and every spitEvery s spits spitCount fragments in a
+-- fan at its target (harmless for a moment, like a divisor's pieces).
+-- Splitting into its halves on death is world:split (def.splitInto).
+BEHAVIORS.hidra = function(self, dt, world)
+  local def = self.def
+  pickTarget(self, world)
+  local t = self.target
+  if not t then self.vx, self.vy = 0, 0; return end
+  local nx, ny = Util.normalize(t.x - self.x, t.y - self.y)
+  self.vx, self.vy = nx * def.speed, ny * def.speed
+  self.fireTimer = self.fireTimer - dt
+  if self.fireTimer > 0 then return end
+  self.fireTimer = def.spitEvery
+  local child = Config.ENEMIES.fragment
+  local base = math.atan2(ny, nx)
+  local n = def.spitCount
+  local mx, my = self.x + nx * self.radius, self.y + ny * self.radius
+  for i = 1, n do
+    local a = base + (n > 1 and ((i - 1) / (n - 1) - 0.5) * def.spitSpread or 0)
+    local e = world:spawnEnemy("fragment", mx, my)
+    if not e then break end
+    e.vx, e.vy = math.cos(a) * def.spitSpeed, math.sin(a) * def.spitSpeed
+    e.angle = a
+    e.harmless = child.harmlessTime or 0
+  end
+  world:burst(6, mx, my, self.color, 3)
+  Audio.play("divisor_split", 1, 0.8)
+end
+
+-- The HIDRA's halves: fly out along the split fan while harmless, then
+-- chase like a grunt.
+BEHAVIORS.divisorM = function(self, dt, world)
+  if self.harmless > 0 then return end
+  BEHAVIORS.grunt(self, dt, world)
+end
+
+-- COLMEIA: holds keepDistance (never backing off, like the TORRE), launches
+-- drones like a carrier and keeps `guards` guards on its orbit: all of them
+-- at first, then one back every guardEvery s while some are missing.
+local guardTaken = {}
+
+local function spawnGuards(self, world, count)
+  local def = self.def
+  local pool = world.enemies
+  for s = 1, def.guards do guardTaken[s] = false end
+  for i = 1, pool.count do
+    local e = pool.items[i]
+    if e.parent == self and e.type == "guard" and not e.dead then guardTaken[e.slot] = true end
+  end
+  for s = 1, def.guards do
+    if count <= 0 then return end
+    if not guardTaken[s] then
+      local g = world:spawnEnemy("guard", self.x, self.y)
+      if not g then return end
+      g.parent, g.slot, g.phasing = self, s, true
+      count = count - 1
+    end
+  end
+end
+
+BEHAVIORS.colmeia = function(self, dt, world)
+  local def = self.def
+  pickTarget(self, world)
+  local t = self.target
+  if t then
+    local nx, ny, dist = Util.normalize(t.x - self.x, t.y - self.y)
+    local dir = dist > def.keepDistance and 1 or 0
+    self.vx, self.vy = nx * dir * def.speed, ny * dir * def.speed
+  else
+    self.vx, self.vy = 0, 0
+  end
+  self.spinAngle = self.spinAngle + def.guardSpin * dt
+
+  self.launchT = self.launchT - dt
+  if self.launchT <= 0 then
+    self.launchT = def.launchInterval
+    launchDrones(self, world)
+  end
+
+  -- Guards: the whole ring when it arrives, then one at a time.
+  self.guardT = self.guardT - dt
+  if self.guardT <= 0 then
+    spawnGuards(self, world, self.ringOut and 1 or def.guards)
+    self.ringOut = true
+    self.guardT = def.guardEvery
+  end
+end
+
+-- COLMEIA guard: sits on its parent's orbit (slot evenly spaced, turning
+-- with the parent's spinAngle); `phasing` keeps the spacing from pushing it
+-- off. Without a live parent it goes too (killBrood normally does that).
+BEHAVIORS.guard = function(self, dt, world)
+  local p = self.parent
+  self.vx, self.vy = 0, 0
+  if not p or p.dead or p.type ~= "colmeia" then
+    self.dead = true
+    world:explosion(self.x, self.y, self.color, Config.JUICE.explosions.small)
+    return
+  end
+  local def = p.def
+  local a = p.spinAngle + (self.slot - 1) / def.guards * math.pi * 2
+  self.x = p.x + math.cos(a) * def.guardRadius
+  self.y = p.y + math.sin(a) * def.guardRadius
+  self.angle = a
+end
+
 -- End of a charge (wall or time out). A kamikaze is stunned; ARIETE goes
 -- on to its next charge (recover) until the series is done, then stunned.
 function Enemy:endCharge(world, wall)
@@ -639,7 +750,8 @@ function Enemy:update(dt, world)
   if self.materialize > 0 then self.materialize = self.materialize - dt end
   if self.harmless > 0 then self.harmless = self.harmless - dt end
 
-  if world:nearestPlayer(self.x, self.y) then
+  -- Guards always follow their parent's orbit, players or not.
+  if world:nearestPlayer(self.x, self.y) or self.type == "guard" then
     self.wandering = false
     local behavior = BEHAVIORS[self.type] or BEHAVIORS.grunt
     behavior(self, dt, world)
@@ -683,7 +795,7 @@ function Enemy:update(dt, world)
     local t = self.target
     if self.state == "aim" then
       want = math.atan2(self.aimY, self.aimX)
-    elseif (self.type == "shooter" or self.type == "carrier") and t then
+    elseif (self.type == "shooter" or self.type == "carrier" or self.type == "colmeia") and t then
       want = math.atan2(t.y - self.y, t.x - self.x)
     elseif self.vx ~= 0 or self.vy ~= 0 then
       want = math.atan2(self.vy, self.vx)

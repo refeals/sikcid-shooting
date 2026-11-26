@@ -135,7 +135,46 @@ local function extractSprite(sheet, rect, grey)
   d:paste(sheet.data, PAD, PAD, x, y, w, h)
   if grey then toGrey(d) end
   alphaBleed(d)
-  return newSmoothImage(d, true), w, h
+  return newSmoothImage(d, true), w, h, d
+end
+
+-- Upscaled copy for flat sprites drawn far bigger than their texels (the
+-- sub-bosses: simpleSpace has no 2x sheet). Colors are sampled bilinearly
+-- (the alpha bleed keeps the edges clean); the silhouette is rebuilt from the
+-- bilinear alpha with a sharp smoothstep around 0.5, so the outline stays
+-- crisp at any size instead of showing the texel steps. `u` = factor.
+local function upscaleSprite(src, u)
+  local sw, sh = src:getDimensions()
+  local dw, dh = sw * u, sh * u
+  local d = love.image.newImageData(dw, dh)
+  local e = 0.6 / u   -- half width of the alpha edge (about one output texel)
+  local floor = math.floor
+  for oy = 0, dh - 1 do
+    local fy = (oy + 0.5) / u - 0.5
+    local y0 = floor(fy)
+    local ty = fy - y0
+    local ya, yb = math.max(0, y0), math.min(sh - 1, y0 + 1)
+    for ox = 0, dw - 1 do
+      local fx = (ox + 0.5) / u - 0.5
+      local x0 = floor(fx)
+      local tx = fx - x0
+      local xa, xb = math.max(0, x0), math.min(sw - 1, x0 + 1)
+      local r1, g1, b1, a1 = src:getPixel(xa, ya)
+      local r2, g2, b2, a2 = src:getPixel(xb, ya)
+      local r3, g3, b3, a3 = src:getPixel(xa, yb)
+      local r4, g4, b4, a4 = src:getPixel(xb, yb)
+      local w1, w2, w3, w4 = (1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty
+      local a = a1 * w1 + a2 * w2 + a3 * w3 + a4 * w4
+      local k = (a - (0.5 - e)) / (2 * e)
+      if k < 0 then k = 0 elseif k > 1 then k = 1 end
+      d:setPixel(ox, oy,
+        r1 * w1 + r2 * w2 + r3 * w3 + r4 * w4,
+        g1 * w1 + g2 * w2 + g3 * w3 + g4 * w4,
+        b1 * w1 + b2 * w2 + b3 * w3 + b4 * w4,
+        k * k * (3 - 2 * k))
+    end
+  end
+  return d
 end
 
 -- Outline silhouette: the sprite's alpha dilated by `r` texels, all white (so
@@ -185,7 +224,15 @@ local function loadSprites(sheets)
       if def.outline then
         img, w, h, pad = extractOutline(sheet, rect, def.outline)
       else
-        img, w, h = extractSprite(sheet, rect, def.grey)
+        local data
+        img, w, h, data = extractSprite(sheet, rect, def.grey)
+        if def.upscale then
+          -- Bigger texture, same logical sprite: the record's size and pad
+          -- grow with it, so Assets.draw scales it exactly like the original.
+          local u = def.upscale
+          img = newSmoothImage(upscaleSprite(data, u), true)
+          w, h, pad = w * u, h * u, PAD * u
+        end
       end
       Assets.sprites[role] = { image = img, w = w, h = h, rot = def.rot or 0, pad = pad or PAD }
       Assets.loaded = Assets.loaded + 1
