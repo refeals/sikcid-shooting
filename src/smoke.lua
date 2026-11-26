@@ -233,12 +233,12 @@ local function finish(code)
   s.devices = Input.count
   print(string.format(
     "[smoke] t=%.1fs estado=%s devices=%d fpsMin=%d waves=%d bosses=%d kills=%d deaths=%d gameovers=%d pickups=%d " ..
-    "dashes=%d charges=%d splits=%d snipes=%d launches=%d upgrades=%d blades=%d bounces=%d shocks=%d recharges=%d combo=%d pausas=%d esperas=%d peakEnemies=%d " ..
+    "dashes=%d charges=%d splits=%d snipes=%d launches=%d upgrades=%d blades=%d bounces=%d shocks=%d recharges=%d subbosses=%d combo=%d pausas=%d esperas=%d peakEnemies=%d " ..
     "peakBullets=%d peakParticles=%d denied=%d deniedFx=%d cores=%s",
     Smoke.t, tostring(s.state or "?"), s.devices or 0, Smoke.fpsMin,
     s.waves or 0, s.bosses or 0, s.kills or 0, s.deaths or 0, s.gameovers or 0, s.pickups or 0, s.dashes or 0,
     s.charges or 0, s.splits or 0, s.snipes or 0, s.launches or 0, s.upgrades or 0,
-    s.blades or 0, s.bounces or 0, s.shocks or 0, s.recharges or 0,
+    s.blades or 0, s.bounces or 0, s.shocks or 0, s.recharges or 0, s.subbosses or 0,
     s.combo or 0, s.pauses or 0, s.waits or 0, s.peakEnemies or 0, s.peakBullets or 0, s.peakParticles or 0,
     s.denied or 0, s.deniedFx or 0, tostring(s.colors or "?")))
   -- Both players ending on the same color means the picker's skip rule broke.
@@ -359,6 +359,18 @@ function Smoke.update(dt)
       and Spawner.banner < Config.WAVE.bannerTime - 0.4 then
       love.graphics.captureScreenshot("smoke_debut.png")
       Smoke.debutShot = true
+    end
+    -- Sub-boss: its alert, then the fight a couple of seconds in.
+    if not Smoke.subAlertShot and Spawner.subAlert > 0 and Spawner.subAlert < 0.8 then
+      love.graphics.captureScreenshot("smoke_subboss.png")
+      Smoke.subAlertShot = true
+    end
+    if Spawner.subboss and not Spawner.subboss.dead then
+      Smoke.subT = (Smoke.subT or 0) + dt
+      if not Smoke.subFightShot and Smoke.subT > 2.5 then
+        love.graphics.captureScreenshot("smoke_subboss2.png")
+        Smoke.subFightShot = true
+      end
     end
     -- A power-up on the floor, and one blinking (its last seconds).
     local pk = Game.world.pickups

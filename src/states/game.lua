@@ -675,6 +675,7 @@ function world:clearHostiles()
     pool:release(i)
   end
   self:clearEnemyShots()
+  Spawner.subboss = nil
 end
 
 -- Missile smoke: skipped while the pool is busy, so explosions keep priority.
@@ -745,6 +746,27 @@ function world:killBrood(enemy)
   if any then Audio.play("enemy_die") end
 end
 
+-- Sub-boss down (Config.SUBBOSS): its guaranteed power-ups around the
+-- wreck and a boss-like (smaller) finale. Its points are in onEnemyKilled.
+function world:subbossDown(enemy)
+  local S = Config.SUBBOSS
+  local a, m = self.arena, Config.POWERUP.dropMargin
+  for i = 1, S.drops do
+    local ang = (i - 1) / S.drops * math.pi * 2 + math.random() * 0.6
+    local x = Util.clamp(enemy.x + math.cos(ang) * 26, a.x + m, a.x + a.w - m)
+    local y = Util.clamp(enemy.y + math.sin(ang) * 26, a.y + m, a.y + a.h - m)
+    self:dropPowerup(x, y, true)
+  end
+  self:explosion(enemy.x, enemy.y, enemy.color, J.explosions.boss, S.deathScale)
+  self:stagedPops(enemy.x, enemy.y, enemy.color, J.stages.player)
+  Post.shockwave(enemy.x, enemy.y, Config.FX.shock.player)
+  self:shake(S.deathShake, true)
+  self:hitStop(S.deathHitStop, true)
+  Audio.play("boss_die", 0.8, 0.9)
+  if Spawner.subboss == enemy then Spawner.subboss = nil end
+  if Config.SMOKE then require("src.smoke").bump("subbosses") end
+end
+
 function world:onEnemyKilled(enemy, killerIndex)
   local size = Config.ART.size[enemy.type] or enemy.def.size
   -- Heavy ships (tank, carrier: the ones with an HP bar) go out big.
@@ -767,6 +789,7 @@ function world:onEnemyKilled(enemy, killerIndex)
         self:floatText(killer.x, killer.y - 14, MULT_TEXT[Combo.mult(killer)], Config.COLORS.textWarn)
       end
       local pts = enemy.def.points * (enemy.elite and Config.ELITE.pointsMul or 1)
+        * math.max(1, enemy.subN)   -- sub-boss: x its order in the match
       self:addScore(killerIndex, pts * Combo.mult(killer))
     end
   end
@@ -774,6 +797,7 @@ function world:onEnemyKilled(enemy, killerIndex)
   self:dropPowerup(enemy.x, enemy.y, false)
   if enemy.def.splitInto then self:split(enemy) end
   if enemy.def.spawn then self:killBrood(enemy) end
+  if enemy.def.subboss then self:subbossDown(enemy) end
 
   if heavy then
     self:shake(J.shakeTankDeath)
@@ -1426,6 +1450,13 @@ function Game:draw(covered)
     end
     UI.text("title", boss.variant.name, arena.cx - 160, arena.cy - 28, C.text, 320, "center")
   end
+  -- Sub-boss alert: shorter and faster than the boss's, in the title font.
+  if Spawner.subAlert > 0 and Spawner.subName then
+    if math.floor(Spawner.subAlert * 8) % 2 == 0 then
+      UI.text("title", "ALERTA", arena.cx - 160, arena.cy - 60, C.doorWarn, 320, "center")
+    end
+    UI.text("title", Spawner.subName, arena.cx - 160, arena.cy - 40, C.text, 320, "center")
+  end
 
   -- Wave cleared notice during the breather.
   if Spawner.isResting() and Spawner.wave >= 1 then
@@ -1469,8 +1500,12 @@ function Game:draw(covered)
 
   hudInfo.titleNum = waveNum
   hudInfo.boss = nil
+  hudInfo.sub = nil
+  local sub = Spawner.subboss
   if Spawner.bossWave and boss.active then
     hudInfo.boss = boss
+  elseif sub and not sub.dead and sub.def.subboss then
+    hudInfo.sub = sub   -- its name and HP bar in place of the enemy count
   elseif Spawner.isResting() then
     hudInfo.subLabel = "PRÓXIMA EM "
     hudInfo.subNum = restNum
@@ -1512,6 +1547,9 @@ function Game:keypressed(key)
   elseif key == "f4" then
     -- Dropa um power-up aleatório no centro.
     world:dropPowerup(arena.cx, arena.cy, true)
+  elseif key == "f8" then
+    -- The sub-boss of the current cycle, right now, through a door.
+    Spawner.spawnSubboss(world)
   elseif key == "f7" then
     -- Upgrade screen right now (a normal offer; shift = a boss offer).
     State.push(require("src.states.upgrade"), world, love.keyboard.isDown("lshift", "rshift"))

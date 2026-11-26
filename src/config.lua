@@ -144,6 +144,8 @@ Config.ART = {
     sniper       = { "simple:ship_I", rot = -math.pi / 2 },   -- long and thin
     carrier      = { "simple:ship_sidesB", rot = -math.pi / 2 },  -- wide, side pods
     scout        = { "simple:ship_D", rot = -math.pi / 2 },   -- carrier drones
+    torre        = { "simple:station_C" },                     -- sub-boss (tank)
+    ariete       = { "simple:ship_G", rot = -math.pi / 2 },   -- sub-boss (kamikaze)
     puff1        = { "ss2:spaceEffects_009" },
     puff2        = { "ss2:spaceEffects_011" },
     puff3        = { "ss2:spaceEffects_013" },
@@ -202,6 +204,8 @@ Config.ART = {
     carrier = 32,
     scout = 9,
     sniperShot = 14,        -- length of the sniper's streak
+    torre = 72,             -- sub-bosses: ~2.5x their base enemy
+    ariete = 46,
     pickup = 14,
     hudLife = 9,
   },
@@ -507,6 +511,21 @@ Config.ENEMIES = {
   -- turning at most `turnRate` rad/s. Outside the wave quota.
   scout    = { hp = 1, speed = 100, size = 8, radius = 4, points = 50, color = "carrier", contactDamage = true,
                harmlessTime = 0.3, turnRate = math.rad(150) },
+  -- Sub-bosses (Config.SUBBOSS): giant versions of a base enemy, in its
+  -- color. HP is set when they come in (by their order and the players).
+  -- TORRE: keeps `keepDistance`, spins a spiral of `arms` (+armsPerLap each
+  -- lap of the cycle) slow stars, firing for fireTime s, pausing pauseTime s.
+  torre    = { hp = 1, speed = 15, size = 30, radius = 26, points = 2000, color = "tank", contactDamage = true,
+               push = 8, hpBar = true, subboss = true, name = "TORRE", keepDistance = 150,
+               arms = 4, armsPerLap = 2, spin = 1.2, fireEvery = 0.2, bulletSpeed = 90, bulletLife = 4,
+               fireTime = 4, pauseTime = 1.5 },
+  -- ARIETE: `charges` kamikaze charges in a row (aim line, charge to the
+  -- wall, recoverTime s, aim again), then stunned for stunTime s.
+  ariete   = { hp = 1, speed = 40, size = 18, radius = 14, points = 2000, color = "kamikaze", contactDamage = true,
+               push = 8, hpBar = true, subboss = true, name = "ARIETE", aimRange = 400,
+               aimTime = 0.8, lockTime = 0.2, chargeSpeed = 380, chargeTime = 2.0, charges = 3,
+               recoverTime = 0.4, stunTime = 2.5, stunSpin = 9, reach = 1000,
+               lineAlpha = 0.7, lineWidth = 3, sparkEvery = 0.08 },
 }
 
 -- Spacing between enemies (steering in src/entities/enemy.lua, hard overlap
@@ -602,6 +621,36 @@ function Config.eliteChance(w)
   local E = Config.ELITE
   if w < E.from then return 0 end
   return math.min(E.max, (w - E.from + 1) * E.perWave)
+end
+
+-- Sub-bosses: on waves offset, offset + every... (5, 15, 25...), part of the
+-- wave. Once `at` of the wave's total is out, an alert shows for alertTime
+-- s and the sub-boss comes in through a door; the wave ends when it and the
+-- rest are dead. They cycle through `variants` (the k-th sub-boss of the
+-- match is variants[(k - 1) % #variants + 1]); each one has
+-- hp.base + hp.perSub * (k - 1) HP (x BOSS.coopHp with two players) and is
+-- worth points x k, dropping `drops` power-ups. Never elite. Drawn over a
+-- dark red aura (`aura`: radius x its drawn size).
+Config.SUBBOSS = {
+  every = 10, offset = 5,
+  at = 0.5,
+  alertTime = 1.2,
+  hp = { base = 150, perSub = 90 },
+  drops = 2,
+  variants = { "torre", "ariete" },
+  aura = { color = { 0.55, 0.05, 0.08, 1 }, radius = 0.7, alpha = 0.22, pulse = 2, glow = 0.1 },
+  deathShake = 7, deathHitStop = 0.1, deathScale = 0.6,   -- x the boss explosion preset
+}
+
+function Config.isSubbossWave(w)
+  local S = Config.SUBBOSS
+  return w >= S.offset and (w - S.offset) % S.every == 0
+end
+
+-- k-th sub-boss of the match at wave w (1 at 5, 2 at 15...).
+function Config.subbossIndex(w)
+  local S = Config.SUBBOSS
+  return math.floor((w - S.offset) / S.every) + 1
 end
 
 -- Quantos inimigos saem por porta de cada vez. Cresce com a wave, senão o
@@ -938,6 +987,9 @@ Config.SFX = {
                     vol = 0.30, voices = 3, pitch = 1.5, pitchVar = 0.05, minGap = 0.06 },
   carrier_launch = { src = "kenney/doorOpen", variants = 3,
                     vol = 0.30, voices = 2, pitch = 0.6, pitchVar = 0.05, minGap = 0.10 },
+  -- Sub-boss coming in: the door alarm, deeper and louder (the boss uses 0.5).
+  subboss_alarm = { src = "kenney/doorOpen", variants = 3,
+                    vol = 0.45, voices = 2, pitch = 0.8, pitchVar = 0.00, minGap = 0.25 },
   -- Waves e combo
   door_warn     = { src = "kenney/doorOpen", variants = 3,
                     vol = 0.15, voices = 4, pitchVar = 0.04, minGap = 0.12 },

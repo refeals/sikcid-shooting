@@ -59,6 +59,12 @@ function Enemy.new()
     parent = nil,       -- carrier drone: the carrier that launched it
     elite = false,      -- Config.ELITE: more HP, faster, gold outline
     speedMul = 1,
+    -- Sub-bosses (Config.SUBBOSS): which one of the match and the lap of
+    -- the cycle (set by Spawner.spawnSubboss), TORRE's spiral angle and fire
+    -- timer, ARIETE's charges left in the series.
+    subN = 0, lap = 1,
+    spinAngle = 0,
+    chargesLeft = 0,
   }, Enemy)
 end
 
@@ -91,6 +97,9 @@ function Enemy:reset(kind, x, y)
   self.launchT = def.launchInterval and Util.randRange(1.5, def.launchInterval) or 0
   self.parent = nil
   self.elite, self.speedMul = false, 1
+  self.subN, self.lap, self.spinAngle = 0, 1, 0
+  self.chargesLeft = def.charges or 0
+  if def.fireTime then self.state, self.stateT = "fire", def.fireTime end   -- TORRE
 end
 
 -- Runners: samples the afterimage positions every echoEvery s (newest
@@ -408,6 +417,138 @@ BEHAVIORS.scout = function(self, dt, world)
 end
 
 -- ---------------------------------------------------------------------------
+-- Sub-bosses (Config.SUBBOSS)
+-- ---------------------------------------------------------------------------
+
+-- TORRE: drifts to keepDistance from its target and spins a spiral of slow
+-- stars: `arms` (+armsPerLap per lap of the cycle) evenly spaced from
+-- spinAngle, a volley every fireEvery s for fireTime s, then quiet for
+-- pauseTime s (the opening to get close). Its sprite turns with the spiral.
+BEHAVIORS.torre = function(self, dt, world)
+  local def = self.def
+  pickTarget(self, world)
+  local t = self.target
+  if t then
+    -- Closes in when far, never backs off (backing off pins it to a wall,
+    -- where half the spiral is wasted outside the arena).
+    local nx, ny, dist = Util.normalize(t.x - self.x, t.y - self.y)
+    local dir = dist > def.keepDistance and 1 or 0
+    self.vx, self.vy = nx * dir * def.speed, ny * dir * def.speed
+  else
+    self.vx, self.vy = 0, 0
+  end
+  self.spinAngle = self.spinAngle + def.spin * dt
+
+  self.stateT = self.stateT - dt
+  if self.state == "pause" then
+    if self.stateT <= 0 then self.state, self.stateT = "fire", def.fireTime end
+    return
+  end
+  if self.stateT <= 0 then
+    self.state, self.stateT = "pause", def.pauseTime
+    return
+  end
+  self.fireTimer = self.fireTimer - dt
+  if self.fireTimer > 0 then return end
+  self.fireTimer = def.fireEvery
+  local arms = def.arms + def.armsPerLap * (self.lap - 1)
+  for i = 1, arms do
+    local a = self.spinAngle + (i - 1) / arms * math.pi * 2
+    local b = world:spawnBullet(self.x + math.cos(a) * self.radius, self.y + math.sin(a) * self.radius,
+      math.cos(a), math.sin(a), def.bulletSpeed, 1, "enemy", "enemy", def.bulletLife)
+    if b then b.src = "torre" end
+  end
+  Audio.play("boss_shot")
+end
+
+-- ARIETE: a series of `charges` kamikaze charges (aim line that follows and
+-- then locks, charge through the other enemies to the wall, recoverTime s,
+-- aim again); after the last one it is stunned for stunTime s (the window
+-- to hit it). Hitting the wall is handled in Enemy:update.
+BEHAVIORS.ariete = function(self, dt, world)
+  local def = self.def
+  local s = self.state
+  if s == "chase" then
+    pickTarget(self, world)
+    local t = self.target
+    if not t then self.vx, self.vy = 0, 0; return end
+    local nx, ny, dist = Util.normalize(t.x - self.x, t.y - self.y)
+    if dist <= def.aimRange then
+      self.state, self.stateT = "aim", def.aimTime
+      self.aimX, self.aimY = nx, ny
+      self.vx, self.vy = 0, 0
+      Audio.play("kamikaze_aim", 1, 0.8)
+      return
+    end
+    self.vx, self.vy = nx * def.speed, ny * def.speed
+  elseif s == "aim" then
+    self.vx, self.vy = 0, 0
+    self.stateT = self.stateT - dt
+    local t = self.target
+    if self.stateT > def.lockTime and t and t.alive then
+      local nx, ny, len = Util.normalize(t.x - self.x, t.y - self.y)
+      if len > 0 then self.aimX, self.aimY = nx, ny end
+    end
+    if self.stateT <= 0 then
+      self.state, self.stateT = "charge", def.chargeTime
+      self.phasing = true
+      Audio.play("kamikaze_charge", 1, 0.75)
+      world:burst(8, self.x - self.aimX * 14, self.y - self.aimY * 14, self.color, 4)
+      if Config.SMOKE then require("src.smoke").bump("charges") end
+    end
+  elseif s == "charge" then
+    self.stateT = self.stateT - dt
+    self.vx, self.vy = self.aimX * def.chargeSpeed, self.aimY * def.chargeSpeed
+    -- Never reached a wall: it counts as a charge all the same.
+    if self.stateT <= 0 then self:endCharge(world, false) end
+  elseif s == "recover" then
+    self.vx, self.vy = 0, 0
+    self.stateT = self.stateT - dt
+    if self.stateT <= 0 then
+      pickTarget(self, world)
+      self.state, self.stateT = "aim", def.aimTime
+      Audio.play("kamikaze_aim", 1, 0.8)
+    end
+  else -- "stun"
+    self.vx, self.vy = 0, 0
+    self.stateT = self.stateT - dt
+    self.sparkT = self.sparkT - dt
+    if self.sparkT <= 0 then
+      self.sparkT = def.sparkEvery
+      world:burst(1, self.x, self.y, self.color, 2)
+    end
+    if self.stateT <= 0 then
+      self.state, self.chargesLeft = "chase", def.charges
+    end
+  end
+end
+
+-- End of a charge (wall or time out). A kamikaze is stunned; ARIETE goes
+-- on to its next charge (recover) until the series is done, then stunned.
+function Enemy:endCharge(world, wall)
+  local def = self.def
+  self.phasing, self.sparkT = false, 0
+  self.vx, self.vy = 0, 0
+  if def.charges then
+    self.chargesLeft = self.chargesLeft - 1
+    if self.chargesLeft > 0 then
+      self.state, self.stateT = "recover", def.recoverTime
+    else
+      self.state, self.stateT = "stun", def.stunTime
+    end
+  elseif wall then
+    self.state, self.stateT = "stun", def.stunTime
+  else
+    self.state = "chase"
+  end
+  if wall then
+    world:impact(self.x, self.y, self.aimX, self.aimY, self.color)
+    world:shake(def.subboss and Config.JUICE.shakeTankDeath or Config.JUICE.shakeEnemyDeath)
+    Audio.play("kamikaze_stun", 1, def.subboss and 0.6 or 1)
+  end
+end
+
+-- ---------------------------------------------------------------------------
 -- No live player: roam instead of freezing. Starts along the current
 -- heading, picks a new one every few seconds (pointing back inside near the
 -- walls) and eases into it, at a reduced speed.
@@ -523,16 +664,9 @@ function Enemy:update(dt, world)
   if self.y < a.y + r then self.y, hitWall = a.y + r, true end
   if self.y > a.y + a.h - r then self.y, hitWall = a.y + a.h - r, true end
 
-  -- A charging kamikaze that hits a wall is stunned (sparks off the wall).
-  if hitWall and self.state == "charge" then
-    local def = self.def
-    self.state, self.stateT = "stun", def.stunTime
-    self.phasing, self.sparkT = false, 0
-    self.vx, self.vy = 0, 0
-    world:impact(self.x, self.y, self.aimX, self.aimY, self.color)
-    world:shake(Config.JUICE.shakeEnemyDeath)
-    Audio.play("kamikaze_stun")
-  end
+  -- A charge that hits a wall ends there (kamikaze stunned, ARIETE on to its
+  -- next charge or stunned after the series), sparking off the wall.
+  if hitWall and self.state == "charge" then self:endCharge(world, true) end
 
   -- Visual heading: the tank spins in place, the shooter and the carrier face
   -- their target (they back off and strafe, so their velocity would hide it),
@@ -540,6 +674,8 @@ function Enemy:update(dt, world)
   -- the rest face where they move.
   if self.type == "tank" then
     self.angle = self.angle + TANK_SPIN * dt
+  elseif self.type == "torre" then
+    self.angle = self.spinAngle          -- turns with its spiral
   elseif self.state == "stun" then
     self.angle = self.angle + self.def.stunSpin * dt
   else
@@ -586,6 +722,13 @@ end
 function Enemy:draw()
   local size = SIZE[self.type] or SIZE.grunt
   local c = self.flash > 0 and Config.COLORS.flash or self.color
+  -- Sub-boss: a pulsing dark red aura under it (elites are gold).
+  if self.def.subboss then
+    local A = Config.SUBBOSS.aura
+    local k = 0.5 + 0.5 * math.sin(love.timer.getTime() * A.pulse * math.pi * 2)
+    love.graphics.setColor(A.color[1], A.color[2], A.color[3], A.alpha * (0.6 + 0.4 * k))
+    love.graphics.circle("fill", self.x, self.y, size * A.radius * (0.95 + 0.08 * k))
+  end
   -- Elite: the same sprite a bit bigger in gold behind it, pulsing (a rim).
   if self.elite and self.materialize <= 0 then
     local E = Config.ELITE
@@ -675,6 +818,11 @@ end
 -- Glow layer (src/post.lua): the white hit flash blooms a little.
 function Enemy:drawGlow()
   self:drawHatches(Config.FX.emit.door)
+  if self.def.subboss then
+    local A = Config.SUBBOSS.aura
+    love.graphics.setColor(A.color[1], A.color[2], A.color[3], A.glow)
+    love.graphics.circle("fill", self.x, self.y, (SIZE[self.type] or SIZE.grunt) * A.radius)
+  end
   if self.elite then
     local ec = Config.ELITE.color
     love.graphics.setColor(ec[1], ec[2], ec[3], Config.ELITE.glow)

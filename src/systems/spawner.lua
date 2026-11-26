@@ -100,7 +100,32 @@ function Spawner.reset(world, startWave)
   Spawner.introType, Spawner.introName, Spawner.introLeft = nil, nil, 0
   Spawner.introLabel = nil
   Spawner.upgradeDue = false
+  -- Sub-boss of this wave: "none" | "pending" (waiting for SUBBOSS.at of
+  -- the total) | "alert" (subAlert s of ALERTA) | "alive" (Spawner.subboss).
+  Spawner.subState, Spawner.subAlert, Spawner.subboss = "none", 0, nil
   for i = 1, 4 do doors[i].warn, doors[i].portalFlash = 0, 0 end
+end
+
+-- Sub-boss (Config.SUBBOSS): the k-th of the match (k from the wave by
+-- default) through a random door, as a regular pool enemy with its HP set
+-- here. Also F8 in debug. Returns it, or nil when the pool is full.
+function Spawner.spawnSubboss(world, k)
+  local S = Config.SUBBOSS
+  k = math.max(1, k or Config.subbossIndex(Spawner.wave))
+  local nv = #S.variants
+  local kind = S.variants[(k - 1) % nv + 1]
+  local d = doors[Util.randInt(1, 4)]
+  local e = world:spawnEnemy(kind, d.sx, d.sy)
+  if not e then return nil end
+  local coop = world.playerCount >= 2 and Config.BOSS.coopHp or 1
+  e.hp = math.floor((S.hp.base + S.hp.perSub * (k - 1)) * coop)
+  e.maxHp = e.hp
+  e.subN, e.lap = k, math.floor((k - 1) / nv) + 1
+  e.materialize = Config.FX.dissolve.spawnTime
+  d.warn, d.portalFlash = 0, Config.FX.portal.flashTime
+  world:burst(10, d.sx, d.sy, e.color, 4)
+  Spawner.subboss = e
+  return e
 end
 
 -- A type debuting in wave n (ENEMY_MIX `debut` with from == n): the banner
@@ -154,6 +179,8 @@ function Spawner.startWave(n)
   Spawner.maxAlive = Config.waveMaxAlive(n, players)
   Spawner.interval = Config.waveSpawnInterval(n)
   Spawner.banner = Config.WAVE.bannerTime
+  Spawner.subState = Config.isSubbossWave(n) and "pending" or "none"
+  Spawner.subAlert, Spawner.subboss = 0, nil
   Audio.play("wave_start")
 end
 
@@ -256,8 +283,23 @@ function Spawner.update(dt, world)
       Spawner.phase = "idle"
       return
     end
-  elseif Spawner.spawned >= Spawner.quota and world.enemies.count == 0 then
-    -- Cota cumprida e arena limpa: fecha a wave.
+  else
+    -- Sub-boss wave: the alert once SUBBOSS.at of the total is out, then
+    -- it comes in (retried each frame if the pool is full).
+    local S = Config.SUBBOSS
+    if Spawner.subState == "pending" and Spawner.spawned >= math.floor(Spawner.quota * S.at) then
+      Spawner.subState, Spawner.subAlert = "alert", S.alertTime
+      local k = Config.subbossIndex(Spawner.wave)
+      Spawner.subName = Config.ENEMIES[S.variants[(k - 1) % #S.variants + 1]].name
+      Audio.play("subboss_alarm")
+    elseif Spawner.subState == "alert" then
+      Spawner.subAlert = Spawner.subAlert - dt
+      if Spawner.subAlert <= 0 and Spawner.spawnSubboss(world) then Spawner.subState = "alive" end
+    end
+  end
+  if not Spawner.bossWave and Spawner.spawned >= Spawner.quota and world.enemies.count == 0
+    and Spawner.subState ~= "pending" and Spawner.subState ~= "alert" then
+    -- Cota cumprida e arena limpa (sub-boss included: it is in the pool).
     onWaveCleared(world)
     Spawner.phase = "rest"
     Spawner.timer = Config.WAVE.restTime
@@ -295,6 +337,7 @@ function Spawner.skipWave(world)
     return
   end
   Spawner.spawned = Spawner.quota
+  Spawner.subState, Spawner.subAlert, Spawner.subboss = "none", 0, nil
   for i = world.enemies.count, 1, -1 do
     world.enemies:release(i)
   end
@@ -313,6 +356,7 @@ end
 -- Game over: no more enemies come in (what is in the arena keeps moving).
 function Spawner.stop()
   Spawner.phase = "over"
+  Spawner.subAlert = 0
   Spawner.door = nil
   for i = 1, 4 do doors[i].warn, doors[i].portalFlash = 0, 0 end
 end

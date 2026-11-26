@@ -216,6 +216,14 @@ function Hud.draw(players, playerCount, info)
       UI.text("body", name, bx, 22, C.text)
       UI.bar(boss:isRaging() and C.doorWarn or boss.variant.color,
         bx + nw + 6, 24, BOSS_BAR_W, boss:fraction(), 6)
+    elseif info.sub then
+      -- Sub-boss alive: its name and HP bar, same layout as the boss's.
+      local sub = info.sub
+      local name = sub.def.name
+      local nw = Assets.font("body"):getWidth(name)
+      local bx = cx + (cw - (nw + 6 + BOSS_BAR_W)) * 0.5
+      UI.text("body", name, bx, 22, C.text)
+      UI.bar(sub.color, bx + nw + 6, 24, BOSS_BAR_W, math.max(0, sub.hp / sub.maxHp), 6)
     else
       UI.textNumber("body", "digitsSmall", info.subLabel, info.subNum, nil, cx, 22, C.textDim, cw, "center")
     end
